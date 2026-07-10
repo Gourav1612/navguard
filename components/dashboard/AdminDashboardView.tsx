@@ -54,6 +54,7 @@ export default function AdminDashboardView({ tab }: { tab?: string }) {
   const [otpLoading, setOtpLoading] = useState(false);
   const [otpError, setOtpError] = useState<string | null>(null);
   const [otpSuccess, setOtpSuccess] = useState(false);
+  const [testOtp, setTestOtp] = useState<string | null>(null);
 
   // Fetch dashboard stats
   const { data, isLoading, error, refetch } = useQuery({
@@ -96,6 +97,7 @@ export default function AdminDashboardView({ tab }: { tab?: string }) {
   const handleRequestOtp = async () => {
     setOtpError(null);
     setOtpLoading(true);
+    setTestOtp(null);
     try {
       const res = await fetch('/api/admin/mfa/send-otp', { method: 'POST' });
       const data = await res.json();
@@ -105,6 +107,7 @@ export default function AdminDashboardView({ tab }: { tab?: string }) {
       
       // Development helpers
       if (data.dev_otp) {
+        setTestOtp(data.dev_otp);
         console.log(`[MFA-DEV] Code received in JSON response: ${data.dev_otp}`);
       }
     } catch (err: any) {
@@ -389,6 +392,12 @@ export default function AdminDashboardView({ tab }: { tab?: string }) {
                 A 6-digit OTP code has been logged/sent to your registered admin email. Enter it below to un-enroll TOTP.
               </p>
             </div>
+
+            {testOtp && (
+              <div className="p-3 bg-purple-50 border border-purple-100 rounded-2xl text-[#5c3b99] text-center text-xs font-bold font-mono">
+                🔑 UAT Testing Code: {testOtp}
+              </div>
+            )}
 
             {otpError && (
               <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-red-800 text-[10px] font-bold leading-normal">
