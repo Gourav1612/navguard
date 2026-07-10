@@ -219,7 +219,7 @@ export function LiveMap({
   }, [focusLocation]);
 
   return (
-    <div className="relative w-full h-full min-h-[300px] border border-slate-200 rounded-xl overflow-hidden shadow-inner">
+    <div className="relative z-0 w-full h-full min-h-[300px] border border-slate-200 rounded-xl overflow-hidden shadow-inner">
       <div id={mapContainerId} className="w-full h-full" />
       
       {showBus && currentLocation && (

@@ -152,7 +152,7 @@ export function AdminMap({ activeTrips = [] }: AdminMapProps) {
   }, [activeTrips]);
 
   return (
-    <div className="relative w-full h-[450px] border border-slate-200 rounded-2xl overflow-hidden shadow-inner">
+    <div className="relative z-0 w-full h-[450px] border border-slate-200 rounded-2xl overflow-hidden shadow-inner">
       <div id="admin-map" className="w-full h-full" />
     </div>
   );
