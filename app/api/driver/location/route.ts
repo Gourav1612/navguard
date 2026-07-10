@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
   const auth = await requireRole(['driver']);
   if (auth.error) return auth.error;
 
-  const { user } = auth;
+  const { user, profile } = auth;
   const supabase = await createSupabaseServerClient();
 
   try {
@@ -185,7 +185,7 @@ export async function POST(req: NextRequest) {
                 .eq('bus_id', bus_id)
                 .eq('stop_id', stop.id);
 
-              for (const student of students) {
+              for (const student of (students || [])) {
                 const studentName = (student.user as any)?.full_name || 'A student';
                 const alertBody = `${studentName} did not de-board at designated stop (${stop.name}) on trip ${trip_id}.`;
                 
@@ -199,7 +199,7 @@ export async function POST(req: NextRequest) {
                 if (!existingAlerts || existingAlerts.length === 0) {
                   const adminClient = createAdminClient();
                   await adminClient.from('announcements').insert({
-                    school_id: driver.school_id,
+                    school_id: profile?.school_id,
                     created_by: user.id,
                     title: '⚠️ Route Deviation Alert',
                     body: alertBody,

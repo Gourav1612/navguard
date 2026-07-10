@@ -1,10 +1,26 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { Loader2, Bus, ShieldAlert, UserCheck, Users, Radio } from 'lucide-react';
+import { 
+  Loader2, 
+  Bus, 
+  ShieldAlert, 
+  UserCheck, 
+  Users, 
+  Radio, 
+  Lock, 
+  Unlock, 
+  ShieldCheck as ShieldCheckIcon, 
+  Send, 
+  Key, 
+  X 
+} from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { Badge } from '@/components/Badge';
 import { formatDateTime } from '@/lib/utils';
+import { useState, useEffect } from 'react';
+import { createBrowserSupabaseClient } from '@/lib/supabase/client';
+import Link from 'next/link';
 
 // Import all admin subviews
 import BusesView from './subviews/BusesView';
@@ -28,6 +44,18 @@ const AdminMap = dynamic(() => import('@/components/AdminMap').then((m) => m.Adm
 });
 
 export default function AdminDashboardView({ tab }: { tab?: string }) {
+  const supabase = createBrowserSupabaseClient();
+  
+  // MFA states
+  const [mfaEnabled, setMfaEnabled] = useState(false);
+  const [mfaFactorId, setMfaFactorId] = useState<string | null>(null);
+  const [showOtpModal, setShowOtpModal] = useState(false);
+  const [otpCode, setOtpCode] = useState('');
+  const [otpLoading, setOtpLoading] = useState(false);
+  const [otpError, setOtpError] = useState<string | null>(null);
+  const [otpSuccess, setOtpSuccess] = useState(false);
+
+  // Fetch dashboard stats
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['admin-dashboard'],
     queryFn: async () => {
@@ -35,9 +63,94 @@ export default function AdminDashboardView({ tab }: { tab?: string }) {
       if (!res.ok) throw new Error('Failed to load dashboard metrics');
       return res.json();
     },
-    refetchInterval: 15000, // Poll statistics every 15s to keep active trips updated
-    enabled: !tab, // Only poll if we are viewing the main dashboard tab
+    refetchInterval: 15000,
+    enabled: !tab,
   });
+
+  // Verify MFA status on mount
+  const checkMfaStatus = async () => {
+    try {
+      const { data: factors, error: factorsErr } = await supabase.auth.mfa.listFactors();
+      if (factorsErr) throw factorsErr;
+
+      const activeTotp = factors?.totp?.find((f: any) => f.status === 'verified');
+      if (activeTotp) {
+        setMfaEnabled(true);
+        setMfaFactorId(activeTotp.id);
+      } else {
+        setMfaEnabled(false);
+        setMfaFactorId(null);
+      }
+    } catch (err) {
+      console.error('Failed to list MFA factors:', err);
+    }
+  };
+
+  useEffect(() => {
+    if (!tab) {
+      checkMfaStatus();
+    }
+  }, [tab]);
+
+  // Request email OTP
+  const handleRequestOtp = async () => {
+    setOtpError(null);
+    setOtpLoading(true);
+    try {
+      const res = await fetch('/api/admin/mfa/send-otp', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to request code');
+
+      setShowOtpModal(true);
+      
+      // Development helpers
+      if (data.dev_otp) {
+        console.log(`[MFA-DEV] Code received in JSON response: ${data.dev_otp}`);
+      }
+    } catch (err: any) {
+      setOtpError(err.message || 'Failed to request verification code.');
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  // Verify OTP and Disable MFA
+  const handleVerifyAndDisable = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!mfaFactorId || otpCode.length !== 6) return;
+
+    setOtpError(null);
+    setOtpLoading(true);
+
+    try {
+      // 1. Verify OTP code with API
+      const res = await fetch('/api/admin/mfa/verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: otpCode }),
+      });
+      const resData = await res.json();
+      if (!res.ok) throw new Error(resData.error || 'OTP verification failed');
+
+      // 2. Perform client-side unenrollment
+      const { error: unenrollErr } = await supabase.auth.mfa.unenroll({
+        factorId: mfaFactorId,
+      });
+      if (unenrollErr) throw unenrollErr;
+
+      setOtpSuccess(true);
+      setTimeout(() => {
+        setShowOtpModal(false);
+        setOtpSuccess(false);
+        setOtpCode('');
+        checkMfaStatus();
+      }, 2000);
+    } catch (err: any) {
+      setOtpError(err.message || 'OTP verification or unenrollment failed.');
+    } finally {
+      setOtpLoading(false);
+    }
+  };
 
   // Dynamic Routing based on Search Param tab
   switch (tab) {
@@ -64,7 +177,7 @@ export default function AdminDashboardView({ tab }: { tab?: string }) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
         <Loader2 className="w-8 h-8 text-primary animate-spin" />
-        <p className="text-slate-550 font-medium text-sm">Loading transport logs...</p>
+        <p className="text-slate-500 font-medium text-sm">Loading transport logs...</p>
       </div>
     );
   }
@@ -74,7 +187,7 @@ export default function AdminDashboardView({ tab }: { tab?: string }) {
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-center max-w-md mx-auto space-y-4">
         <ShieldAlert className="w-16 h-16 text-red-500" />
         <h3 className="text-lg font-bold text-slate-800">Connection Error</h3>
-        <p className="text-slate-550 text-sm">
+        <p className="text-slate-500 text-sm">
           We experienced an issue fetching live statistics from the server database. Ensure database migrations are completed.
         </p>
         <button
@@ -195,6 +308,139 @@ export default function AdminDashboardView({ tab }: { tab?: string }) {
           </div>
         </div>
       </div>
+
+      {/* MFA Security Controls Card */}
+      <div className="bg-white border border-slate-150 rounded-2xl p-6 shadow-sm space-y-4">
+        <div className="flex items-center gap-3">
+          <div className="p-3 bg-purple-50 border border-purple-100 rounded-xl text-[#5c3b99]">
+            <ShieldCheckIcon className="w-5.5 h-5.5" />
+          </div>
+          <div>
+            <h3 className="font-extrabold text-slate-800 text-sm leading-tight">MFA Security Control</h3>
+            <span className="text-[10px] text-slate-400 font-bold block mt-1">Configure multi-factor credentials verification settings</span>
+          </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-2 border-t border-slate-100">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-slate-600">Authentication Status:</span>
+              {mfaEnabled ? (
+                <span className="px-2.5 py-0.5 rounded-full text-[9px] font-bold bg-green-50 text-green-700 border border-green-150">
+                  SECURE (TOTP ACTIVE)
+                </span>
+              ) : (
+                <span className="px-2.5 py-0.5 rounded-full text-[9px] font-bold bg-amber-50 text-amber-700 border border-amber-150">
+                  MFA INACTIVE
+                </span>
+              )}
+            </div>
+            <p className="text-[11px] text-slate-400 mt-1 max-w-md">
+              {mfaEnabled 
+                ? "Your administrator account is secured with secondary code authorization. You can disable it below."
+                : "Secondary credentials authorization is disabled. Scan dynamic QR codes to secure your panel session."}
+            </p>
+          </div>
+
+          <div>
+            {mfaEnabled ? (
+              <button
+                onClick={handleRequestOtp}
+                disabled={otpLoading}
+                className="px-4 py-2 bg-red-50 hover:bg-red-100 border border-red-150 text-red-700 text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                {otpLoading ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Unlock className="w-3.5 h-3.5" />
+                )}
+                Disable MFA Setup
+              </button>
+            ) : (
+              <Link
+                href="/admin/mfa-setup"
+                className="px-4 py-2 bg-[#5c3b99] hover:bg-[#432775] text-white text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5 shadow-sm shadow-purple-500/10 cursor-pointer"
+              >
+                <Lock className="w-3.5 h-3.5" />
+                Set Up MFA
+              </Link>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* OTP Verification Modal Prompt */}
+      {showOtpModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+          <div className="bg-white border border-slate-150 rounded-3xl p-6 max-w-sm w-full space-y-5 shadow-2xl relative animate-in zoom-in-95 duration-200">
+            <button
+              onClick={() => setShowOtpModal(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-650 p-1 rounded-lg transition"
+            >
+              <X className="w-4.5 h-4.5" />
+            </button>
+
+            <div className="text-center space-y-1">
+              <div className="w-11 h-11 bg-red-50 border border-red-100 rounded-2xl flex items-center justify-center text-red-650 mx-auto mb-2">
+                <Unlock className="w-5 h-5" />
+              </div>
+              <h4 className="font-extrabold text-slate-800 text-sm">Verify Action Consent</h4>
+              <p className="text-[11px] text-slate-400 leading-normal max-w-[240px] mx-auto">
+                A 6-digit OTP code has been logged/sent to your registered admin email. Enter it below to un-enroll TOTP.
+              </p>
+            </div>
+
+            {otpError && (
+              <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-red-800 text-[10px] font-bold leading-normal">
+                <ShieldAlert className="w-4 h-4 flex-shrink-0 mt-0.5 text-red-600" />
+                <span>{otpError}</span>
+              </div>
+            )}
+
+            {otpSuccess ? (
+              <div className="p-4 bg-emerald-50 border border-emerald-250 rounded-xl text-emerald-800 text-center text-xs font-bold flex items-center justify-center gap-1.5 animate-in zoom-in-95 duration-150">
+                <ShieldCheckIcon className="w-4.5 h-4.5 text-emerald-600 animate-bounce" />
+                <span>MFA Factor Disabled Successfully!</span>
+              </div>
+            ) : (
+              <form onSubmit={handleVerifyAndDisable} className="space-y-4">
+                <div className="relative">
+                  <input
+                    type="text"
+                    maxLength={6}
+                    placeholder="Enter 6-digit code"
+                    value={otpCode}
+                    onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                    className="block w-full py-3 px-4 bg-slate-50 border border-slate-200 focus:border-purple-500 rounded-xl text-center text-lg font-bold font-mono tracking-widest focus:outline-none focus:ring-2 focus:ring-purple-100"
+                  />
+                  <Key className="w-4 h-4 text-slate-350 absolute left-3 top-1/2 -translate-y-1/2" />
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowOtpModal(false)}
+                    className="flex-1 py-2.5 border border-slate-200 text-slate-500 hover:bg-slate-50 text-xs font-bold rounded-xl transition cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={otpLoading || otpCode.length !== 6}
+                    className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl shadow-md shadow-red-500/10 transition cursor-pointer disabled:opacity-50"
+                  >
+                    {otpLoading ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin mx-auto" />
+                    ) : (
+                      'Confirm Disable'
+                    )}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
       }
 
       // 4. Create announcements for each student
-      for (const student of students) {
+      for (const student of (students || [])) {
         const studentName = (student.user as any)?.full_name || 'A student';
         
         await adminClient.from('announcements').insert({
@@ -105,7 +105,7 @@ export async function POST(req: NextRequest) {
           trip_id,
           stop_id: stop.id,
           stop_name: stop.name,
-          students_notified: students.length,
+          students_notified: (students || []).length,
         },
       });
     }
