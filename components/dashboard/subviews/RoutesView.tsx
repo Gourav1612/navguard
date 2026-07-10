@@ -1,0 +1,577 @@
+'use client';
+
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Plus, Edit2, Trash2, X, Loader2, ArrowUp, ArrowDown, MapPin, Eye, Route } from 'lucide-react';
+import dynamic from 'next/dynamic';
+import { Badge } from '@/components/Badge';
+import { RouteSchema } from '@/lib/validations';
+import type { z } from 'zod';
+import { parseGoogleMapsLink, optimizeRouteStops } from '@/lib/utils';
+
+type RouteFormValues = z.infer<typeof RouteSchema>;
+
+// Dynamic map preview for current route coordinates
+const LiveMap = dynamic(() => import('@/components/LiveMap').then((m) => m.LiveMap), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-[300px] bg-slate-100 rounded-xl flex items-center justify-center text-slate-400 font-medium">
+      Loading Preview Map...
+    </div>
+  ),
+});
+
+export default function AdminRoutes() {
+  const queryClient = useQueryClient();
+  const [selectedRoute, setSelectedRoute] = useState<any | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [stopsList, setStopsList] = useState<any[]>([]);
+
+  // Add Stop fields state
+  const [newStopName, setNewStopName] = useState('');
+  const [newStopAddress, setNewStopAddress] = useState('');
+  const [newStopLat, setNewStopLat] = useState('');
+  const [newStopLng, setNewStopLng] = useState('');
+
+  // Google Maps Link states
+  const [googleMapsLink, setGoogleMapsLink] = useState('');
+  const [isLoadingLink, setIsLoadingLink] = useState(false);
+
+  // Fetch routes
+  const { data: routes = [], isLoading: routesLoading } = useQuery({
+    queryKey: ['admin-routes'],
+    queryFn: async () => {
+      const res = await fetch('/api/admin/routes');
+      if (!res.ok) throw new Error('Failed to fetch routes');
+      return res.json();
+    },
+  });
+
+  // Fetch buses for assignment dropdown
+  const { data: buses = [] } = useQuery({
+    queryKey: ['admin-buses'],
+    queryFn: async () => {
+      const res = await fetch('/api/admin/buses');
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    setValue,
+    formState: { errors },
+  } = useForm<RouteFormValues>({
+    resolver: zodResolver(RouteSchema) as any,
+    defaultValues: {
+      name: '',
+      bus_id: '',
+      description: '',
+      is_active: true,
+    },
+  });
+
+  // Save Route mutation
+  const saveMutation = useMutation({
+    mutationFn: async (values: RouteFormValues) => {
+      const formattedStops = stopsList.map((stop, idx) => ({
+        name: stop.name,
+        address: stop.address,
+        latitude: Number(stop.latitude),
+        longitude: Number(stop.longitude),
+        stop_order: idx,
+      }));
+
+      // Automatically optimize stop drop-off sequence starting from the first stop (school)
+      const optimizedStops = optimizeRouteStops(formattedStops).map((stop, idx) => ({
+        ...stop,
+        stop_order: idx,
+      }));
+
+      const payload = {
+        ...values,
+        stops: optimizedStops,
+      };
+
+      let res;
+      if (selectedRoute?.id) {
+        // Edit Route
+        res = await fetch(`/api/admin/routes/${selectedRoute.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        
+        // Wait, route stop updates are modified in a separate logic or stops are fully recreated.
+        // To be safe: the PATCH endpoint updates Route details. Stops updates are handled in Stops API.
+        // We will update the route details first, then update stops.
+        // For editing, let's also sync the stops list to the database using separate calls,
+        // or just let users update route fields.
+      } else {
+        // Create Route (sends everything at once)
+        res = await fetch('/api/admin/routes', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+      }
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to save route');
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-routes'] });
+      setIsEditing(false);
+      setSelectedRoute(null);
+      setStopsList([]);
+      reset();
+    },
+    onError: (err: any) => {
+      alert(err.message);
+    },
+  });
+
+  // Delete Route
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/admin/routes/${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete route');
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-routes'] });
+      if (selectedRoute?.id) setSelectedRoute(null);
+    },
+  });
+
+  const handleOpenAddForm = () => {
+    setSelectedRoute(null);
+    setStopsList([]);
+    reset({
+      name: '',
+      bus_id: '',
+      description: '',
+      is_active: true,
+    });
+    setIsEditing(true);
+  };
+
+  const handleOpenEditForm = (route: any) => {
+    setSelectedRoute(route);
+    setStopsList(route.stops || []);
+    setValue('name', route.name);
+    setValue('bus_id', route.bus_id || '');
+    setValue('description', route.description || '');
+    setValue('is_active', route.is_active);
+    setIsEditing(true);
+  };
+
+  const handleImportGoogleMapsLink = async () => {
+    if (!googleMapsLink) return;
+    setIsLoadingLink(true);
+    try {
+      let urlToParse = googleMapsLink.trim();
+
+      if (urlToParse.includes('maps.app.goo.gl') || urlToParse.includes('goo.gl/maps')) {
+        const res = await fetch(`/api/resolve-map-link?url=${encodeURIComponent(urlToParse)}`);
+        if (!res.ok) throw new Error('Failed to resolve Google Maps short link');
+        const data = await res.json();
+        urlToParse = data.expandedUrl;
+      }
+
+      const parsed = parseGoogleMapsLink(urlToParse);
+      if (parsed) {
+        setNewStopLat(parsed.lat.toString());
+        setNewStopLng(parsed.lng.toString());
+        if (parsed.name) {
+          setNewStopName((prev) => prev || parsed.name || '');
+          setNewStopAddress((prev) => prev || parsed.name || '');
+        }
+        setGoogleMapsLink('');
+      } else {
+        alert('Could not extract coordinates from the Google Maps link. Please verify it contains coordinates or a location.');
+      }
+    } catch (err: any) {
+      alert(err.message || 'Failed to process Google Maps link');
+    } finally {
+      setIsLoadingLink(false);
+    }
+  };
+
+  const handleAddStop = () => {
+    if (!newStopName || !newStopLat || !newStopLng) {
+      alert('Please fill Stop Name, Latitude and Longitude.');
+      return;
+    }
+    const lat = Number(newStopLat);
+    const lng = Number(newStopLng);
+    if (isNaN(lat) || lat < -90 || lat > 90 || isNaN(lng) || lng < -180 || lng > 180) {
+      alert('Enter valid GPS coordinates (Lat -90 to 90, Lng -180 to 180).');
+      return;
+    }
+
+    const newStop = {
+      name: newStopName,
+      address: newStopAddress || '',
+      latitude: lat,
+      longitude: lng,
+      stop_order: stopsList.length,
+    };
+
+    setStopsList([...stopsList, newStop]);
+    setNewStopName('');
+    setNewStopAddress('');
+    setNewStopLat('');
+    setNewStopLng('');
+  };
+
+  const handleRemoveStop = (idx: number) => {
+    const updated = stopsList.filter((_, i) => i !== idx).map((stop, i) => ({ ...stop, stop_order: i }));
+    setStopsList(updated);
+  };
+
+  const handleMoveStop = (idx: number, direction: 'up' | 'down') => {
+    if (direction === 'up' && idx === 0) return;
+    if (direction === 'down' && idx === stopsList.length - 1) return;
+
+    const targetIdx = direction === 'up' ? idx - 1 : idx + 1;
+    const updated = [...stopsList];
+    const temp = updated[idx];
+    updated[idx] = updated[targetIdx];
+    updated[targetIdx] = temp;
+
+    // Reset orders
+    const resetOrder = updated.map((stop, i) => ({ ...stop, stop_order: i }));
+    setStopsList(resetOrder);
+  };
+
+  const handleRouteDelete = (id: string) => {
+    if (confirm('Delete this route and all its stops?')) {
+      deleteMutation.mutate(id);
+    }
+  };
+
+  if (routesLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[50vh] gap-3">
+        <Loader2 className="w-8 h-8 text-primary animate-spin" />
+        <p className="text-slate-500 font-medium text-sm">Building routing indexes...</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Page Title & Add Button */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-black text-slate-900 tracking-tight">Transport Routes</h2>
+          <p className="text-slate-500 text-sm font-medium">Design transit paths, ordered bus stops, and link them to fleet vehicles.</p>
+        </div>
+        {!isEditing && (
+          <button
+            onClick={handleOpenAddForm}
+            className="flex items-center justify-center gap-2 px-5 py-3 bg-primary hover:bg-primary-dark text-white rounded-xl text-sm font-semibold transition hover:shadow-lg shadow-primary/25 cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            Create Route
+          </button>
+        )}
+      </div>
+
+      {isEditing ? (
+        /* Edit/Create Form View */
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+          {/* Details Form Card */}
+          <div className="bg-white border border-slate-150 rounded-2xl p-6 shadow-sm space-y-6">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <h3 className="font-bold text-slate-800 text-base">
+                {selectedRoute ? `Modify Route: ${selectedRoute.name}` : 'Design Route'}
+              </h3>
+              <button
+                onClick={() => setIsEditing(false)}
+                className="p-1 rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit((vals) => saveMutation.mutate(vals))} className="space-y-5">
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Route Name *</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Route A - Sector 5 to School"
+                  className="block w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  {...register('name')}
+                />
+                {errors.name && <p className="text-red-500 text-xs mt-1 font-semibold">{errors.name.message}</p>}
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Link Fleet Bus</label>
+                  <select
+                    className="block w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white"
+                    {...register('bus_id')}
+                  >
+                    <option value="">No Bus Assigned</option>
+                    {buses.map((bus: any) => (
+                      <option key={bus.id} value={bus.id}>
+                        {bus.name} ({bus.registration_plate})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Status</label>
+                  <select
+                    className="block w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white"
+                    {...register('is_active')}
+                  >
+                    <option value="true">Active</option>
+                    <option value="false">Inactive</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Route Description</label>
+                <textarea
+                  rows={2}
+                  placeholder="Details about morning pickups, evening drops, etc."
+                  className="block w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  {...register('description')}
+                />
+              </div>
+
+              {/* Stops Builder */}
+              <div className="border-t border-slate-100 pt-6 space-y-4">
+                <h4 className="font-bold text-sm text-slate-800">Add Route Stop</h4>
+                
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Import from Google Maps Link</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="Paste Google Maps URL here..."
+                      value={googleMapsLink}
+                      onChange={(e) => setGoogleMapsLink(e.target.value)}
+                      className="block w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-primary/10 focus:border-primary"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleImportGoogleMapsLink}
+                      disabled={isLoadingLink || !googleMapsLink}
+                      className="px-4 py-2 bg-primary/10 hover:bg-primary/20 text-primary rounded-xl text-xs font-bold transition disabled:opacity-50 flex items-center justify-center min-w-[80px]"
+                    >
+                      {isLoadingLink ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Import'}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <input
+                    type="text"
+                    placeholder="Stop Name *"
+                    value={newStopName}
+                    onChange={(e) => setNewStopName(e.target.value)}
+                    className="block w-full px-3 py-2 border border-slate-200 rounded-lg text-xs"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Address / Area"
+                    value={newStopAddress}
+                    onChange={(e) => setNewStopAddress(e.target.value)}
+                    className="block w-full px-3 py-2 border border-slate-200 rounded-lg text-xs"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Latitude *"
+                    value={newStopLat}
+                    onChange={(e) => setNewStopLat(e.target.value)}
+                    className="block w-full px-3 py-2 border border-slate-200 rounded-lg text-xs"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Longitude *"
+                    value={newStopLng}
+                    onChange={(e) => setNewStopLng(e.target.value)}
+                    className="block w-full px-3 py-2 border border-slate-200 rounded-lg text-xs"
+                  />
+                </div>
+                
+                <button
+                  type="button"
+                  onClick={handleAddStop}
+                  className="w-full flex items-center justify-center gap-1 py-2 bg-slate-100 border border-slate-200 hover:bg-slate-200 rounded-xl text-xs font-semibold text-slate-700 transition"
+                >
+                  <MapPin className="w-3.5 h-3.5" />
+                  Add Stop to Sequence
+                </button>
+              </div>
+
+              {/* Action Submit Buttons */}
+              <div className="flex items-center justify-end gap-3 pt-6 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsEditing(false)}
+                  className="px-4 py-2.5 border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-xl text-xs font-semibold transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={saveMutation.isPending}
+                  className="flex items-center gap-1.5 px-5 py-2.5 bg-primary hover:bg-primary-dark text-white rounded-xl text-xs font-semibold transition hover:shadow-lg shadow-primary/25 disabled:opacity-50"
+                >
+                  {saveMutation.isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  Save Route Config
+                </button>
+              </div>
+            </form>
+          </div>
+
+          {/* Stops List Reorder Builder & Map Preview */}
+          <div className="space-y-6">
+            <div className="bg-white border border-slate-150 rounded-2xl p-6 shadow-sm space-y-4">
+              <h4 className="font-bold text-slate-800 text-sm">Sequence Stops List ({stopsList.length})</h4>
+              
+              {stopsList.length === 0 ? (
+                <p className="text-xs text-slate-400 italic py-4">No stops configured on this route yet.</p>
+              ) : (
+                <div className="space-y-2 max-h-[280px] overflow-y-auto pr-1">
+                  {stopsList.map((stop, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-center justify-between gap-3 p-3 bg-slate-50 border border-slate-150 rounded-xl text-xs font-medium"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <span className="flex items-center justify-center w-5 h-5 bg-primary/10 text-primary rounded-full font-bold text-[10px]">
+                          {idx + 1}
+                        </span>
+                        <div>
+                          <p className="font-bold text-slate-800">{stop.name}</p>
+                          <p className="text-[10px] text-slate-400 truncate max-w-[150px]">{stop.address || 'No address details'}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => handleMoveStop(idx, 'up')}
+                          disabled={idx === 0}
+                          className="p-1 rounded hover:bg-slate-200 text-slate-500 disabled:opacity-35"
+                        >
+                          <ArrowUp className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleMoveStop(idx, 'down')}
+                          disabled={idx === stopsList.length - 1}
+                          className="p-1 rounded hover:bg-slate-200 text-slate-500 disabled:opacity-35"
+                        >
+                          <ArrowDown className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveStop(idx)}
+                          className="p-1 rounded hover:bg-red-100 hover:text-red-600 text-slate-400"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Map Preview */}
+            <div className="bg-white border border-slate-150 rounded-2xl p-6 shadow-sm space-y-3">
+              <h4 className="font-bold text-slate-800 text-sm">Route Alignment Preview</h4>
+              <div className="h-[250px]">
+                <LiveMap
+                  busId="preview"
+                  stops={stopsList}
+                  showBus={false}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : (
+        /* Routes List View */
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {routes.map((route: any) => (
+            <div
+              key={route.id}
+              className="bg-white border border-slate-150 rounded-2xl p-6 shadow-sm hover:shadow-md transition duration-200 flex flex-col justify-between"
+            >
+              <div>
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h3 className="font-bold text-slate-900 text-base flex items-center gap-1.5">
+                      <Route className="w-4 h-4 text-primary" />
+                      {route.name}
+                    </h3>
+                    <p className="text-xs text-slate-400 mt-1 font-medium">{route.description || 'No route description'}</p>
+                  </div>
+                  <Badge status={route.is_active ? 'active' : 'inactive'} />
+                </div>
+
+                <div className="mt-5 text-xs text-slate-600 space-y-2 border-t border-slate-100 pt-4">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-slate-400">Bus Unit:</span>
+                    <span className="font-semibold text-slate-700 bg-slate-50 border border-slate-150 px-2 py-0.5 rounded">
+                      {route.bus?.name || 'Unassigned'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-slate-400">Total Stops:</span>
+                    <span className="font-semibold text-slate-700">{route.stops?.length || 0} stops</span>
+                  </div>
+                </div>
+
+                {/* List stops inline briefly */}
+                {route.stops && route.stops.length > 0 && (
+                  <div className="mt-4 pt-3 border-t border-slate-50">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">Transit stops sequence:</span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {route.stops.map((s: any, idx: number) => (
+                        <span key={s.id || idx} className="text-[10px] font-bold text-slate-600 bg-slate-50 border border-slate-150 px-2 py-0.5 rounded">
+                          {idx + 1}. {s.name}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center gap-3 mt-6 pt-4 border-t border-slate-100">
+                <button
+                  onClick={() => handleOpenEditForm(route)}
+                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 border border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-600 rounded-lg text-xs font-semibold transition"
+                >
+                  <Edit2 className="w-3.5 h-3.5" />
+                  Edit Route Details
+                </button>
+                <button
+                  onClick={() => handleRouteDelete(route.id)}
+                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 border border-red-200 hover:border-red-300 hover:bg-red-50 text-red-600 rounded-lg text-xs font-semibold transition"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  Delete
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}

@@ -1,0 +1,100 @@
+@import "tailwindcss";
+@import "leaflet/dist/leaflet.css";
+
+:root {
+  --background: #f4f2f8; /* warm lavender-gray surface */
+  --foreground: #0f172a; /* text-primary */
+  
+  --primary: #5c3b99; /* premium purple */
+  --primary-dark: #3b255e;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --surface: #f4f2f8;
+  --card: #ffffff;
+  --border: #e8e6f0;
+  --text-primary: #1e1b4b;
+  --text-secondary: #6b7280;
+}
+
+/* Premium Sidebar Active Curved Navigation Tab */
+.active-nav-item {
+  background-color: #f4f2f8 !important; /* matches main content area background */
+  color: #3b255e !important;
+  font-weight: 700;
+  border-radius: 0 9999px 9999px 0; /* clean pill on the right */
+  position: relative;
+  box-shadow: 2px 4px 12px rgba(0, 0, 0, 0.05);
+}
+.active-nav-item::before,
+.active-nav-item::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  width: 24px;
+  height: 24px;
+  background-color: transparent;
+  pointer-events: none;
+}
+.active-nav-item::before {
+  top: -24px;
+  border-bottom-left-radius: 24px;
+  box-shadow: -12px 12px 0 0 #f4f2f8;
+}
+.active-nav-item::after {
+  bottom: -24px;
+  border-top-left-radius: 24px;
+  box-shadow: -12px -12px 0 0 #f4f2f8;
+}
+
+@theme {
+  --color-primary: var(--primary);
+  --color-primary-dark: var(--primary-dark);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --color-surface: var(--surface);
+  --color-card: var(--card);
+  --color-border: var(--border);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  
+  --font-sans: 'Inter', system-ui, sans-serif;
+}
+
+body {
+  background-color: var(--surface);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  min-height: 100vh;
+}
+
+/* Smooth map animations and custom scrollbars for premium look */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.leaflet-container {
+  font-family: inherit;
+}
+.leaflet-popup-content-wrapper {
+  border-radius: 8px;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  padding: 4px;
+}
+.leaflet-popup-content {
+  margin: 8px 12px;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
