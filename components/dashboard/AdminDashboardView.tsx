@@ -371,7 +371,7 @@ export default function AdminDashboardView({ tab }: { tab?: string }) {
 
       {/* OTP Verification Modal Prompt */}
       {showOtpModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-[9999] animate-in fade-in duration-200">
           <div className="bg-white border border-slate-150 rounded-3xl p-6 max-w-sm w-full space-y-5 shadow-2xl relative animate-in zoom-in-95 duration-200">
             <button
               onClick={() => setShowOtpModal(false)}
