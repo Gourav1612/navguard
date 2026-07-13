@@ -33,6 +33,7 @@ export function LiveMap({
   const markerRef = useRef<L.Marker | null>(null);
   const mapContainerId = `map-${busId}`;
   
+  const [routeMode, setRouteMode] = useState<'road' | 'direct'>('road');
   const [currentLocation, setCurrentLocation] = useState<{ latitude: number; longitude: number } | null>(
     initialLocation || null
   );
@@ -83,32 +84,36 @@ export function LiveMap({
     }
 
     if (sortedStops.length > 1) {
-      const osrmCoords = sortedStops.map(s => `${s.longitude},${s.latitude}`).join(';');
-      const url = `https://router.project-osrm.org/route/v1/driving/${osrmCoords}?overview=full&geometries=geojson`;
+      if (routeMode === 'direct') {
+        drawStraightLines();
+      } else {
+        const osrmCoords = sortedStops.map(s => `${s.longitude},${s.latitude}`).join(';');
+        const url = `https://router.project-osrm.org/route/v1/driving/${osrmCoords}?overview=full&geometries=geojson`;
 
-      fetch(url)
-        .then((res) => res.json())
-        .then((data) => {
-          if (destroyed) return; // map already unmounted
-          if (data.code === 'Ok' && data.routes?.[0]?.geometry?.coordinates) {
-            const roadCoords = data.routes[0].geometry.coordinates.map(
-              ([lng, lat]: [number, number]) => [lat, lng] as L.LatLngExpression
-            );
-            L.polyline(roadCoords, {
-              color: '#4f46e5',
-              weight: 6,
-              opacity: 0.85,
-            }).addTo(map);
-          } else {
-            drawStraightLines();
-          }
-        })
-        .catch((err) => {
-          if (!destroyed) {
-            console.error('OSRM road routing failed, falling back to straight lines:', err);
-            drawStraightLines();
-          }
-        });
+        fetch(url)
+          .then((res) => res.json())
+          .then((data) => {
+            if (destroyed) return; // map already unmounted
+            if (data.code === 'Ok' && data.routes?.[0]?.geometry?.coordinates) {
+              const roadCoords = data.routes[0].geometry.coordinates.map(
+                ([lng, lat]: [number, number]) => [lat, lng] as L.LatLngExpression
+              );
+              L.polyline(roadCoords, {
+                color: '#4f46e5',
+                weight: 6,
+                opacity: 0.85,
+              }).addTo(map);
+            } else {
+              drawStraightLines();
+            }
+          })
+          .catch((err) => {
+            if (!destroyed) {
+              console.error('OSRM road routing failed, falling back to straight lines:', err);
+              drawStraightLines();
+            }
+          });
+      }
     }
 
     function escapeHtml(str: string) {
@@ -233,7 +238,7 @@ export function LiveMap({
       resizeObserver.disconnect();
       map.remove();
     };
-  }, [busId, stops, highlightStopId, showBus]);
+  }, [busId, stops, highlightStopId, showBus, routeMode]);
 
   useEffect(() => {
     if (mapRef.current && focusLocation?.latitude && focusLocation?.longitude) {
@@ -246,6 +251,34 @@ export function LiveMap({
   return (
     <div className="relative z-0 w-full h-full min-h-[300px] border border-slate-200 rounded-xl overflow-hidden shadow-inner">
       <div id={mapContainerId} className="w-full h-full" />
+
+      {/* Route Mode Toggle Control */}
+      {stops.length > 1 && (
+        <div className="absolute top-3 left-3 z-[1000] flex bg-white/95 backdrop-blur border border-slate-200 rounded-xl shadow-lg p-1 gap-1">
+          <button
+            type="button"
+            onClick={() => setRouteMode('road')}
+            className={`px-3 py-1.5 rounded-lg text-[10px] font-extrabold transition-all duration-200 cursor-pointer ${
+              routeMode === 'road'
+                ? 'bg-primary text-white shadow-sm shadow-purple-500/25'
+                : 'text-slate-650 hover:bg-slate-100 hover:text-slate-900'
+            }`}
+          >
+            🚗 Road Route
+          </button>
+          <button
+            type="button"
+            onClick={() => setRouteMode('direct')}
+            className={`px-3 py-1.5 rounded-lg text-[10px] font-extrabold transition-all duration-200 cursor-pointer ${
+              routeMode === 'direct'
+                ? 'bg-primary text-white shadow-sm shadow-purple-500/25'
+                : 'text-slate-650 hover:bg-slate-100 hover:text-slate-900'
+            }`}
+          >
+            📏 Direct Line
+          </button>
+        </div>
+      )}
       
       {showBus && currentLocation && (
         <a
