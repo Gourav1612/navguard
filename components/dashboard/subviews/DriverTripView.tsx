@@ -292,12 +292,23 @@ export default function DriverTripPage() {
             )}
           </div>
 
-          <button
-            onClick={() => toggleStopPassed(nextStop.id)}
-            className="w-full flex items-center justify-center py-2.5 bg-white text-primary font-bold text-xs rounded-xl shadow-md cursor-pointer hover:bg-slate-50 transition"
-          >
-            Arrived & Picked Up
-          </button>
+          <div className="flex gap-3">
+            <a
+              href={`https://www.google.com/maps/dir/?api=1&destination=${nextStop.latitude},${nextStop.longitude}&travelmode=driving`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-xl border border-white/20 shadow-md transition text-center cursor-pointer"
+            >
+              <Navigation className="w-3.5 h-3.5 text-amber-300 fill-amber-300 animate-pulse" />
+              Navigate
+            </a>
+            <button
+              onClick={() => toggleStopPassed(nextStop.id)}
+              className="flex-1 flex items-center justify-center py-2.5 bg-white text-primary font-bold text-xs rounded-xl shadow-md cursor-pointer hover:bg-slate-50 transition"
+            >
+              Arrived & Pick Up
+            </button>
+          </div>
         </div>
       ) : (
         <div className="bg-gradient-to-br from-emerald-600 to-teal-800 text-white rounded-2xl p-5 shadow-lg space-y-3">
