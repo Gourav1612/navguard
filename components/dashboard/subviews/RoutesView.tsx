@@ -494,7 +494,7 @@ export default function AdminRoutes() {
             {/* Map Preview */}
             <div className="bg-white border border-slate-150 rounded-2xl p-6 shadow-sm space-y-3">
               <h4 className="font-bold text-slate-800 text-sm">Route Alignment Preview</h4>
-              <div className="h-[250px]">
+              <div className="h-[300px]">
                 <LiveMap
                   busId="preview"
                   stops={stopsList}
