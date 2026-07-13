@@ -1,6 +1,5 @@
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import DOMPurify from 'isomorphic-dompurify';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -8,7 +7,17 @@ export function cn(...inputs: ClassValue[]) {
 
 export function sanitizeText(input: string): string {
   if (!input) return '';
-  return DOMPurify.sanitize(input, { ALLOWED_TAGS: [] }).trim();
+  // Strip all HTML tags
+  let cleaned = input.replace(/<[^>]*>/g, '');
+  // Escape potential HTML characters for XSS prevention
+  cleaned = cleaned
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;')
+    .replace(/\//g, '&#x2F;');
+  return cleaned.trim();
 }
 
 export function formatDateTime(dateString: string | null | undefined): string {
