@@ -39,6 +39,14 @@ export default function AdminRoutes() {
   const [googleMapsLink, setGoogleMapsLink] = useState('');
   const [isLoadingLink, setIsLoadingLink] = useState(false);
 
+  // Start Point states
+  const [startMapsLink, setStartMapsLink] = useState('');
+  const [startStopName, setStartStopName] = useState('');
+  const [startStopAddress, setStartStopAddress] = useState('');
+  const [startStopLat, setStartStopLat] = useState('');
+  const [startStopLng, setStartStopLng] = useState('');
+  const [isLoadingStartLink, setIsLoadingStartLink] = useState(false);
+
   // Fetch routes
   const { data: routes = [], isLoading: routesLoading } = useQuery({
     queryKey: ['admin-routes'],
@@ -168,6 +176,75 @@ export default function AdminRoutes() {
     setValue('description', route.description || '');
     setValue('is_active', route.is_active);
     setIsEditing(true);
+  };
+
+  const handleImportStartLink = async () => {
+    if (!startMapsLink) return;
+    setIsLoadingStartLink(true);
+    try {
+      let urlToParse = startMapsLink.trim();
+
+      if (urlToParse.includes('maps.app.goo.gl') || urlToParse.includes('goo.gl/maps')) {
+        const res = await fetch(`/api/resolve-map-link?url=${encodeURIComponent(urlToParse)}`);
+        if (!res.ok) throw new Error('Failed to resolve Google Maps short link');
+        const data = await res.json();
+        urlToParse = data.expandedUrl;
+      }
+
+      const parsed = parseGoogleMapsLink(urlToParse);
+      if (parsed) {
+        setStartStopLat(parsed.lat.toString());
+        setStartStopLng(parsed.lng.toString());
+        setStartStopName(parsed.name || 'Start Point');
+        setStartStopAddress(parsed.name || '');
+        setStartMapsLink('');
+      } else {
+        alert('Could not extract coordinates from the Google Maps link. Please verify it contains coordinates or a location.');
+      }
+    } catch (err: any) {
+      alert(err.message || 'Failed to process Google Maps link');
+    } finally {
+      setIsLoadingStartLink(false);
+    }
+  };
+
+  const handleSetStartPoint = () => {
+    if (!startStopName || !startStopLat || !startStopLng) {
+      alert('Please fill Starting Point Name, Latitude and Longitude.');
+      return;
+    }
+    const lat = Number(startStopLat);
+    const lng = Number(startStopLng);
+    if (isNaN(lat) || lat < -90 || lat > 90 || isNaN(lng) || lng < -180 || lng > 180) {
+      alert('Enter valid GPS coordinates (Lat -90 to 90, Lng -180 to 180).');
+      return;
+    }
+
+    const startStop = {
+      name: startStopName,
+      address: startStopAddress || '',
+      latitude: lat,
+      longitude: lng,
+      stop_order: 0,
+    };
+
+    if (stopsList.length > 0) {
+      const rest = stopsList.slice(1).map((s, idx) => ({ ...s, stop_order: idx + 1 }));
+      setStopsList([startStop, ...rest]);
+    } else {
+      setStopsList([startStop]);
+    }
+
+    setStartStopName('');
+    setStartStopAddress('');
+    setStartStopLat('');
+    setStartStopLng('');
+  };
+
+  const handleClearStartPoint = () => {
+    if (confirm('Change starting point? This will keep other stops sequence.')) {
+      setStopsList(stopsList.slice(1).map((s, idx) => ({ ...s, stop_order: idx })));
+    }
   };
 
   const handleImportGoogleMapsLink = async () => {
@@ -351,69 +428,172 @@ export default function AdminRoutes() {
               </div>
 
               {/* Stops Builder */}
-              <div className="border-t border-slate-100 pt-6 space-y-4">
-                <h4 className="font-bold text-sm text-slate-800">Add Route Stop</h4>
+              <div className="border-t border-slate-100 pt-6 space-y-5">
                 
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Import from Google Maps Link</label>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      placeholder="Paste Google Maps URL here..."
-                      value={googleMapsLink}
-                      onChange={(e) => setGoogleMapsLink(e.target.value)}
-                      className="block w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-primary/10 focus:border-primary"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleImportGoogleMapsLink}
-                      disabled={isLoadingLink || !googleMapsLink}
-                      className="px-4 py-2 bg-primary/10 hover:bg-primary/20 text-primary rounded-xl text-xs font-bold transition disabled:opacity-50 flex items-center justify-center min-w-[80px]"
-                    >
-                      {isLoadingLink ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Import'}
-                    </button>
+                {/* 1. Set Starting Point (Red Spot) */}
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-4">
+                  <div className="flex items-center gap-2">
+                    <span className="flex items-center justify-center w-5.5 h-5.5 rounded-full bg-red-50 text-red-650 text-xs font-bold font-sans">
+                      1
+                    </span>
+                    <h4 className="font-extrabold text-xs text-slate-800 uppercase tracking-wider">Set Journey Starting Point (Red Spot)</h4>
                   </div>
+
+                  {stopsList.length > 0 ? (
+                    <div className="flex items-center justify-between p-3.5 bg-red-50/40 border border-red-150 rounded-xl">
+                      <div className="flex items-center gap-2">
+                        <span className="text-base">🚩</span>
+                        <div>
+                          <p className="text-xs font-bold text-slate-800">{stopsList[0].name}</p>
+                          <p className="text-[10px] text-slate-400 font-medium">GPS: {stopsList[0].latitude}, {stopsList[0].longitude}</p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleClearStartPoint}
+                        className="px-3 py-1.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-650 hover:text-slate-900 rounded-lg text-2xs font-bold transition cursor-pointer"
+                      >
+                        Change
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wider block">Import Start Location via Google Maps Link</label>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            placeholder="Paste Google Maps URL here..."
+                            value={startMapsLink}
+                            onChange={(e) => setStartMapsLink(e.target.value)}
+                            className="block w-full px-3 py-2 border border-slate-250 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-red-100 focus:border-red-500 bg-white"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleImportStartLink}
+                            disabled={isLoadingStartLink || !startMapsLink}
+                            className="px-4 py-2 bg-red-50 hover:bg-red-100 text-red-700 border border-red-150 rounded-xl text-xs font-bold transition disabled:opacity-50 flex items-center justify-center min-w-[85px] cursor-pointer"
+                          >
+                            {isLoadingStartLink ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Import'}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <input
+                          type="text"
+                          placeholder="Starting Point Name (e.g. School) *"
+                          value={startStopName}
+                          onChange={(e) => setStartStopName(e.target.value)}
+                          className="block w-full px-3 py-2 border border-slate-200 rounded-lg text-xs bg-white"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Address / Area"
+                          value={startStopAddress}
+                          onChange={(e) => setStartStopAddress(e.target.value)}
+                          className="block w-full px-3 py-2 border border-slate-200 rounded-lg text-xs bg-white"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Latitude *"
+                          value={startStopLat}
+                          onChange={(e) => setStartStopLat(e.target.value)}
+                          className="block w-full px-3 py-2 border border-slate-200 rounded-lg text-xs bg-white"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Longitude *"
+                          value={startStopLng}
+                          onChange={(e) => setStartStopLng(e.target.value)}
+                          className="block w-full px-3 py-2 border border-slate-200 rounded-lg text-xs bg-white"
+                        />
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={handleSetStartPoint}
+                        className="w-full flex items-center justify-center gap-1 py-2 bg-red-650 hover:bg-red-700 text-white rounded-xl text-xs font-semibold shadow shadow-red-500/10 transition cursor-pointer"
+                      >
+                        Set Start Point
+                      </button>
+                    </div>
+                  )}
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <input
-                    type="text"
-                    placeholder="Stop Name *"
-                    value={newStopName}
-                    onChange={(e) => setNewStopName(e.target.value)}
-                    className="block w-full px-3 py-2 border border-slate-200 rounded-lg text-xs"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Address / Area"
-                    value={newStopAddress}
-                    onChange={(e) => setNewStopAddress(e.target.value)}
-                    className="block w-full px-3 py-2 border border-slate-200 rounded-lg text-xs"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Latitude *"
-                    value={newStopLat}
-                    onChange={(e) => setNewStopLat(e.target.value)}
-                    className="block w-full px-3 py-2 border border-slate-200 rounded-lg text-xs"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Longitude *"
-                    value={newStopLng}
-                    onChange={(e) => setNewStopLng(e.target.value)}
-                    className="block w-full px-3 py-2 border border-slate-200 rounded-lg text-xs"
-                  />
+                {/* 2. Add Transit/Destination Stops (Blue / Green Spot) */}
+                <div className={`bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-4 transition ${
+                  stopsList.length === 0 ? 'opacity-40 pointer-events-none' : ''
+                }`}>
+                  <div className="flex items-center gap-2">
+                    <span className="flex items-center justify-center w-5.5 h-5.5 rounded-full bg-blue-100 text-blue-750 text-xs font-bold font-sans">
+                      2
+                    </span>
+                    <h4 className="font-extrabold text-xs text-slate-800 uppercase tracking-wider">Add Route Stops in Sequence</h4>
+                  </div>
+                  
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wider block">Import stop location via Google Maps Link</label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="Paste Google Maps URL here..."
+                        value={googleMapsLink}
+                        onChange={(e) => setGoogleMapsLink(e.target.value)}
+                        className="block w-full px-3 py-2 border border-slate-250 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-primary/10 focus:border-primary bg-white"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleImportGoogleMapsLink}
+                        disabled={isLoadingLink || !googleMapsLink}
+                        className="px-4 py-2 bg-primary/10 hover:bg-primary/20 text-primary rounded-xl text-xs font-bold transition disabled:opacity-50 flex items-center justify-center min-w-[85px] cursor-pointer"
+                      >
+                        {isLoadingLink ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Import'}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <input
+                      type="text"
+                      placeholder="Stop Name *"
+                      value={newStopName}
+                      onChange={(e) => setNewStopName(e.target.value)}
+                      className="block w-full px-3 py-2 border border-slate-200 rounded-lg text-xs bg-white"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Address / Area"
+                      value={newStopAddress}
+                      onChange={(e) => setNewStopAddress(e.target.value)}
+                      className="block w-full px-3 py-2 border border-slate-200 rounded-lg text-xs bg-white"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Latitude *"
+                      value={newStopLat}
+                      onChange={(e) => setNewStopLat(e.target.value)}
+                      className="block w-full px-3 py-2 border border-slate-200 rounded-lg text-xs bg-white"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Longitude *"
+                      value={newStopLng}
+                      onChange={(e) => setNewStopLng(e.target.value)}
+                      className="block w-full px-3 py-2 border border-slate-200 rounded-lg text-xs bg-white"
+                    />
+                  </div>
+                  
+                  <button
+                    type="button"
+                    onClick={handleAddStop}
+                    className="w-full flex items-center justify-center gap-1 py-2 bg-primary hover:bg-primary-dark text-white rounded-xl text-xs font-semibold shadow shadow-purple-500/10 transition cursor-pointer"
+                  >
+                    <MapPin className="w-3.5 h-3.5" />
+                    Add Stop to Sequence
+                  </button>
                 </div>
-                
-                <button
-                  type="button"
-                  onClick={handleAddStop}
-                  className="w-full flex items-center justify-center gap-1 py-2 bg-slate-100 border border-slate-200 hover:bg-slate-200 rounded-xl text-xs font-semibold text-slate-700 transition"
-                >
-                  <MapPin className="w-3.5 h-3.5" />
-                  Add Stop to Sequence
-                </button>
+
               </div>
 
               {/* Action Submit Buttons */}

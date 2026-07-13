@@ -11,7 +11,7 @@ export const RouteSchema = z.object({
   name: z.string().min(1, 'Name is required').max(100),
   bus_id: z.string().uuid().optional().nullable().or(z.literal('')),
   description: z.string().optional().nullable(),
-  is_active: z.boolean().optional().default(true),
+  is_active: z.preprocess((val) => val === 'true' || val === true, z.boolean()).optional().default(true),
   stops: z.array(z.object({
     name: z.string().min(1, 'Stop name is required'),
     address: z.string().optional().nullable(),
