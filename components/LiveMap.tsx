@@ -62,6 +62,16 @@ export function LiveMap({
 
     mapRef.current = map;
 
+    // Automatically adjust zoom/pan to fit all stops in the view
+    if (stops.length > 0) {
+      try {
+        const bounds = L.latLngBounds(stops.map(s => [s.latitude, s.longitude]));
+        map.fitBounds(bounds, { padding: [50, 50], maxZoom: 16 });
+      } catch (err) {
+        console.error('Failed to fit bounds:', err);
+      }
+    }
+
     // Draw route connecting stops ordered by stop_order using actual road paths (OSRM API)
     const sortedStops = [...stops].sort((a, b) => a.stop_order - b.stop_order);
 
