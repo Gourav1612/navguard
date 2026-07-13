@@ -121,22 +121,47 @@ export function LiveMap({
     }
 
     // Add stop markers
-    sortedStops.forEach((stop) => {
+    sortedStops.forEach((stop, index) => {
       const isHighlighted = stop.name === highlightStopId;
       
+      let color = '#1d4ed8'; // Default blue (intermediate)
+      let fillColor = '#60a5fa';
+
+      if (index === 0) {
+        // Starting Stop (Red)
+        color = '#ef4444';
+        fillColor = '#f87171';
+      } else if (index === sortedStops.length - 1) {
+        // Last Stop (Green)
+        color = '#16a34a';
+        fillColor = '#4ade80';
+      }
+
+      // If highlighted, override to strong highlight style
+      const radius = isHighlighted ? 12 : 6;
+      if (isHighlighted) {
+        color = '#ef4444';
+        fillColor = '#dc2626';
+      }
+
       const marker = L.circleMarker([stop.latitude, stop.longitude], {
-        radius: isHighlighted ? 10 : 6,
-        color: isHighlighted ? '#ef4444' : '#1d4ed8', // red highlight / blue standard
-        fillColor: isHighlighted ? '#f87171' : '#60a5fa',
+        radius,
+        color,
+        fillColor,
         fillOpacity: 0.9,
         weight: 2,
       }).addTo(map);
 
-      // Create a nice popup label
+      // Create a nice popup label showing order and role
       marker.bindPopup(`
         <div class="font-sans">
           <div class="font-bold text-slate-800">${escapeHtml(stop.name)}</div>
-          <div class="text-xs text-slate-500">Stop Order: ${stop.stop_order}</div>
+          <div class="text-xs text-slate-500">Stop Order: ${stop.stop_order + 1}</div>
+          <div class="text-[10px] font-bold mt-1 inline-block px-1.5 py-0.5 rounded text-white ${
+            index === 0 ? 'bg-red-500' : index === sortedStops.length - 1 ? 'bg-green-600' : 'bg-blue-500'
+          }">
+            ${index === 0 ? '🚩 Start Stop' : index === sortedStops.length - 1 ? '🏁 End Destination' : '📍 Transit Stop'}
+          </div>
         </div>
       `);
     });
