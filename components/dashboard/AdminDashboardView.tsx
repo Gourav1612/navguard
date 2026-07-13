@@ -93,6 +93,31 @@ export default function AdminDashboardView({ tab }: { tab?: string }) {
     }
   }, [tab]);
 
+  const [endingTripId, setEndingTripId] = useState<string | null>(null);
+
+  const handleEndTrip = async (tripId: string) => {
+    if (!confirm('Are you sure you want to force end this active trip? This will set its status to Completed.')) {
+      return;
+    }
+    setEndingTripId(tripId);
+    try {
+      const res = await fetch('/api/admin/trips/end', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ trip_id: tripId }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to end trip');
+      }
+      refetch();
+    } catch (err: any) {
+      alert(err.message || 'An error occurred.');
+    } finally {
+      setEndingTripId(null);
+    }
+  };
+
   // Request email OTP
   const handleRequestOtp = async () => {
     setOtpError(null);
@@ -276,18 +301,20 @@ export default function AdminDashboardView({ tab }: { tab?: string }) {
                   <th className="px-6 py-4">GPS Status</th>
                   <th className="px-6 py-4">Live Speed</th>
                   <th className="px-6 py-4">Last Telemetry</th>
+                  <th className="px-6 py-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
                 {active_trips.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-6 py-8 text-center text-slate-400 font-medium">
+                    <td colSpan={7} className="px-6 py-8 text-center text-slate-400 font-medium">
                       No active trips currently running.
                     </td>
                   </tr>
                 ) : (
                   active_trips.map((trip: any) => {
                     const hasLoc = !!trip.latest_location;
+                    const isEnding = endingTripId === trip.trip_id;
                     return (
                       <tr key={trip.trip_id} className="hover:bg-slate-50/50 transition duration-150">
                         <td className="px-6 py-4.5 font-bold text-slate-900">{trip.bus.name}</td>
@@ -301,6 +328,15 @@ export default function AdminDashboardView({ tab }: { tab?: string }) {
                         </td>
                         <td className="px-6 py-4.5 text-slate-500 text-xs font-medium">
                           {hasLoc ? formatDateTime(trip.latest_location.recorded_at) : 'Waiting for link...'}
+                        </td>
+                        <td className="px-6 py-4.5 text-right">
+                          <button
+                            onClick={() => handleEndTrip(trip.trip_id)}
+                            disabled={isEnding}
+                            className="px-3 py-1.5 bg-red-50 hover:bg-red-100 disabled:bg-slate-100 disabled:text-slate-400 text-red-600 hover:text-red-700 border border-red-100 hover:border-red-200 rounded-lg text-[10px] font-bold tracking-wider transition cursor-pointer"
+                          >
+                            {isEnding ? 'Ending...' : '🛑 End Trip'}
+                          </button>
                         </td>
                       </tr>
                     );
