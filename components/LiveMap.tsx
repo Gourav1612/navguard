@@ -93,36 +93,85 @@ export function LiveMap({
       }
     }
 
+    function fallbackToOsrm() {
+      if (destroyed) return;
+      const osrmCoords = sortedStops.map(s => `${s.longitude},${s.latitude}`).join(';');
+      const url = `https://router.project-osrm.org/route/v1/driving/${osrmCoords}?overview=full&geometries=geojson`;
+
+      fetch(url)
+        .then((res) => res.json())
+        .then((data) => {
+          if (destroyed) return; // map already unmounted
+          if (data.code === 'Ok' && data.routes?.[0]?.geometry?.coordinates) {
+            const roadCoords = data.routes[0].geometry.coordinates.map(
+              ([lng, lat]: [number, number]) => [lat, lng] as L.LatLngExpression
+            );
+            L.polyline(roadCoords, {
+              color: '#4f46e5',
+              weight: 6,
+              opacity: 0.85,
+            }).addTo(map);
+          } else {
+            drawStraightLines();
+          }
+        })
+        .catch((err) => {
+          if (!destroyed) {
+            console.error('OSRM road routing failed, falling back to straight lines:', err);
+            drawStraightLines();
+          }
+        });
+    }
+
     if (sortedStops.length > 1) {
       if (routeMode === 'direct') {
         drawStraightLines();
       } else {
-        const osrmCoords = sortedStops.map(s => `${s.longitude},${s.latitude}`).join(';');
-        const url = `https://router.project-osrm.org/route/v1/driving/${osrmCoords}?overview=full&geometries=geojson`;
+        const orsKey = process.env.NEXT_PUBLIC_OPENROUTESERVICE_KEY;
 
-        fetch(url)
-          .then((res) => res.json())
-          .then((data) => {
-            if (destroyed) return; // map already unmounted
-            if (data.code === 'Ok' && data.routes?.[0]?.geometry?.coordinates) {
-              const roadCoords = data.routes[0].geometry.coordinates.map(
-                ([lng, lat]: [number, number]) => [lat, lng] as L.LatLngExpression
-              );
-              L.polyline(roadCoords, {
-                color: '#4f46e5',
-                weight: 6,
-                opacity: 0.85,
-              }).addTo(map);
-            } else {
-              drawStraightLines();
-            }
+        if (orsKey) {
+          // OpenRouteService (ORS) Multi-stop road directions API
+          const coordinates = sortedStops.map(s => [s.longitude, s.latitude]);
+          
+          fetch('https://api.openrouteservice.org/v2/directions/driving-car/geojson', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': orsKey,
+            },
+            body: JSON.stringify({ coordinates }),
           })
-          .catch((err) => {
-            if (!destroyed) {
-              console.error('OSRM road routing failed, falling back to straight lines:', err);
-              drawStraightLines();
-            }
-          });
+            .then(async (res) => {
+              if (!res.ok) {
+                const errText = await res.text();
+                throw new Error(errText || 'ORS directions failure');
+              }
+              return res.json();
+            })
+            .then((data) => {
+              if (destroyed) return;
+              if (data.features?.[0]?.geometry?.coordinates) {
+                const roadCoords = data.features[0].geometry.coordinates.map(
+                  ([lng, lat]: [number, number]) => [lat, lng] as L.LatLngExpression
+                );
+                L.polyline(roadCoords, {
+                  color: '#4f46e5',
+                  weight: 6,
+                  opacity: 0.85,
+                }).addTo(map);
+              } else {
+                fallbackToOsrm();
+              }
+            })
+            .catch((err) => {
+              if (!destroyed) {
+                console.warn('[LiveMap] ORS routing failed, using OSRM fallback:', err);
+                fallbackToOsrm();
+              }
+            });
+        } else {
+          fallbackToOsrm();
+        }
       }
     }
 
