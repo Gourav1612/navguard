@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Plus, Edit2, Trash2, X, Loader2, ArrowUp, ArrowDown, MapPin, Eye, Route } from 'lucide-react';
+import { Plus, Edit2, Trash2, X, Loader2, ArrowUp, ArrowDown, MapPin, Eye, Route, ExternalLink } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { Badge } from '@/components/Badge';
 import { RouteSchema } from '@/lib/validations';
@@ -642,6 +642,15 @@ export default function AdminRoutes() {
                         </div>
                       </div>
                       <div className="flex items-center gap-1">
+                        <a
+                          href={`https://www.google.com/maps/search/?api=1&query=${stop.latitude},${stop.longitude}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-1 rounded hover:bg-slate-200 text-slate-450 hover:text-slate-700"
+                          title="View on Google Maps"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </a>
                         <button
                           type="button"
                           onClick={() => handleMoveStop(idx, 'up')}
@@ -724,9 +733,17 @@ export default function AdminRoutes() {
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">Transit stops sequence:</span>
                     <div className="flex flex-wrap gap-1.5">
                       {route.stops.map((s: any, idx: number) => (
-                        <span key={s.id || idx} className="text-[10px] font-bold text-slate-600 bg-slate-50 border border-slate-150 px-2 py-0.5 rounded">
+                        <a
+                          key={s.id || idx}
+                          href={`https://www.google.com/maps/search/?api=1&query=${s.latitude},${s.longitude}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[10px] font-bold text-slate-600 bg-slate-50 border border-slate-150 px-2 py-0.5 rounded hover:bg-primary/5 hover:text-primary hover:border-primary/30 transition flex items-center gap-1 cursor-pointer"
+                          title="View on Google Maps"
+                        >
                           {idx + 1}. {s.name}
-                        </span>
+                          <ExternalLink className="w-2.5 h-2.5 opacity-60" />
+                        </a>
                       ))}
                     </div>
                   </div>
