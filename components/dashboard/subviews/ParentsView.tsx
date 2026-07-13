@@ -114,10 +114,16 @@ export default function AdminParents() {
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       const res = await fetch(`/api/admin/parents/${id}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error('Failed to delete parent');
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to delete parent');
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-parents'] });
+    },
+    onError: (err: any) => {
+      alert(err.message);
     },
   });
 

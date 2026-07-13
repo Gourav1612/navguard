@@ -132,12 +132,17 @@ export async function DELETE(
       );
     }
 
-    // Deleting the auth user automatically cascades and deletes parent profile row, links, etc.
     const { error: authDeleteErr } = await adminClient.auth.admin.deleteUser(parent.user_id);
 
     if (authDeleteErr) {
-      // Fallback direct delete
-      await adminClient.from('parent_profiles').delete().eq('id', id);
+      return NextResponse.json(
+        { 
+          error: `Failed to delete parent: ${authDeleteErr.message}. Ensure there are no database dependencies blocking deletion.`, 
+          code: 'SERVER_ERROR', 
+          details: authDeleteErr 
+        },
+        { status: 500 }
+      );
     }
 
     return new NextResponse(null, { status: 204 });

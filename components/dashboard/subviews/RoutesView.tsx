@@ -149,11 +149,17 @@ export default function AdminRoutes() {
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       const res = await fetch(`/api/admin/routes/${id}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error('Failed to delete route');
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to delete route');
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-routes'] });
       if (selectedRoute?.id) setSelectedRoute(null);
+    },
+    onError: (err: any) => {
+      alert(err.message);
     },
   });
 

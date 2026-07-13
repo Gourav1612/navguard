@@ -108,11 +108,17 @@ export default function AdminDrivers() {
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       const res = await fetch(`/api/admin/drivers/${id}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error('Failed to delete driver');
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to delete driver');
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-drivers'] });
       queryClient.invalidateQueries({ queryKey: ['admin-buses'] });
+    },
+    onError: (err: any) => {
+      alert(err.message);
     },
   });
 

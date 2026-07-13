@@ -119,12 +119,17 @@ export async function DELETE(
       );
     }
 
-    // Deleting the auth user automatically cascades and deletes the user profile and driver row!
     const { error: authDeleteErr } = await adminClient.auth.admin.deleteUser(driver.user_id);
-
+    
     if (authDeleteErr) {
-      // Fallback: try deleting driver profile directly if auth deletion fails
-      await adminClient.from('drivers').delete().eq('id', id);
+      return NextResponse.json(
+        { 
+          error: `Failed to delete driver: ${authDeleteErr.message}. Ensure there are no active trips or assignments linked to this driver.`, 
+          code: 'SERVER_ERROR', 
+          details: authDeleteErr 
+        },
+        { status: 500 }
+      );
     }
 
     return new NextResponse(null, { status: 204 });
