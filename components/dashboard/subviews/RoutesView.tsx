@@ -87,6 +87,7 @@ export default function AdminRoutes() {
   const saveMutation = useMutation({
     mutationFn: async (values: RouteFormValues) => {
       const formattedStops = stopsList.map((stop, idx) => ({
+        id: stop.id,
         name: stop.name,
         address: stop.address,
         latitude: Number(stop.latitude),
