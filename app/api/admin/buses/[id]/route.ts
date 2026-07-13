@@ -93,6 +93,19 @@ export async function DELETE(
       );
     }
 
+    // Clean up any historical trips linked to this bus first to prevent foreign key blocks
+    const { error: tripsDeleteErr } = await supabase.from('trips').delete().eq('bus_id', id);
+    if (tripsDeleteErr) {
+      return NextResponse.json(
+        { 
+          error: `Failed to clean up bus's trip history: ${tripsDeleteErr.message}`, 
+          code: 'SERVER_ERROR', 
+          details: tripsDeleteErr 
+        },
+        { status: 500 }
+      );
+    }
+
     const { error: deleteErr } = await supabase
       .from('buses')
       .delete()

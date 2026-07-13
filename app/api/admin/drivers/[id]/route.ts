@@ -119,6 +119,19 @@ export async function DELETE(
       );
     }
 
+    // Clean up any historical trips linked to this driver first to prevent foreign key blocks
+    const { error: tripsDeleteErr } = await adminClient.from('trips').delete().eq('driver_id', id);
+    if (tripsDeleteErr) {
+      return NextResponse.json(
+        { 
+          error: `Failed to clean up driver's trip history: ${tripsDeleteErr.message}`, 
+          code: 'SERVER_ERROR', 
+          details: tripsDeleteErr 
+        },
+        { status: 500 }
+      );
+    }
+
     const { error: authDeleteErr } = await adminClient.auth.admin.deleteUser(driver.user_id);
     
     if (authDeleteErr) {

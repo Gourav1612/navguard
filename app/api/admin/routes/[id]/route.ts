@@ -204,6 +204,19 @@ export async function DELETE(
       );
     }
 
+    // Clean up any historical trips linked to this route first to prevent foreign key blocks
+    const { error: tripsDeleteErr } = await supabase.from('trips').delete().eq('route_id', id);
+    if (tripsDeleteErr) {
+      return NextResponse.json(
+        { 
+          error: `Failed to clean up route's trip history: ${tripsDeleteErr.message}`, 
+          code: 'SERVER_ERROR', 
+          details: tripsDeleteErr 
+        },
+        { status: 500 }
+      );
+    }
+
     const { error: deleteErr } = await supabase
       .from('routes')
       .delete()
