@@ -13,6 +13,7 @@ export const RouteSchema = z.object({
   description: z.string().optional().nullable(),
   is_active: z.preprocess((val) => val === 'true' || val === true, z.boolean()).optional().default(true),
   stops: z.array(z.object({
+    id: z.string().uuid().optional(),
     name: z.string().min(1, 'Stop name is required'),
     address: z.string().optional().nullable(),
     latitude: z.coerce.number().min(-90).max(90),

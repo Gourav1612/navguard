@@ -65,32 +65,86 @@ export async function PATCH(
       );
     }
 
-    // 2. If stops array is provided, replace the stops
+    // 2. If stops array is provided, update/insert/delete them dynamically
     if (stops !== undefined) {
-      // Delete old stops
-      await supabase.from('stops').delete().eq('route_id', id);
+      const keptStopIds = stops.map((s) => s.id).filter(Boolean) as string[];
+
+      // Delete stops that are no longer in the payload list
+      const deleteQuery = supabase.from('stops').delete().eq('route_id', id);
+      if (keptStopIds.length > 0) {
+        deleteQuery.not('id', 'in', `(${keptStopIds.join(',')})`);
+      }
+      const { error: delErr } = await deleteQuery;
+      if (delErr) {
+        return NextResponse.json(
+          { error: 'Failed to clear removed stops', code: 'SERVER_ERROR', details: delErr },
+          { status: 500 }
+        );
+      }
 
       if (stops.length > 0) {
+        // Optimize stops ordering
         const optimizedStops = await optimizeRouteWithGemini(stops);
-        const stopsToInsert = optimizedStops.map((stop, idx) => ({
-          route_id: id,
-          school_id: profile.school_id,
-          name: stop.name,
-          address: stop.address || null,
-          latitude: stop.latitude,
-          longitude: stop.longitude,
-          stop_order: idx,
-        }));
 
-        const { error: stopsErr } = await supabase
-          .from('stops')
-          .insert(stopsToInsert);
+        const stopsToInsert: any[] = [];
+        const stopsToUpdate: any[] = [];
 
-        if (stopsErr) {
-          return NextResponse.json(
-            { error: 'Failed to update route stops', code: 'SERVER_ERROR', details: stopsErr },
-            { status: 500 }
-          );
+        optimizedStops.forEach((stop, idx) => {
+          const stopData = {
+            school_id: profile.school_id,
+            name: stop.name,
+            address: stop.address || null,
+            latitude: stop.latitude,
+            longitude: stop.longitude,
+            stop_order: idx,
+          };
+
+          if (stop.id) {
+            stopsToUpdate.push({
+              id: stop.id,
+              ...stopData,
+            });
+          } else {
+            stopsToInsert.push({
+              route_id: id,
+              ...stopData,
+            });
+          }
+        });
+
+        // 1. Execute updates in-place to preserve references
+        for (const updateStop of stopsToUpdate) {
+          const { error: updErr } = await supabase
+            .from('stops')
+            .update({
+              name: updateStop.name,
+              address: updateStop.address,
+              latitude: updateStop.latitude,
+              longitude: updateStop.longitude,
+              stop_order: updateStop.stop_order,
+            })
+            .eq('id', updateStop.id);
+
+          if (updErr) {
+            return NextResponse.json(
+              { error: 'Failed to update stop sequence details', code: 'SERVER_ERROR', details: updErr },
+              { status: 500 }
+            );
+          }
+        }
+
+        // 2. Execute inserts for new stops
+        if (stopsToInsert.length > 0) {
+          const { error: insErr } = await supabase
+            .from('stops')
+            .insert(stopsToInsert);
+
+          if (insErr) {
+            return NextResponse.json(
+              { error: 'Failed to insert new stops to route', code: 'SERVER_ERROR', details: insErr },
+              { status: 500 }
+            );
+          }
         }
       }
     }
