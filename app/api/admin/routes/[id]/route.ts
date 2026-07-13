@@ -112,7 +112,25 @@ export async function PATCH(
           }
         });
 
-        // 1. Execute updates in-place to preserve references
+        // 1. Temporary step: Update stop_order to a large positive offset (10000+) to avoid UNIQUE constraint collisions
+        for (let i = 0; i < stopsToUpdate.length; i++) {
+          const updateStop = stopsToUpdate[i];
+          const { error: tempErr } = await supabase
+            .from('stops')
+            .update({
+              stop_order: 10000 + i,
+            })
+            .eq('id', updateStop.id);
+
+          if (tempErr) {
+            return NextResponse.json(
+              { error: 'Failed to apply temporary stop order offsets.', code: 'SERVER_ERROR', details: tempErr },
+              { status: 500 }
+            );
+          }
+        }
+
+        // 2. Execute updates to final values in-place to preserve references
         for (const updateStop of stopsToUpdate) {
           const { error: updErr } = await supabase
             .from('stops')
@@ -133,7 +151,7 @@ export async function PATCH(
           }
         }
 
-        // 2. Execute inserts for new stops
+        // 3. Execute inserts for new stops
         if (stopsToInsert.length > 0) {
           const { error: insErr } = await supabase
             .from('stops')
