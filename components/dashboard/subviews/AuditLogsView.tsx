@@ -1,11 +1,34 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
-import { Loader2, ShieldAlert, History, Activity, Terminal } from 'lucide-react';
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Loader2, ShieldAlert, History, Activity, Terminal, Trash2 } from 'lucide-react';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { formatDateTime } from '@/lib/utils';
 
 export default function AdminAuditLogs() {
+  const queryClient = useQueryClient();
+  const [clearing, setClearing] = useState(false);
+
+  const handleClearLogs = async () => {
+    if (!confirm('Are you sure you want to permanently delete all system audit logs? This cannot be undone.')) {
+      return;
+    }
+    setClearing(true);
+    try {
+      const res = await fetch('/api/admin/audit-logs/clear', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to clear logs');
+      }
+      queryClient.invalidateQueries({ queryKey: ['admin-audit-logs'] });
+    } catch (err: any) {
+      alert(err.message || 'An error occurred.');
+    } finally {
+      setClearing(false);
+    }
+  };
+
   const { data: logs = [], isLoading, error } = useQuery({
     queryKey: ['admin-audit-logs'],
     queryFn: async () => {
@@ -63,9 +86,30 @@ export default function AdminAuditLogs() {
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <div>
-        <h2 className="text-2xl font-black text-slate-900 tracking-tight">System Audit Logs</h2>
-        <p className="text-slate-500 text-sm font-medium">Review operational logs, account mutations, database updates, and tracking events.</p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-black text-slate-900 tracking-tight">System Audit Logs</h2>
+          <p className="text-slate-500 text-sm font-medium">Review operational logs, account mutations, database updates, and tracking events.</p>
+        </div>
+        {logs.length > 0 && (
+          <button
+            onClick={handleClearLogs}
+            disabled={clearing}
+            className="flex items-center justify-center gap-1.5 px-5 py-3 bg-red-50 hover:bg-red-100 disabled:bg-slate-100 text-red-650 hover:text-red-700 border border-red-100 hover:border-red-200 rounded-xl text-xs font-bold transition shadow-sm cursor-pointer disabled:opacity-50 flex-shrink-0"
+          >
+            {clearing ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                Clearing Logs...
+              </>
+            ) : (
+              <>
+                <Trash2 className="w-3.5 h-3.5" />
+                Clear Logs
+              </>
+            )}
+          </button>
+        )}
       </div>
 
       {/* Logs Table */}
