@@ -132,6 +132,19 @@ export async function DELETE(
       );
     }
 
+    // Clean up any automated announcements posted by this driver to bypass RESTRICT constraints
+    const { error: annDeleteErr } = await adminClient.from('announcements').delete().eq('created_by', driver.user_id);
+    if (annDeleteErr) {
+      return NextResponse.json(
+        { 
+          error: `Failed to clean up driver's announcements: ${annDeleteErr.message}`, 
+          code: 'SERVER_ERROR', 
+          details: annDeleteErr 
+        },
+        { status: 500 }
+      );
+    }
+
     const { error: authDeleteErr } = await adminClient.auth.admin.deleteUser(driver.user_id);
     
     if (authDeleteErr) {
