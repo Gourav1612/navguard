@@ -31,6 +31,30 @@ import ParentTrackView from './subviews/ParentTrackView';
 
 export default function ParentDashboardView({ tab, busId }: { tab?: string; busId?: string }) {
   const queryClient = useQueryClient();
+  const [dismissingSosId, setDismissingSosId] = useState<string | null>(null);
+
+  const handleDismissSos = async (studentId: string) => {
+    if (!confirm('Are you sure you want to dismiss this SOS emergency alert? This will clear the alarm state.')) {
+      return;
+    }
+    setDismissingSosId(studentId);
+    try {
+      const res = await fetch('/api/parent/sos/dismiss', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ student_id: studentId }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to dismiss SOS');
+      }
+      queryClient.invalidateQueries({ queryKey: ['parent-children'] });
+    } catch (err: any) {
+      alert(err.message || 'An error occurred.');
+    } finally {
+      setDismissingSosId(null);
+    }
+  };
   const [requestLoading, setRequestLoading] = useState(false);
   const [requestSuccess, setRequestSuccess] = useState(false);
   const [studentRoll, setStudentRoll] = useState('');
@@ -224,6 +248,8 @@ export default function ParentDashboardView({ tab, busId }: { tab?: string; busI
     );
   }
 
+  const activeSosChildren = children.filter((c: any) => c.sos_active);
+
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
       {/* Header Info */}
@@ -247,6 +273,42 @@ export default function ParentDashboardView({ tab, busId }: { tab?: string; busI
           {/* Children Roster Section */}
           <div className="space-y-4">
             <h3 className="text-xs font-extrabold text-slate-400 uppercase tracking-widest block pl-1">Your Linked Children</h3>
+
+            {/* Emergency SOS Banner Alerts */}
+            {activeSosChildren.length > 0 && (
+              <div className="space-y-3">
+                {activeSosChildren.map((c: any) => (
+                  <div key={c.student_id} className="p-5 bg-red-600 text-white rounded-3xl flex flex-col md:flex-row items-center justify-between gap-4 animate-pulse shadow-xl shadow-red-500/10 border border-red-750">
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">🚨</span>
+                      <div>
+                        <h4 className="font-black text-sm tracking-wide uppercase">SOS EMERGENCY ALERT ACTIVE!</h4>
+                        <p className="text-[10px] font-semibold text-red-100 mt-1 leading-normal">
+                          {c.full_name} has triggered an emergency SOS panic button from their mobile device!
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0 w-full md:w-auto">
+                      {c.bus?.latest_location && (
+                        <Link
+                          href={`/dashboard?tab=track&busId=${c.bus.id}`}
+                          className="flex-1 md:flex-initial text-center px-3.5 py-2 bg-white hover:bg-slate-50 text-red-650 text-xs font-bold rounded-xl transition shadow-sm cursor-pointer"
+                        >
+                          📍 Track Child Live
+                        </Link>
+                      )}
+                      <button
+                        onClick={() => handleDismissSos(c.student_id)}
+                        disabled={dismissingSosId === c.student_id}
+                        className="flex-1 md:flex-initial px-3.5 py-2 bg-red-800 hover:bg-red-900 text-white text-xs font-bold rounded-xl transition border border-red-700/80 cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
+                      >
+                        {dismissingSosId === c.student_id ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Dismiss Alert'}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
 
             {children.length === 0 ? (
               <div className="bg-white border border-slate-150 rounded-3xl p-8 text-center space-y-4 shadow-sm">
@@ -290,7 +352,14 @@ export default function ParentDashboardView({ tab, busId }: { tab?: string; busI
                               {initials}
                             </div>
                             <div>
-                              <h4 className="font-extrabold text-slate-800 text-sm leading-tight">{child.full_name}</h4>
+                              <div className="flex items-center gap-2">
+                                <h4 className="font-extrabold text-slate-800 text-sm leading-tight">{child.full_name}</h4>
+                                {child.sos_active && (
+                                  <span className="px-1.5 py-0.5 bg-red-600 text-white text-[8px] font-black tracking-widest uppercase animate-pulse rounded border border-red-500">
+                                    🚨 SOS
+                                  </span>
+                                )}
+                              </div>
                               <span className="text-[10px] text-slate-450 font-bold block mt-1">Grade {child.grade}</span>
                             </div>
                           </div>

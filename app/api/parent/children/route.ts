@@ -20,6 +20,8 @@ export async function GET() {
           student:student_profiles(
             id,
             grade,
+            sos_active,
+            sos_reported_at,
             bus:buses(id, name, registration_plate),
             stop:stops(id, name, latitude, longitude, stop_order),
             user:user_profiles(full_name)
@@ -105,6 +107,8 @@ export async function GET() {
           student_id: s.id,
           full_name: userObj?.full_name || 'Unknown Child',
           grade: s.grade || '',
+          sos_active: s.sos_active || false,
+          sos_reported_at: s.sos_reported_at || null,
           bus: busObj
             ? {
                 id: busObj.id,
