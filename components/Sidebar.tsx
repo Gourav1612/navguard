@@ -96,7 +96,15 @@ export function Sidebar() {
             <Link
               key={item.name}
               href={item.href}
-              onClick={() => setIsMobileOpen(false)}
+              onClick={(e) => {
+                setIsMobileOpen(false);
+                e.preventDefault();
+                const targetUrl = new URL(item.href, window.location.origin);
+                const tabVal = targetUrl.searchParams.get('tab') || '';
+                const finalPath = tabVal ? `/dashboard?tab=${tabVal}` : '/dashboard';
+                window.history.pushState(null, '', finalPath);
+                window.dispatchEvent(new PopStateEvent('popstate'));
+              }}
               className={cn(
                 'flex items-center gap-3 px-4 py-3 text-sm font-semibold transition-all duration-300',
                 isActive

@@ -21,6 +21,7 @@ import { formatDateTime } from '@/lib/utils';
 import { useState, useEffect } from 'react';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 
 // Import all admin subviews
 import BusesView from './subviews/BusesView';
@@ -43,8 +44,10 @@ const AdminMap = dynamic(() => import('@/components/AdminMap').then((m) => m.Adm
   ),
 });
 
-export default function AdminDashboardView({ tab }: { tab?: string }) {
+export default function AdminDashboardView({ tab: initialTab }: { tab?: string }) {
   const supabase = createBrowserSupabaseClient();
+  const searchParams = useSearchParams();
+  const tab = searchParams.get('tab') || '';
   
   // MFA states
   const [mfaEnabled, setMfaEnabled] = useState(false);
