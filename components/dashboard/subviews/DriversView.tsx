@@ -4,10 +4,22 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Plus, Edit2, Trash2, X, Loader2, AlertCircle, ShieldCheck, Mail, Phone, Calendar, Bus } from 'lucide-react';
+import { Plus, Edit2, Trash2, X, Loader2, AlertCircle, ShieldCheck, Mail, Phone, Calendar, Bus, MapPin } from 'lucide-react';
 import { Badge } from '@/components/Badge';
 import { CreateDriverSchema } from '@/lib/validations';
 import type { z } from 'zod';
+import { createBrowserSupabaseClient } from '@/lib/supabase/client';
+import dynamic from 'next/dynamic';
+
+const LiveMap = dynamic(() => import('@/components/LiveMap').then((m) => m.LiveMap), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-[350px] bg-slate-100 border border-slate-200 rounded-xl flex items-center justify-center text-slate-400 font-medium">
+      <Loader2 className="w-6 h-6 animate-spin mr-2" />
+      Loading tracking map...
+    </div>
+  ),
+});
 
 type DriverFormValues = z.infer<typeof CreateDriverSchema>;
 
@@ -16,6 +28,48 @@ export default function AdminDrivers() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingDriver, setEditingDriver] = useState<any | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Live Tracking Modal states
+  const [trackingDriver, setTrackingDriver] = useState<any | null>(null);
+  const [trackingBusId, setTrackingBusId] = useState<string | null>(null);
+  const [trackingLocation, setTrackingLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [loadingLocation, setLoadingLocation] = useState(false);
+
+  const handleTrackDriver = async (driver: any) => {
+    if (!driver.bus?.id) {
+      alert('This driver does not have a shift vehicle/bus assigned for tracking.');
+      return;
+    }
+    
+    setTrackingDriver(driver);
+    setTrackingBusId(driver.bus.id);
+    setLoadingLocation(true);
+    setTrackingLocation(null);
+
+    try {
+      const supabase = createBrowserSupabaseClient();
+      const { data, error } = await supabase
+        .from('bus_locations')
+        .select('latitude, longitude')
+        .eq('bus_id', driver.bus.id)
+        .order('recorded_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (data) {
+        setTrackingLocation({
+          latitude: Number(data.latitude),
+          longitude: Number(data.longitude),
+        });
+      }
+    } catch (err) {
+      console.error('Failed to fetch initial bus location:', err);
+    } finally {
+      setLoadingLocation(false);
+    }
+  };
 
   // Fetch drivers
   const { data: drivers = [], isLoading: driversLoading } = useQuery({
@@ -282,6 +336,13 @@ export default function AdminDrivers() {
 
               <div className="flex items-center gap-3 mt-6 pt-4 border-t border-slate-100">
                 <button
+                  onClick={() => handleTrackDriver(driver)}
+                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 border border-purple-250 hover:border-purple-350 hover:bg-purple-50 text-purple-650 rounded-lg text-xs font-semibold transition cursor-pointer"
+                >
+                  <MapPin className="w-3.5 h-3.5 text-purple-500" />
+                  Track Location
+                </button>
+                <button
                   onClick={() => handleOpenEditModal(driver)}
                   className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 border border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-600 rounded-lg text-xs font-semibold transition"
                 >
@@ -441,6 +502,68 @@ export default function AdminDrivers() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Live Tracking Modal */}
+      {trackingDriver && trackingBusId && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white border border-slate-150 rounded-2xl w-full max-w-2xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-slate-100 p-5">
+              <div>
+                <h3 className="font-extrabold text-slate-900 text-base flex items-center gap-2">
+                  <span className="text-xl">📍</span> Live Tracking: {trackingDriver.user?.full_name}
+                </h3>
+                <span className="text-[10px] text-slate-400 font-bold block mt-1 uppercase tracking-wider">
+                  Vehicle: {trackingDriver.bus?.name || 'Unassigned'}
+                </span>
+              </div>
+              <button
+                onClick={() => {
+                  setTrackingDriver(null);
+                  setTrackingBusId(null);
+                  setTrackingLocation(null);
+                }}
+                className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-5 space-y-4">
+              {loadingLocation ? (
+                <div className="h-[350px] bg-slate-50 border border-slate-150 rounded-xl flex flex-col items-center justify-center gap-3">
+                  <Loader2 className="w-8 h-8 text-primary animate-spin" />
+                  <p className="text-xs text-slate-500 font-medium">Connecting to vehicle telemetry...</p>
+                </div>
+              ) : (
+                <div className="relative">
+                  <div className="h-[350px] rounded-xl overflow-hidden border border-slate-200 shadow-inner">
+                    <LiveMap
+                      busId={trackingBusId}
+                      initialLocation={trackingLocation}
+                      stops={[]}
+                      showBus={true}
+                    />
+                  </div>
+                  {!trackingLocation && (
+                    <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-[1px] rounded-xl flex items-center justify-center p-4">
+                      <div className="bg-white/95 border border-slate-150 p-5 rounded-2xl max-w-xs shadow-xl text-center space-y-2">
+                        <p className="text-xs text-slate-800 font-extrabold flex items-center justify-center gap-1.5">
+                          📶 Telemetry Offline
+                        </p>
+                        <p className="text-[10px] text-slate-500 leading-relaxed font-semibold">
+                          This vehicle is not actively transmitting GPS data. The driver may be offline, outside shift hours, or stationary.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
