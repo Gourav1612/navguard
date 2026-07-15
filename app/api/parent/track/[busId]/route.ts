@@ -7,52 +7,83 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ busId: string }> }
 ) {
-  const auth = await requireRole(['parent']);
+  const auth = await requireRole(['parent', 'student']);
   if (auth.error) return auth.error;
 
-  const { user } = auth;
+  const { user, profile } = auth;
   const { busId } = await params;
   const supabase = await createSupabaseServerClient();
 
   try {
-    // 1. Fetch parent profile
-    const { data: parent, error: parentErr } = await supabase
-      .from('parent_profiles')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
+    let childStop = null;
 
-    if (parentErr || !parent) {
-      return NextResponse.json(
-        { error: 'Parent profile not found', code: 'NOT_FOUND' },
-        { status: 404 }
-      );
-    }
-
-    // 2. Fetch linked student assigned to this bus unit (authorization check)
-    const { data: links, error: linksErr } = await supabase
-      .from('parent_student_links')
-      .select(`
-        student:student_profiles(
+    if (profile?.role === 'student') {
+      // 1. Fetch student's own profile and check bus alignment
+      const { data: student, error: studentErr } = await supabase
+        .from('student_profiles')
+        .select(`
           id,
           bus_id,
           stop:stops(id, name, stop_order, latitude, longitude)
-        )
-      `)
-      .eq('parent_id', parent.id);
+        `)
+        .eq('user_id', user.id)
+        .maybeSingle();
 
-    const childObj = (links || [])
-      .map((lnk: any) => lnk.student)
-      .find((s: any) => s?.bus_id === busId);
+      if (studentErr || !student) {
+        return NextResponse.json(
+          { error: 'Student profile not found', code: 'NOT_FOUND' },
+          { status: 404 }
+        );
+      }
 
-    if (!childObj) {
-      return NextResponse.json(
-        { error: 'Access denied: No linked children on this bus unit', code: 'FORBIDDEN' },
-        { status: 403 }
-      );
+      if (student.bus_id !== busId) {
+        return NextResponse.json(
+          { error: 'Access denied: You are not assigned to this bus unit', code: 'FORBIDDEN' },
+          { status: 403 }
+        );
+      }
+
+      childStop = Array.isArray(student.stop) ? student.stop[0] : student.stop;
+    } else {
+      // 1. Fetch parent profile
+      const { data: parent, error: parentErr } = await supabase
+        .from('parent_profiles')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (parentErr || !parent) {
+        return NextResponse.json(
+          { error: 'Parent profile not found', code: 'NOT_FOUND' },
+          { status: 404 }
+        );
+      }
+
+      // 2. Fetch linked student assigned to this bus unit (authorization check)
+      const { data: links, error: linksErr } = await supabase
+        .from('parent_student_links')
+        .select(`
+          student:student_profiles(
+            id,
+            bus_id,
+            stop:stops(id, name, stop_order, latitude, longitude)
+          )
+        `)
+        .eq('parent_id', parent.id);
+
+      const childObj = (links || [])
+        .map((lnk: any) => lnk.student)
+        .find((s: any) => s?.bus_id === busId);
+
+      if (!childObj) {
+        return NextResponse.json(
+          { error: 'Access denied: No linked children on this bus unit', code: 'FORBIDDEN' },
+          { status: 403 }
+        );
+      }
+
+      childStop = childObj.stop;
     }
-
-    const childStop = childObj.stop;
 
     // 3. Get active trip details for this bus
     const { data: activeTrip } = await supabase

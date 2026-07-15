@@ -52,7 +52,7 @@ export default function ParentTrackPage({ busId: propBusId }: { busId?: string }
           The bus unit is not active, or you do not have permission to track this vehicle.
         </p>
         <button
-          onClick={() => router.push('/parent/dashboard')}
+          onClick={() => router.push('/dashboard')}
           className="w-full py-3.5 bg-primary text-white text-xs font-bold rounded-xl shadow"
         >
           Return to Dashboard
@@ -82,7 +82,7 @@ export default function ParentTrackPage({ busId: propBusId }: { busId?: string }
       {/* Top Header */}
       <div className="flex items-center gap-3">
         <button
-          onClick={() => router.push('/parent/dashboard')}
+          onClick={() => router.push('/dashboard')}
           className="p-2 border border-slate-200 hover:bg-slate-100 rounded-xl transition"
         >
           <ArrowLeft className="w-4 h-4 text-slate-600" />
