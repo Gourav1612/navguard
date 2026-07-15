@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireRole } from '@/lib/auth-guard';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/server';
 
 export async function POST(req: NextRequest) {
   // Only authenticated student roles can trigger their own SOS
@@ -8,7 +8,7 @@ export async function POST(req: NextRequest) {
   if (auth.error) return auth.error;
 
   const { user } = auth;
-  const supabase = await createSupabaseServerClient();
+  const adminClient = createAdminClient();
 
   try {
     const body = await req.json().catch(() => ({}));
@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
       ? { sos_active: true, sos_reported_at: new Date().toISOString() }
       : { sos_active: false, sos_reported_at: null };
 
-    const { data: updated, error } = await supabase
+    const { data: updated, error } = await adminClient
       .from('student_profiles')
       .update(updateFields)
       .eq('user_id', user.id)
