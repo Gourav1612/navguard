@@ -78,132 +78,153 @@ export default function ParentTrackPage({ busId: propBusId }: { busId?: string }
   }
 
   return (
-    <div className="space-y-4 max-w-sm mx-auto pt-2 animate-in fade-in duration-200">
+    <div className="space-y-6 w-full pt-2 animate-in fade-in duration-300">
       {/* Top Header */}
-      <div className="flex items-center gap-3">
-        <button
-          onClick={() => router.push('/dashboard')}
-          className="p-2 border border-slate-200 hover:bg-slate-100 rounded-xl transition"
-        >
-          <ArrowLeft className="w-4 h-4 text-slate-600" />
-        </button>
-        <div>
-          <h2 className="text-lg font-black text-slate-900 tracking-tight">Track Bus Location</h2>
-          <p className="text-slate-500 text-[10px] font-semibold uppercase tracking-wider">Live Telemetry Map</p>
+      <div className="bg-white border border-slate-150 p-5 rounded-3xl shadow-xs flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3.5">
+          <button
+            onClick={() => router.push('/dashboard')}
+            className="p-2.5 border border-slate-200 hover:bg-slate-50 rounded-xl transition cursor-pointer flex items-center justify-center"
+            title="Go Back to Dashboard"
+          >
+            <ArrowLeft className="w-4.5 h-4.5 text-slate-650" />
+          </button>
+          <div>
+            <h2 className="text-xl font-black text-slate-900 tracking-tight leading-none">Track Bus Location</h2>
+            <p className="text-slate-450 text-[10px] font-bold uppercase tracking-widest mt-1.5">Live Telemetry Map Screen</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-1.5 text-[9px] font-bold text-slate-400 bg-slate-50 border border-slate-150/60 px-3 py-1.5 rounded-lg font-mono">
+          <span className="h-1.5 w-1.5 bg-emerald-500 rounded-full animate-ping"></span>
+          <span>Feed Live</span>
         </div>
       </div>
 
-      {/* Geolocation Map */}
-      <div className="h-[350px]">
-        {route_stops.length > 0 ? (
-          <LiveMap
-            busId={busId}
-            stops={route_stops}
-            highlightStopId={child_stop?.name}
-            initialLocation={latest_location}
-            showBus={isTripActive}
-          />
-        ) : (
-          <div className="w-full h-full bg-slate-100 rounded-2xl flex flex-col items-center justify-center text-slate-400 p-6 text-center border">
-            <AlertTriangle className="w-10 h-10 text-slate-300 mb-2" />
-            <p className="text-xs font-semibold">Route alignment has no stops configured.</p>
-          </div>
-        )}
-      </div>
-
-      {/* Telemetry Stats Card */}
-      <div className="bg-white border border-slate-150 rounded-2xl p-5 shadow-sm space-y-4">
-        {isTripActive && latest_location ? (
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex items-center gap-3 bg-slate-50 border border-slate-150 p-3 rounded-xl">
-              <Clock className="w-5 h-5 text-primary flex-shrink-0" />
-              <div>
-                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Remaining ETA</span>
-                <span className="text-sm font-extrabold text-slate-800 block mt-0.5">
-                  {eta_minutes !== null ? `~${eta_minutes} min` : 'Calculating...'}
-                </span>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3 bg-slate-50 border border-slate-150 p-3 rounded-xl">
-              <Navigation className="w-5 h-5 text-emerald-600 flex-shrink-0" />
-              <div>
-                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Bus Speed</span>
-                <span className="text-sm font-extrabold text-slate-800 block mt-0.5">
-                  {latest_location.speed ? `${latest_location.speed.toFixed(1)} km/h` : '0 km/h'}
-                </span>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="bg-slate-50 border border-slate-150 rounded-xl p-4 text-center text-slate-500 font-semibold text-xs py-6">
-            Bus is currently inactive. Waiting for trip start.
-          </div>
-        )}
-
-        {/* Telemetry metadata */}
-        <div className="flex items-center justify-between text-[10px] text-slate-400 font-semibold font-mono border-t border-slate-100 pt-3.5">
-          <span>Telemetric Link Status: OK</span>
-          <span>
-            {latest_location 
-              ? `Sync: ${new Date(latest_location.recorded_at).toLocaleTimeString()}`
-              : 'Sync: No Coords'}
-          </span>
-        </div>
-      </div>
-
-      {/* Timeline Stops list */}
-      <div className="bg-white border border-slate-150 rounded-2xl p-5 shadow-sm space-y-4">
-        <h4 className="font-bold text-slate-800 text-xs uppercase tracking-wider">Route Segments Checklist</h4>
+      {/* Grid Layout for Full Stretch Interactive Map & Control Center */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        <div className="relative border-l-2 border-slate-100 ml-4.5 space-y-5.5 py-1">
-          {route_stops.map((stop: any) => {
-            const isChildStop = stop.name === child_stop?.name;
-            const isPassed = stop.stop_order < closestStopOrder;
-            const isCurrent = stop.stop_order === closestStopOrder;
+        {/* Left Column (2/3 width) - Map View & Telemetry Stats */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Geolocation Map */}
+          <div className="h-[460px] bg-white border border-slate-150 rounded-3xl overflow-hidden shadow-xs relative">
+            {route_stops.length > 0 ? (
+              <LiveMap
+                busId={busId}
+                stops={route_stops}
+                highlightStopId={child_stop?.name}
+                initialLocation={latest_location}
+                showBus={isTripActive}
+              />
+            ) : (
+              <div className="w-full h-full bg-slate-50 flex flex-col items-center justify-center text-slate-400 p-6 text-center">
+                <AlertTriangle className="w-10 h-10 text-slate-300 mb-2" />
+                <p className="text-xs font-semibold">Route alignment has no stops configured.</p>
+              </div>
+            )}
+          </div>
 
-            // Visual representations
-            let nodeIcon = (
-              <span className="absolute -left-[27px] flex h-4.5 w-4.5 items-center justify-center rounded-full border border-slate-200 bg-white text-[9px] text-slate-400 font-extrabold shadow-sm">
-                {stop.stop_order}
-              </span>
-            );
-
-            if (isPassed) {
-              nodeIcon = (
-                <span className="absolute -left-[27px] flex h-4.5 w-4.5 items-center justify-center rounded-full bg-emerald-500 border border-emerald-500 text-white text-[9px] font-extrabold shadow">
-                  ✓
-                </span>
-              );
-            } else if (isCurrent) {
-              nodeIcon = (
-                <span className="absolute -left-[27px] flex h-4.5 w-4.5 items-center justify-center rounded-full bg-primary border border-primary text-white text-[9px] font-extrabold shadow animate-pulse">
-                  ⏳
-                </span>
-              );
-            }
-
-            return (
-              <div key={stop.id} className="relative pl-6">
-                {nodeIcon}
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <h5 className={`text-xs font-bold leading-none ${isPassed ? 'text-slate-400 line-through' : 'text-slate-800'}`}>
-                      {stop.name}
-                    </h5>
-                    {isChildStop && (
-                      <span className="inline-block px-1.5 py-0.5 rounded bg-red-100 border border-red-200 text-red-700 text-[8px] font-bold mt-1.5">
-                        YOUR PICKUP STOP
-                      </span>
-                    )}
+          {/* Telemetry Stats Card */}
+          <div className="bg-white border border-slate-150 rounded-3xl p-5 shadow-xs space-y-5">
+            {isTripActive && latest_location ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="flex items-center gap-4 bg-slate-50 border border-slate-150/80 p-4 rounded-2xl">
+                  <div className="flex items-center justify-center w-10 h-10 bg-primary/10 rounded-xl text-primary flex-shrink-0">
+                    <Clock className="w-5.5 h-5.5" />
                   </div>
-                  <span className={`text-[10px] font-bold uppercase ${isPassed ? 'text-emerald-500' : isCurrent ? 'text-primary' : 'text-slate-400'}`}>
-                    {isPassed ? 'passed' : isCurrent ? 'arrived' : 'upcoming'}
-                  </span>
+                  <div>
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block">Estimated Arrival</span>
+                    <span className="text-base font-black text-slate-800 block mt-1">
+                      {eta_minutes !== null ? `~${eta_minutes} min` : 'Calculating...'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-4 bg-slate-50 border border-slate-150/80 p-4 rounded-2xl">
+                  <div className="flex items-center justify-center w-10 h-10 bg-emerald-50 rounded-xl text-emerald-600 flex-shrink-0">
+                    <Navigation className="w-5.5 h-5.5" />
+                  </div>
+                  <div>
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block">Current Speed</span>
+                    <span className="text-base font-black text-slate-800 block mt-1">
+                      {latest_location.speed ? `${latest_location.speed.toFixed(1)} km/h` : '0 km/h'}
+                    </span>
+                  </div>
                 </div>
               </div>
-            );
-          })}
+            ) : (
+              <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4 text-center text-amber-800 font-bold text-xs py-6">
+                Bus is currently inactive. Waiting for driver to start the trip.
+              </div>
+            )}
+
+            {/* Telemetry metadata */}
+            <div className="flex items-center justify-between text-[10px] text-slate-400 font-bold font-mono border-t border-slate-100 pt-3.5 pl-1">
+              <span>GPS Connection Status: Active</span>
+              <span>
+                {latest_location 
+                  ? `Sync Time: ${new Date(latest_location.recorded_at).toLocaleTimeString()}`
+                  : 'Sync Time: Waiting for coordinates'}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Column (1/3 width) - Stops Segment timeline */}
+        <div className="bg-white border border-slate-150 rounded-3xl p-6 shadow-xs space-y-6 h-fit">
+          <div>
+            <h4 className="font-extrabold text-slate-800 text-sm tracking-tight">Route Segment Progress</h4>
+            <p className="text-[10px] text-slate-455 font-bold uppercase tracking-widest mt-1">transit stations sequence</p>
+          </div>
+          
+          <div className="relative border-l-2 border-slate-100 ml-4.5 space-y-6 py-1">
+            {route_stops.map((stop: any) => {
+              const isChildStop = stop.name === child_stop?.name;
+              const isPassed = stop.stop_order < closestStopOrder;
+              const isCurrent = stop.stop_order === closestStopOrder;
+
+              // Visual node icons
+              let nodeIcon = (
+                <span className="absolute -left-[27px] flex h-5 w-5 items-center justify-center rounded-full border border-slate-200 bg-white text-[9px] text-slate-400 font-black shadow-sm">
+                  {stop.stop_order}
+                </span>
+              );
+
+              if (isPassed) {
+                nodeIcon = (
+                  <span className="absolute -left-[27px] flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 border border-emerald-500 text-white text-[9px] font-black shadow">
+                    ✓
+                  </span>
+                );
+              } else if (isCurrent) {
+                nodeIcon = (
+                  <span className="absolute -left-[27px] flex h-5 w-5 items-center justify-center rounded-full bg-primary border border-primary text-white text-[9px] font-black shadow animate-pulse">
+                    ⏳
+                  </span>
+                );
+              }
+
+              return (
+                <div key={stop.id} className="relative pl-7">
+                  {nodeIcon}
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <h5 className={`text-xs font-bold leading-tight ${isPassed ? 'text-slate-400 line-through' : 'text-slate-800'}`}>
+                        {stop.name}
+                      </h5>
+                      {isChildStop && (
+                        <span className="inline-block px-2 py-0.5 rounded bg-red-50 border border-red-100 text-red-700 text-[8px] font-black uppercase tracking-wider mt-1.5">
+                          Your Pickup Stop
+                        </span>
+                      )}
+                    </div>
+                    <span className={`text-[9px] font-black uppercase tracking-wider ${isPassed ? 'text-emerald-500' : isCurrent ? 'text-primary' : 'text-slate-400'}`}>
+                      {isPassed ? 'passed' : isCurrent ? 'arrived' : 'upcoming'}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>

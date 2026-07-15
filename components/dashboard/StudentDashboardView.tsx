@@ -108,11 +108,8 @@ export default function StudentDashboardView({ tab }: { tab?: string }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Left Column (66% Width) - Transit Details & SOS Panic Controller */}
-        <div className="lg:col-span-2 space-y-8">
-          
-          {/* Transit Details */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        {/* Transit Details */}
           <div className="space-y-4">
             <h3 className="text-xs font-extrabold text-slate-400 uppercase tracking-widest block pl-1">Transit Details</h3>
             
@@ -247,38 +244,6 @@ export default function StudentDashboardView({ tab }: { tab?: string }) {
             </div>
           </div>
         </div>
-
-        {/* Right Column: School Bulletins */}
-        <div className="space-y-4">
-          <h3 className="text-xs font-extrabold text-slate-400 uppercase tracking-widest block pl-1">School Bulletins</h3>
-          
-          {announcements.length === 0 ? (
-            <div className="bg-white border border-slate-150 rounded-3xl p-12 text-center text-slate-455 text-xs font-bold shadow-sm">
-              📢 No notices posted recently.
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {announcements.map((item: any) => (
-                <div key={item.id} className="bg-white border border-slate-150 rounded-3xl p-5 shadow-sm hover:shadow-md transition-all duration-350 space-y-3 font-medium">
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-extrabold text-slate-800 text-sm flex items-center gap-2">
-                      <span className="flex items-center justify-center w-6 h-6 bg-amber-50 border border-amber-100 rounded-lg text-amber-600 text-xs">📢</span>
-                      {item.title}
-                    </h4>
-                  </div>
-                  <p className="text-slate-600 text-xs leading-relaxed font-semibold">
-                    {item.body}
-                  </p>
-                  <div className="pt-2.5 border-t border-slate-50 flex items-center gap-1.5 text-[9px] text-slate-400 font-bold uppercase tracking-wider">
-                    <Calendar className="w-3.5 h-3.5 text-slate-350" />
-                    <span>Posted {formatDateTime(item.created_at)}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
       </div>
-    </div>
   );
 }
