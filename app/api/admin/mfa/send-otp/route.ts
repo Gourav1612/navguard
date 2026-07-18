@@ -7,7 +7,7 @@ export async function POST() {
   const auth = await requireRole(['admin']);
   if (auth.error) return auth.error;
 
-  const { user } = auth;
+  const { user, profile } = auth;
   const supabase = await createSupabaseServerClient();
 
   try {
@@ -44,7 +44,7 @@ export async function POST() {
     `;
 
     const mailResult = await sendVerificationEmail({
-      to: user.email!,
+      to: profile?.email || user.email!,
       subject,
       otp,
       html,
