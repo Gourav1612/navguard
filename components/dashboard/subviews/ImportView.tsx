@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { BulkImportRowSchema } from '@/lib/validations';
 import * as XLSX from 'xlsx';
+import Link from 'next/link';
 
 interface ImportSummary {
   total_processed: number;
@@ -321,9 +322,9 @@ export default function AdminImportPage() {
             </p>
           </div>
           <div className="flex gap-2 flex-wrap">
-            <a href="/admin/drivers" className="text-[10px] font-bold uppercase tracking-wider text-slate-600 border border-slate-200 hover:bg-slate-50 py-1.5 px-2.5 rounded-lg transition">Drivers</a>
-            <a href="/admin/parents" className="text-[10px] font-bold uppercase tracking-wider text-slate-600 border border-slate-200 hover:bg-slate-50 py-1.5 px-2.5 rounded-lg transition">Parents</a>
-            <a href="/admin/students" className="text-[10px] font-bold uppercase tracking-wider text-slate-600 border border-slate-200 hover:bg-slate-50 py-1.5 px-2.5 rounded-lg transition">Students</a>
+            <Link href="/dashboard?tab=drivers" className="text-[10px] font-bold uppercase tracking-wider text-slate-600 border border-slate-200 hover:bg-slate-50 py-1.5 px-2.5 rounded-lg transition">Drivers</Link>
+            <Link href="/dashboard?tab=parents" className="text-[10px] font-bold uppercase tracking-wider text-slate-600 border border-slate-200 hover:bg-slate-50 py-1.5 px-2.5 rounded-lg transition">Parents</Link>
+            <Link href="/dashboard?tab=students" className="text-[10px] font-bold uppercase tracking-wider text-slate-600 border border-slate-200 hover:bg-slate-50 py-1.5 px-2.5 rounded-lg transition">Students</Link>
           </div>
         </div>
       </div>
