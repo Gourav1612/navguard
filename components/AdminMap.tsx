@@ -47,8 +47,8 @@ export function AdminMap({ activeTrips = [] }: AdminMapProps) {
 
     // Initialize Leaflet map
     const map = L.map('admin-map', { zoomControl: true }).setView(center, 13);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-      attribution: '© OpenStreetMap contributors & CARTO',
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors',
     }).addTo(map);
 
     mapRef.current = map;
@@ -154,18 +154,6 @@ export function AdminMap({ activeTrips = [] }: AdminMapProps) {
   return (
     <div className="relative z-0 w-full h-[450px] border border-slate-200 rounded-2xl overflow-hidden shadow-inner">
       <div id="admin-map" className="w-full h-full" />
-      {/* Technical Grid Overlay */}
-      <div 
-        className="absolute inset-0 pointer-events-none opacity-[0.05]" 
-        style={{
-          zIndex: 400,
-          backgroundImage: `
-            linear-gradient(to right, #000000 1px, transparent 1px),
-            linear-gradient(to bottom, #000000 1px, transparent 1px)
-          `,
-          backgroundSize: '24px 24px'
-        }}
-      />
     </div>
   );
 }
