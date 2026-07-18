@@ -230,11 +230,6 @@ export default function LoginPage() {
 
         {/* Gradient left-to-right fade overlay to blend map perfectly */}
         <div className="absolute inset-y-0 left-0 w-48 bg-gradient-to-r from-[#0e071e]/85 via-[#0e071e]/50 to-transparent z-10 pointer-events-none" />
-
-        {/* Floating Brand Stamp (bottom right corner) */}
-        <div className="absolute bottom-8 right-8 z-30 font-black text-white/20 text-2xl tracking-widest font-mono select-none uppercase">
-          NaviGuard
-        </div>
       </div>
     </div>
   );
