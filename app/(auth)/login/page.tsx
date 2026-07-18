@@ -92,13 +92,13 @@ export default function LoginPage() {
         <LoginMapAnimation />
         
         {/* Dark Purple Tint & Tonal Gradient Fades */}
-        <div className="absolute inset-0 bg-[#0e071e]/50 pointer-events-none" />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#0e071e] via-[#0e071e]/10 to-[#0e071e]/40 pointer-events-none" />
-        <div className="absolute inset-0 bg-gradient-to-b from-[#0e071e]/40 via-transparent to-[#0e071e]/60 pointer-events-none" />
+        <div className="absolute inset-0 bg-[#0e071e]/25 pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#0e071e]/70 via-transparent to-[#0e071e]/40 pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#0e071e]/45 via-transparent to-[#0e071e]/55 pointer-events-none" />
       </div>
 
-      {/* Left Column: Form Panel (Solid bg on desktop, transparent dark shade overlay on mobile) */}
-      <div className="w-full md:w-[45%] lg:w-[40%] min-h-screen flex items-center justify-center p-6 sm:p-12 bg-[#0e071e]/90 md:bg-[#0e071e] z-10 relative border-r border-[#1f133d]/40 backdrop-blur-xs md:backdrop-blur-none">
+      {/* Left Column: Form Panel (Semi-transparent bg on both mobile and PC so map is visible behind the form) */}
+      <div className="w-full md:w-[45%] lg:w-[40%] min-h-screen flex items-center justify-center p-6 sm:p-12 bg-[#0e071e]/65 md:bg-[#0e071e]/85 z-10 relative border-r border-[#1f133d]/40 backdrop-blur-xs">
         <div className="w-full max-w-md space-y-8 animate-in fade-in duration-300">
           
           {/* Brand Header */}
@@ -218,8 +218,8 @@ export default function LoginPage() {
       {/* Right Column: Overlay Wave and Masks (only on desktop to blend the map on the right) */}
       <div className="hidden md:block md:w-[55%] lg:w-[60%] relative z-10 pointer-events-none">
         
-        {/* Wavy solid color mask to bleed left solid bg into map */}
-        <svg className="absolute top-0 bottom-0 left-0 w-24 h-full text-[#0e071e] fill-current z-20 pointer-events-none -ml-[1px]" viewBox="0 0 100 100" preserveAspectRatio="none">
+        {/* Wavy solid color mask to bleed left solid bg into map (matching left panel opacity) */}
+        <svg className="absolute top-0 bottom-0 left-0 w-24 h-full text-[#0e071e] opacity-85 fill-current z-20 pointer-events-none -ml-[1px]" viewBox="0 0 100 100" preserveAspectRatio="none">
           <path d="M0,0 C50,20 70,40 30,60 C70,80 50,90 0,100 Z" />
         </svg>
 
@@ -229,7 +229,7 @@ export default function LoginPage() {
         </svg>
 
         {/* Gradient left-to-right fade overlay to blend map perfectly */}
-        <div className="absolute inset-y-0 left-0 w-48 bg-gradient-to-r from-[#0e071e] via-[#0e071e]/60 to-transparent z-10 pointer-events-none" />
+        <div className="absolute inset-y-0 left-0 w-48 bg-gradient-to-r from-[#0e071e]/85 via-[#0e071e]/50 to-transparent z-10 pointer-events-none" />
 
         {/* Floating Brand Stamp (bottom right corner) */}
         <div className="absolute bottom-8 right-8 z-30 font-black text-white/20 text-2xl tracking-widest font-mono select-none uppercase">
