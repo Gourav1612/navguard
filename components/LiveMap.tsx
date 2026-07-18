@@ -56,8 +56,8 @@ export function LiveMap({
     // Initialize Leaflet map
     const map = L.map(mapContainerId, { zoomControl: true }).setView(center, 14);
     
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap contributors',
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+      attribution: '© OpenStreetMap contributors & CARTO',
     }).addTo(map);
 
     mapRef.current = map;
@@ -85,10 +85,10 @@ export function LiveMap({
       );
       if (polylineCoords.length > 1) {
         L.polyline(polylineCoords, {
-          color: '#3b82f6',
-          weight: 5,
-          opacity: 0.7,
-          dashArray: '5, 10',
+          color: '#2563eb',
+          weight: 4,
+          opacity: 0.8,
+          dashArray: '5, 8',
         }).addTo(map);
       }
     }
@@ -107,9 +107,9 @@ export function LiveMap({
               ([lng, lat]: [number, number]) => [lat, lng] as L.LatLngExpression
             );
             L.polyline(roadCoords, {
-              color: '#4f46e5',
-              weight: 6,
-              opacity: 0.85,
+              color: '#2563eb',
+              weight: 5,
+              opacity: 0.9,
             }).addTo(map);
           } else {
             drawStraightLines();
@@ -155,9 +155,9 @@ export function LiveMap({
                   ([lng, lat]: [number, number]) => [lat, lng] as L.LatLngExpression
                 );
                 L.polyline(roadCoords, {
-                  color: '#4f46e5',
-                  weight: 6,
-                  opacity: 0.85,
+                  color: '#2563eb',
+                  weight: 5,
+                  opacity: 0.9,
                 }).addTo(map);
               } else {
                 fallbackToOsrm();
@@ -310,6 +310,18 @@ export function LiveMap({
   return (
     <div className="relative z-0 w-full h-full min-h-[300px] border border-slate-200 rounded-xl overflow-hidden shadow-inner">
       <div id={mapContainerId} className="w-full h-full" />
+      {/* Technical Grid Overlay */}
+      <div 
+        className="absolute inset-0 pointer-events-none opacity-[0.05]" 
+        style={{
+          zIndex: 400,
+          backgroundImage: `
+            linear-gradient(to right, #000000 1px, transparent 1px),
+            linear-gradient(to bottom, #000000 1px, transparent 1px)
+          `,
+          backgroundSize: '24px 24px'
+        }}
+      />
 
       {/* Route Mode Toggle Control */}
       {stops.length > 1 && (

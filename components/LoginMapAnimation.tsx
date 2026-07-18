@@ -123,6 +123,17 @@ export function LoginMapAnimation() {
     <div className="w-full h-full relative">
       <style dangerouslySetInnerHTML={{ __html: markerStyle }} />
       <div id={mapContainerId} className="w-full h-full" />
+      {/* Technical Grid Overlay */}
+      <div 
+        className="absolute inset-0 z-10 pointer-events-none opacity-[0.06]" 
+        style={{
+          backgroundImage: `
+            linear-gradient(to right, #ffffff 1px, transparent 1px),
+            linear-gradient(to bottom, #ffffff 1px, transparent 1px)
+          `,
+          backgroundSize: '24px 24px'
+        }}
+      />
     </div>
   );
 }

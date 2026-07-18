@@ -31,7 +31,7 @@ export async function POST() {
     }
 
     // Call mail dispatcher
-    const subject = '🛡️ NaviGuard MFA Verification Code';
+    const subject = 'NaviGuard MFA Verification Code';
     const html = `
       <div style="font-family: sans-serif; padding: 24px; max-width: 480px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff;">
         <h2 style="color: #3b255e; margin-bottom: 8px; font-weight: 800;">MFA Verification Request</h2>
