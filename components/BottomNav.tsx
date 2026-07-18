@@ -19,6 +19,15 @@ export function BottomNav({ children }: { children: React.ReactNode }) {
   const currentTab = searchParams.get('tab') || '';
   const [user, setUser] = useState<UserProfile | null>(null);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 10);
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   useEffect(() => {
     async function fetchMe() {
@@ -134,8 +143,13 @@ export function BottomNav({ children }: { children: React.ReactNode }) {
 
       {/* Main Content Pane Wrapper */}
       <div className="flex-1 flex flex-col min-h-screen relative overflow-hidden">
-        {/* Mobile Header (Hidden on md and up) */}
-        <header className="md:hidden sticky top-0 bg-gradient-to-r from-[#351e56] to-[#5c3b99] text-white py-4 px-6 flex items-center justify-between shadow-md z-30">
+        {/* Mobile Header (Hidden on md and up, sticks and blurs on scroll) */}
+        <header className={cn(
+          "md:hidden sticky top-0 z-30 flex items-center justify-between px-6 py-4 transition-all duration-300 text-white w-full",
+          isScrolled 
+            ? "bg-[#351e56]/80 backdrop-blur-md shadow-lg border-b border-purple-500/10" 
+            : "bg-gradient-to-r from-[#351e56] to-[#5c3b99] border-b border-transparent shadow-md"
+        )}>
           <div className="flex items-center gap-3">
             <img src="/logo.png" alt="Logo" className="w-8 h-8 object-contain bg-white/5 border border-white/10 rounded-lg p-0.5" />
             <span className="font-extrabold text-sm tracking-wide">NaviGuard AI</span>
