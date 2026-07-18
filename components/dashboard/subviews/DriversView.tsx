@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Plus, Edit2, Trash2, X, Loader2, AlertCircle, ShieldCheck, Mail, Phone, Calendar, Bus, MapPin } from 'lucide-react';
+import { Plus, Edit2, Trash2, X, Loader2, AlertCircle, ShieldCheck, Mail, Phone, Calendar, Bus, MapPin, Eye, EyeOff } from 'lucide-react';
 import { Badge } from '@/components/Badge';
 import { CreateDriverSchema } from '@/lib/validations';
 import type { z } from 'zod';
@@ -28,6 +28,7 @@ export default function AdminDrivers() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingDriver, setEditingDriver] = useState<any | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   // Live Tracking Modal states
   const [trackingDriver, setTrackingDriver] = useState<any | null>(null);
@@ -179,6 +180,7 @@ export default function AdminDrivers() {
   const handleOpenAddModal = () => {
     setEditingDriver(null);
     setErrorMessage(null);
+    setShowPassword(false);
     reset({
       full_name: '',
       email: '',
@@ -194,6 +196,7 @@ export default function AdminDrivers() {
   const handleOpenEditModal = (driver: any) => {
     setEditingDriver(driver);
     setErrorMessage(null);
+    setShowPassword(false);
     reset({
       full_name: driver.user?.full_name || '',
       email: driver.user?.email || '',
@@ -433,13 +436,23 @@ export default function AdminDrivers() {
               {!editingDriver && (
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Assign Password *</label>
-                  <input
-                    type="password"
-                    disabled={mutating}
-                    placeholder="Min 8 characters, 1 upper, 1 digit"
-                    className="block w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                    {...register('password')}
-                  />
+                  <div className="relative">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      disabled={mutating}
+                      placeholder="Min 8 characters, 1 upper, 1 digit"
+                      className="block w-full pl-3.5 pr-11 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      {...register('password')}
+                    />
+                    <button
+                      type="button"
+                      tabIndex={-1}
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-650 focus:outline-none cursor-pointer"
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
                   {errors.password && <p className="text-red-500 text-xs mt-1 font-semibold">{errors.password.message}</p>}
                 </div>
               )}
