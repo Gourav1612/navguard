@@ -1,12 +1,23 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useRouter } from 'next/navigation';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Loader2, Lock, Mail, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { LoginSchema } from '@/lib/validations';
 import type { z } from 'zod';
+import dynamic from 'next/dynamic';
+
+// Dynamically load Map Animation to bypass SSR errors
+const LoginMapAnimation = dynamic(() => import('@/components/LoginMapAnimation'), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-full bg-[#0e071e] flex items-center justify-center text-purple-300">
+      <Loader2 className="w-8 h-8 animate-spin" />
+    </div>
+  ),
+});
 
 type LoginFormValues = z.infer<typeof LoginSchema>;
 
@@ -34,7 +45,6 @@ export default function LoginPage() {
 
     let detectedIp: string | undefined = undefined;
     try {
-      // 800ms max timeout for public IP fetch to keep login quick
       const ipPromise = fetch('https://api.ipify.org?format=json')
         .then((res) => (res.ok ? res.json() : null))
         .then((data) => data?.ip || undefined);
@@ -66,7 +76,6 @@ export default function LoginPage() {
         return;
       }
 
-      // Login succeeded. Redirect to the unified dashboard.
       router.refresh();
       router.push('/dashboard');
     } catch (err: any) {
@@ -76,65 +85,35 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen bg-[#f4f2f8]">
-      {/* Left Column: Accent Graphic & Brand Pitch */}
-      <div className="hidden md:flex md:w-1/2 bg-gradient-to-br from-[#351e56] via-[#5c3b99] to-[#1a0e2b] text-white flex-col justify-between p-12 relative overflow-hidden">
-        <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:16px_16px]"></div>
-        
-        <div className="flex items-center gap-3 relative z-10">
-          <div className="flex items-center justify-center w-10 h-10 bg-white/10 rounded-xl text-white font-black text-xl backdrop-blur-md border border-white/20">
-            NG
-          </div>
-          <span className="font-extrabold text-lg tracking-wider text-white">NaviGuard AI</span>
-        </div>
-
-        <div className="space-y-6 relative z-10 max-w-md my-auto">
-          <h2 className="text-4xl font-black tracking-tight leading-tight text-white">
-            Ensuring Safety in Student Transportation
-          </h2>
-          <p className="text-purple-200/90 text-sm leading-relaxed font-semibold">
-            Eliminating school bus tracking uncertainty. Access live locations, automated route ETAs, and role-based operator controls all from a unified dashboard.
-          </p>
-          <div className="flex items-center gap-4 pt-4">
-            <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-white/10 border border-white/20 text-white backdrop-blur-md">
-              🟢 Live GPS Tracking
-            </span>
-            <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-white/10 border border-white/20 text-white backdrop-blur-md">
-              ⚡ Instant ETAs
-            </span>
-          </div>
-        </div>
-
-        <div className="text-xs text-purple-300 relative z-10 font-semibold font-mono">
-          &copy; {new Date().getFullYear()} NaviGuard AI Transport SaaS. All rights reserved.
-        </div>
-      </div>
-
-      {/* Right Column: Clean Form (gorgeous responsive cards on mobile, clean side panel on desktop) */}
-      <div className="w-full md:w-1/2 flex items-center justify-center p-4 sm:p-8 bg-[#f4f2f8] md:bg-white border-l border-slate-150">
-        <div className="w-full max-w-md bg-white border border-slate-150 md:border-none rounded-3xl md:rounded-none p-6 sm:p-8 md:p-0 shadow-xl shadow-purple-900/5 md:shadow-none space-y-6 sm:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-300">
+    <div className="flex min-h-screen bg-[#0e071e] text-slate-100">
+      
+      {/* Left Column: Dark Elegant Login Form Card */}
+      <div className="w-full md:w-[45%] lg:w-[40%] flex items-center justify-center p-6 sm:p-12 bg-[#0e071e] z-10 relative border-r border-[#1f133d]">
+        <div className="w-full max-w-md space-y-8 animate-in fade-in duration-300">
           
-          {/* Mobile Logo Brand Header (visible only on mobile) */}
-          <div className="flex flex-col items-center justify-center gap-2 md:hidden">
-            <div className="flex items-center justify-center w-12 h-12 bg-gradient-to-br from-[#351e56] to-[#5c3b99] rounded-2xl text-white font-black text-xl shadow-lg border border-white/20">
+          {/* Brand Header */}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center justify-center w-10 h-10 bg-purple-500/10 border border-purple-500/25 rounded-2xl text-purple-400 font-black text-xl shadow-inner">
               NG
             </div>
-            <h1 className="font-extrabold text-lg tracking-wider text-[#1e1b4b] leading-none">NaviGuard AI</h1>
-            <span className="text-[9px] text-purple-650 font-bold uppercase tracking-widest bg-purple-50 px-2 py-0.5 rounded border border-purple-100/50 mt-1">Security Portal</span>
+            <span className="font-extrabold text-base tracking-wider text-purple-100">NaviGuard AI</span>
           </div>
 
-          {/* Header Title (Centered on mobile, left-aligned on desktop) */}
-          <div className="space-y-2 text-center md:text-left">
-            <h3 className="text-2xl md:text-3xl font-black text-[#1e1b4b] tracking-tight">Sign In</h3>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-              Access your NaviGuard account dashboard
+          {/* Title Header */}
+          <div className="space-y-2 pt-2">
+            <span className="text-[10px] font-black text-purple-400 tracking-widest uppercase block pl-0.5">secured access</span>
+            <h2 className="text-3xl lg:text-4xl font-black text-white tracking-tight leading-none">
+              Sign in to account<span className="text-purple-500">.</span>
+            </h2>
+            <p className="text-slate-400 text-xs font-semibold pt-1">
+              Eliminating school bus tracking uncertainty.
             </p>
           </div>
 
           {/* Alert Error Banner */}
           {error && (
-            <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-2xl text-red-800 text-xs animate-in shake duration-200">
-              <AlertCircle className="w-4.5 h-4.5 text-red-650 flex-shrink-0 mt-0.5" />
+            <div className="flex items-start gap-3 p-4 bg-red-955/40 border border-red-900/60 rounded-2xl text-red-200 text-xs animate-in shake duration-200">
+              <AlertCircle className="w-4.5 h-4.5 text-red-500 flex-shrink-0 mt-0.5" />
               <div className="font-bold">{error}</div>
             </div>
           )}
@@ -143,28 +122,28 @@ export default function LoginPage() {
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             {/* Email Field */}
             <div className="space-y-2">
-              <label htmlFor="email" className="text-[10px] font-black uppercase tracking-widest text-slate-400 block pl-1">
+              <label htmlFor="email" className="text-[10px] font-black uppercase tracking-widest text-purple-300 block pl-1">
                 Email Address
               </label>
-              <div className="relative rounded-lg shadow-2xs">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                  <Mail className="h-5 w-5 text-slate-400" />
+              <div className="relative rounded-2xl shadow-2xs">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <Mail className="h-4.5 w-4.5 text-purple-400" />
                 </div>
                 <input
                   id="email"
                   type="email"
                   disabled={loading}
                   placeholder="name@school.edu"
-                  className={`block w-full pl-11 pr-3 py-3.5 border rounded-2xl text-sm transition focus:outline-none focus:ring-4 focus:ring-purple-500/10 ${
+                  className={`block w-full pl-11 pr-3 py-3.5 bg-[#160d2b] border text-white rounded-2xl text-sm transition focus:outline-none focus:ring-4 focus:ring-purple-500/10 ${
                     errors.email
-                      ? 'border-red-300 focus:ring-red-200'
-                      : 'border-slate-200 focus:ring-[#5c3b99]/20 focus:border-[#5c3b99]'
+                      ? 'border-red-500/50 focus:ring-red-500/10'
+                      : 'border-[#301c56] focus:border-purple-500'
                   }`}
                   {...register('email')}
                 />
               </div>
               {errors.email && (
-                <p className="text-xs font-semibold text-red-500 mt-1.5 flex items-center gap-1">
+                <p className="text-xs font-semibold text-red-400 mt-1.5 flex items-center gap-1">
                   <AlertCircle className="w-3.5 h-3.5" /> {errors.email.message}
                 </p>
               )}
@@ -172,24 +151,22 @@ export default function LoginPage() {
 
             {/* Password Field */}
             <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label htmlFor="password" className="text-[10px] font-black uppercase tracking-widest text-slate-400 block pl-1">
-                  Password
-                </label>
-              </div>
-              <div className="relative rounded-lg shadow-2xs">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                  <Lock className="h-5 w-5 text-slate-400" />
+              <label htmlFor="password" className="text-[10px] font-black uppercase tracking-widest text-purple-300 block pl-1">
+                Password
+              </label>
+              <div className="relative rounded-2xl shadow-2xs">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <Lock className="h-4.5 w-4.5 text-purple-400" />
                 </div>
                 <input
                   id="password"
                   type={showPassword ? 'text' : 'password'}
                   disabled={loading}
                   placeholder="••••••••"
-                  className={`block w-full pl-11 pr-10 py-3.5 border rounded-2xl text-sm transition focus:outline-none focus:ring-4 focus:ring-purple-500/10 ${
+                  className={`block w-full pl-11 pr-10 py-3.5 bg-[#160d2b] border text-white rounded-2xl text-sm transition focus:outline-none focus:ring-4 focus:ring-purple-500/10 ${
                     errors.password
-                      ? 'border-red-300 focus:ring-red-200'
-                      : 'border-slate-200 focus:ring-[#5c3b99]/20 focus:border-[#5c3b99]'
+                      ? 'border-red-500/50 focus:ring-red-500/10'
+                      : 'border-[#301c56] focus:border-purple-500'
                   }`}
                   {...register('password')}
                 />
@@ -197,13 +174,13 @@ export default function LoginPage() {
                   type="button"
                   disabled={loading}
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-650 focus:outline-none"
+                  className="absolute inset-y-0 right-0 pr-4 flex items-center text-purple-400 hover:text-purple-300 focus:outline-none"
                 >
-                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  {showPassword ? <EyeOff className="h-4.5 w-4.5" /> : <Eye className="h-4.5 w-4.5" />}
                 </button>
               </div>
               {errors.password && (
-                <p className="text-xs font-semibold text-red-500 mt-1.5 flex items-center gap-1">
+                <p className="text-xs font-semibold text-red-400 mt-1.5 flex items-center gap-1">
                   <AlertCircle className="w-3.5 h-3.5" /> {errors.password.message}
                 </p>
               )}
@@ -213,7 +190,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="flex items-center justify-center w-full py-4 px-4 bg-gradient-to-r from-[#351e56] via-[#5c3b99] to-[#432775] hover:opacity-95 text-white rounded-2xl text-xs font-black uppercase tracking-wider transition-all shadow-md shadow-purple-500/20 active:scale-[0.99] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center justify-center w-full py-4 px-4 bg-gradient-to-r from-purple-600 via-purple-700 to-indigo-600 hover:opacity-95 text-white rounded-2xl text-xs font-black uppercase tracking-widest transition-all shadow-lg shadow-purple-500/20 active:scale-[0.99] cursor-pointer disabled:opacity-50"
             >
               {loading ? (
                 <>
@@ -225,6 +202,28 @@ export default function LoginPage() {
               )}
             </button>
           </form>
+        </div>
+      </div>
+
+      {/* Right Column: Dynamic Live Neon Map Animation with SVG Curved Masks */}
+      <div className="hidden md:block md:w-[55%] lg:w-[60%] bg-[#0e071e] relative overflow-hidden">
+        
+        {/* Live Neon Map */}
+        <LoginMapAnimation />
+
+        {/* Wavy SVG Mask (masks the left side of map container to match left panel background) */}
+        <svg className="absolute top-0 bottom-0 left-0 w-24 h-full text-[#0e071e] fill-current z-20 pointer-events-none -ml-[1px] hidden md:block" viewBox="0 0 100 100" preserveAspectRatio="none">
+          <path d="M0,0 C50,20 70,40 30,60 C70,80 50,90 0,100 Z" />
+        </svg>
+
+        {/* Wavy Neon Dashed Outline SVG */}
+        <svg className="absolute top-0 bottom-0 left-0 w-24 h-full z-20 pointer-events-none -ml-[1px] hidden md:block" viewBox="0 0 100 100" preserveAspectRatio="none">
+          <path d="M0,0 C50,20 70,40 30,60 C70,80 50,90 0,100" fill="none" stroke="#a855f7" strokeWidth="1.5" strokeDasharray="3, 5" opacity="0.75" />
+        </svg>
+
+        {/* Floating Brand Stamp (bottom right corner) */}
+        <div className="absolute bottom-8 right-8 z-30 font-black text-white/30 text-2xl tracking-widest font-mono pointer-events-none select-none uppercase">
+          NaviGuard
         </div>
       </div>
     </div>
