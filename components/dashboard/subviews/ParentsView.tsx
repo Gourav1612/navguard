@@ -4,7 +4,8 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Plus, Edit2, Trash2, X, Loader2, AlertCircle, Mail, Phone, Users, CheckSquare, Square, Search, Eye, EyeOff } from 'lucide-react';
+import { Plus, Edit2, Trash2, X, Loader2, AlertCircle, Mail, Phone, Users, CheckSquare, Square, Search, Eye, EyeOff, Download, FileSpreadsheet } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { CreateParentSchema } from '@/lib/validations';
 import type { z } from 'zod';
 
@@ -44,6 +45,39 @@ export default function AdminParents() {
     p.user?.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     p.user?.phone?.includes(searchQuery)
   );
+
+  const handleExportCSV = () => {
+    const exportData = filteredParents.map((parent: any) => ({
+      'Parent Name': parent.user?.full_name || '',
+      'Email Address': parent.user?.email || '',
+      'Phone Number': parent.user?.phone || '',
+      'Linked Children': (parent.students || []).map((s: any) => `${s.user?.full_name || ''} (Grade ${s.grade || ''})`).join(', '),
+    }));
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    const csvOutput = XLSX.utils.sheet_to_csv(worksheet);
+    const blob = new Blob([csvOutput], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'naviguard_parents_export.csv');
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleExportXLSX = () => {
+    const exportData = filteredParents.map((parent: any) => ({
+      'Parent Name': parent.user?.full_name || '',
+      'Email Address': parent.user?.email || '',
+      'Phone Number': parent.user?.phone || '',
+      'Linked Children': (parent.students || []).map((s: any) => `${s.user?.full_name || ''} (Grade ${s.grade || ''})`).join(', '),
+    }));
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Parents Directory');
+    XLSX.writeFile(workbook, 'naviguard_parents_export.xlsx');
+  };
 
   const {
     register,
@@ -202,13 +236,41 @@ export default function AdminParents() {
           <h2 className="text-2xl font-black text-slate-900 tracking-tight">Parent Profiles</h2>
           <p className="text-slate-500 text-sm font-medium">Manage parent contact credentials, and pair parents to their children for live tracking maps.</p>
         </div>
-        <button
-          onClick={handleOpenAddModal}
-          className="flex items-center justify-center gap-2 px-5 py-3 bg-[#5c3b99] hover:bg-[#432775] text-white rounded-xl text-sm font-bold shadow-lg shadow-purple-500/20 hover:shadow-xl transition-all duration-300 cursor-pointer"
-        >
-          <Plus className="w-4 h-4" />
-          Add Parent Profile
-        </button>
+        <div className="flex items-center gap-2.5">
+          <div className="relative group">
+            <button
+              type="button"
+              className="flex items-center justify-center gap-2 px-4 py-3 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold transition cursor-pointer"
+            >
+              <Download className="w-4 h-4 text-slate-500" />
+              Export
+            </button>
+            <div className="absolute right-0 mt-1 w-44 bg-white border border-slate-150 rounded-xl shadow-xl py-1 z-30 hidden group-hover:block hover:block">
+              <button
+                type="button"
+                onClick={handleExportCSV}
+                className="w-full text-left px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
+              >
+                📄 Export to CSV
+              </button>
+              <button
+                type="button"
+                onClick={handleExportXLSX}
+                className="w-full text-left px-4 py-2.5 text-xs font-bold text-slate-750 hover:bg-slate-50 cursor-pointer"
+              >
+                📊 Export to Excel (XLSX)
+              </button>
+            </div>
+          </div>
+
+          <button
+            onClick={handleOpenAddModal}
+            className="flex items-center justify-center gap-2 px-5 py-3 bg-[#5c3b99] hover:bg-[#432775] text-white rounded-xl text-sm font-bold shadow-lg shadow-purple-500/20 hover:shadow-xl transition-all duration-300 cursor-pointer flex-shrink-0"
+          >
+            <Plus className="w-4 h-4" />
+            Add Parent Profile
+          </button>
+        </div>
       </div>
 
       {/* Search & Actions Bar */}

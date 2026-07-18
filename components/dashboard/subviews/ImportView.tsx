@@ -17,6 +17,7 @@ import {
   Check
 } from 'lucide-react';
 import { BulkImportRowSchema } from '@/lib/validations';
+import * as XLSX from 'xlsx';
 
 interface ImportSummary {
   total_processed: number;
@@ -73,6 +74,100 @@ export default function AdminImportPage() {
     document.body.removeChild(link);
   };
 
+  // Excel Template Generation
+  const downloadXLSXTemplate = () => {
+    const headers = ['role', 'full_name', 'email', 'phone', 'password', 'license_number', 'license_expiry', 'grade', 'roll_number', 'parent_email'];
+    const row1 = ['driver', 'Rajesh Kumar', 'rajesh.driver@school.edu', '+919876543201', 'DriverPass@1', 'DL-1420230099', '2030-12-31', '', '', ''];
+    const row2 = ['parent', 'Suman Sharma', 'suman.parent@school.edu', '+919876543202', 'ParentPass@1', '', '', '', '', ''];
+    const row3 = ['student', 'Amit Sharma', 'amit.student@school.edu', '+919876543203', 'StudentPass@1', '', '', '10-A', '42', 'suman.parent@school.edu'];
+    
+    const worksheet = XLSX.utils.aoa_to_sheet([headers, row1, row2, row3]);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Bulk Import Template');
+    XLSX.writeFile(workbook, 'naviguard_bulk_import_template.xlsx');
+  };
+
+  // CSV/Excel Parsing Flow Coordinator
+  const handleExcelOrCSVParsing = (file: File) => {
+    const reader = new FileReader();
+
+    if (file.name.endsWith('.csv')) {
+      reader.onload = (event) => {
+        if (event.target?.result) {
+          handleCSVParsing(event.target.result as string);
+        }
+      };
+      reader.readAsText(file);
+    } else if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+      reader.onload = (event) => {
+        if (event.target?.result) {
+          try {
+            const data = new Uint8Array(event.target.result as ArrayBuffer);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const firstSheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[firstSheetName];
+            
+            // Read raw JSON from sheet, with headers mapping
+            const rawRows = XLSX.utils.sheet_to_json<Record<string, any>>(worksheet, { defval: '' });
+            
+            // Normalize headers to lowercase to match validation schemas
+            const normalizedRows = rawRows.map(row => {
+              const newRow: any = {};
+              Object.entries(row).forEach(([key, val]) => {
+                const cleanKey = key.trim().toLowerCase();
+                let cleanVal = String(val).trim();
+                if (cleanVal === 'null' || cleanVal === 'undefined') cleanVal = '';
+                newRow[cleanKey] = cleanVal;
+              });
+              return newRow;
+            });
+
+            processParsedRows(normalizedRows);
+          } catch (err: any) {
+            alert(`Failed to parse Excel file: ${err.message}`);
+          }
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    } else {
+      alert('Please upload a valid CSV or Excel (.xlsx, .xls) file.');
+    }
+  };
+
+  // Shared processor for parsed rows
+  const processParsedRows = (rows: any[]) => {
+    setParsedRows(rows);
+
+    // Validate rows
+    const valid: any[] = [];
+    const invalid: any[] = [];
+
+    rows.forEach((row, idx) => {
+      const parsed = BulkImportRowSchema.safeParse(row);
+      if (parsed.success) {
+        valid.push(parsed.data);
+      } else {
+        const errorMessages = Object.entries(parsed.error.format())
+          .filter(([key]) => key !== '_errors')
+          .map(([key, val]: any) => `${key}: ${val._errors ? val._errors.join(', ') : 'Invalid format'}`);
+
+        invalid.push({
+          row: idx + 2, // 1-based index + header offset
+          data: row,
+          errors: errorMessages
+        });
+      }
+    });
+
+    setValidationResults({ validRows: valid, invalidRows: invalid });
+    setImportReport(null);
+    if (invalid.length > 0) {
+      setActiveTab('invalid');
+    } else {
+      setActiveTab('preview');
+    }
+  };
+
   // CSV Parsing Logic
   const handleCSVParsing = (text: string) => {
     const lines = text.split(/\r?\n/);
@@ -113,36 +208,7 @@ export default function AdminImportPage() {
       rows.push(rowObj);
     }
 
-    setParsedRows(rows);
-
-    // Validate rows
-    const valid: any[] = [];
-    const invalid: any[] = [];
-
-    rows.forEach((row, idx) => {
-      const parsed = BulkImportRowSchema.safeParse(row);
-      if (parsed.success) {
-        valid.push(parsed.data);
-      } else {
-        const errorMessages = Object.entries(parsed.error.format())
-          .filter(([key]) => key !== '_errors')
-          .map(([key, val]: any) => `${key}: ${val._errors ? val._errors.join(', ') : 'Invalid format'}`);
-
-        invalid.push({
-          row: idx + 2, // 1-based index + header offset
-          data: row,
-          errors: errorMessages
-        });
-      }
-    });
-
-    setValidationResults({ validRows: valid, invalidRows: invalid });
-    setImportReport(null);
-    if (invalid.length > 0) {
-      setActiveTab('invalid');
-    } else {
-      setActiveTab('preview');
-    }
+    processParsedRows(rows);
   };
 
   const handleFileDrop = (e: React.DragEvent) => {
@@ -150,29 +216,13 @@ export default function AdminImportPage() {
     setDragActive(false);
     
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      const file = e.dataTransfer.files[0];
-      if (file.name.endsWith('.csv')) {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          if (event.target?.result) {
-            handleCSVParsing(event.target.result as string);
-          }
-        };
-        reader.readAsText(file);
-      }
+      handleExcelOrCSVParsing(e.dataTransfer.files[0]);
     }
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        if (event.target?.result) {
-          handleCSVParsing(event.target.result as string);
-        }
-      };
-      reader.readAsText(file);
+      handleExcelOrCSVParsing(e.target.files[0]);
     }
   };
 
@@ -240,13 +290,22 @@ export default function AdminImportPage() {
               <li><strong>Students</strong>: Requires <code className="text-slate-200 font-mono font-bold">grade</code>, <code className="text-slate-200 font-mono font-bold">roll_number</code>, and optionally <code className="text-slate-200 font-mono font-bold">parent_email</code> (to auto-link the student to their guardian).</li>
             </ul>
           </div>
-          <div>
+          <div className="flex flex-wrap gap-2.5">
             <button
+              type="button"
               onClick={downloadTemplate}
               className="inline-flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-white font-semibold text-xs py-2.5 px-4 rounded-xl border border-slate-700 hover:border-slate-650 transition cursor-pointer"
             >
               <Download className="w-3.5 h-3.5" />
               Download CSV Template
+            </button>
+            <button
+              type="button"
+              onClick={downloadXLSXTemplate}
+              className="inline-flex items-center gap-2 bg-emerald-800 hover:bg-emerald-700 text-white font-semibold text-xs py-2.5 px-4 rounded-xl border border-emerald-700 hover:border-emerald-650 transition cursor-pointer"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5" />
+              Download Excel Template
             </button>
           </div>
         </div>
@@ -286,17 +345,17 @@ export default function AdminImportPage() {
             type="file" 
             ref={fileInputRef} 
             onChange={handleFileSelect} 
-            accept=".csv" 
+            accept=".csv,.xlsx,.xls" 
             className="hidden" 
           />
           <div className="flex items-center justify-center w-14 h-14 bg-slate-100 border border-slate-200 rounded-2xl text-slate-500 mb-4 transition-all">
             <Upload className="w-7 h-7" />
           </div>
-          <h3 className="text-lg font-bold text-slate-800">Upload CSV file</h3>
+          <h3 className="text-lg font-bold text-slate-800">Upload CSV or Excel file</h3>
           <p className="text-xs text-slate-400 max-w-sm mt-1 mb-5 leading-normal">
-            Drag and drop your parsed file here, or click to browse files from your computer. Must be a valid CSV.
+            Drag and drop your template file here, or click to browse files from your computer. Must be a valid CSV or Excel spreadsheet (.xlsx, .xls).
           </p>
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-100 border border-slate-200 px-3 py-1 rounded-full">CSV ONLY</span>
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-100 border border-slate-200 px-3 py-1 rounded-full">CSV OR EXCEL</span>
         </div>
       )}
 

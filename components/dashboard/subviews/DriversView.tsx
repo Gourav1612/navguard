@@ -4,7 +4,8 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Plus, Edit2, Trash2, X, Loader2, AlertCircle, ShieldCheck, Mail, Phone, Calendar, Bus, MapPin, Eye, EyeOff } from 'lucide-react';
+import { Plus, Edit2, Trash2, X, Loader2, AlertCircle, ShieldCheck, Mail, Phone, Calendar, Bus, MapPin, Eye, EyeOff, Download, FileSpreadsheet } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { Badge } from '@/components/Badge';
 import { CreateDriverSchema } from '@/lib/validations';
 import type { z } from 'zod';
@@ -234,6 +235,45 @@ export default function AdminDrivers() {
     });
   };
 
+  const handleExportCSV = () => {
+    const exportData = drivers.map((driver: any) => ({
+      'Driver Name': driver.user?.full_name || '',
+      'Email Address': driver.user?.email || '',
+      'Phone Number': driver.user?.phone || '',
+      'License Number': driver.license_number || '',
+      'License Expiry': driver.license_expiry || '',
+      'Assigned Bus': driver.bus?.name || 'Unassigned',
+      'Account Status': driver.is_active ? 'Active' : 'Disabled',
+    }));
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    const csvOutput = XLSX.utils.sheet_to_csv(worksheet);
+    const blob = new Blob([csvOutput], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'naviguard_drivers_export.csv');
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleExportXLSX = () => {
+    const exportData = drivers.map((driver: any) => ({
+      'Driver Name': driver.user?.full_name || '',
+      'Email Address': driver.user?.email || '',
+      'Phone Number': driver.user?.phone || '',
+      'License Number': driver.license_number || '',
+      'License Expiry': driver.license_expiry || '',
+      'Assigned Bus': driver.bus?.name || 'Unassigned',
+      'Account Status': driver.is_active ? 'Active' : 'Disabled',
+    }));
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Drivers Directory');
+    XLSX.writeFile(workbook, 'naviguard_drivers_export.xlsx');
+  };
+
   if (driversLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[50vh] gap-3">
@@ -253,13 +293,41 @@ export default function AdminDrivers() {
           <h2 className="text-2xl font-black text-slate-900 tracking-tight">Drivers Log</h2>
           <p className="text-slate-500 text-sm font-medium">Provision driver authentication access keys, document vehicle license numbers, and manage shift links.</p>
         </div>
-        <button
-          onClick={handleOpenAddModal}
-          className="flex items-center justify-center gap-2 px-5 py-3 bg-primary hover:bg-primary-dark text-white rounded-xl text-sm font-semibold transition hover:shadow-lg shadow-primary/25 cursor-pointer"
-        >
-          <Plus className="w-4 h-4" />
-          Add Driver Record
-        </button>
+        <div className="flex items-center gap-2.5">
+          <div className="relative group">
+            <button
+              type="button"
+              className="flex items-center justify-center gap-2 px-4 py-3 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold transition cursor-pointer"
+            >
+              <Download className="w-4 h-4 text-slate-500" />
+              Export
+            </button>
+            <div className="absolute right-0 mt-1 w-44 bg-white border border-slate-150 rounded-xl shadow-xl py-1 z-30 hidden group-hover:block hover:block">
+              <button
+                type="button"
+                onClick={handleExportCSV}
+                className="w-full text-left px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
+              >
+                📄 Export to CSV
+              </button>
+              <button
+                type="button"
+                onClick={handleExportXLSX}
+                className="w-full text-left px-4 py-2.5 text-xs font-bold text-slate-755 hover:bg-slate-50 cursor-pointer"
+              >
+                📊 Export to Excel (XLSX)
+              </button>
+            </div>
+          </div>
+
+          <button
+            onClick={handleOpenAddModal}
+            className="flex items-center justify-center gap-2 px-5 py-3 bg-primary hover:bg-primary-dark text-white rounded-xl text-sm font-semibold transition hover:shadow-lg shadow-primary/25 cursor-pointer flex-shrink-0"
+          >
+            <Plus className="w-4 h-4" />
+            Add Driver Record
+          </button>
+        </div>
       </div>
 
       {/* Grid view */}
