@@ -77,9 +77,7 @@ export function Sidebar() {
     <div className="flex flex-col h-full bg-gradient-to-b from-[#351e56] to-[#1a0e2b] text-slate-100 border-r border-[#2d194a] shadow-2xl">
       {/* Brand Header */}
       <div className="flex items-center gap-3 px-6 py-6 border-b border-[#2d194a]/60">
-        <div className="flex items-center justify-center w-10 h-10 bg-white/10 rounded-xl text-white font-black text-xl shadow-lg border border-white/10 backdrop-blur-md">
-          NG
-        </div>
+        <img src="/logo.png" alt="Logo" className="w-10 h-10 object-contain bg-white/5 border border-white/10 rounded-xl p-1" />
         <div>
           <h1 className="font-extrabold text-base tracking-wide leading-none text-white">NaviGuard AI</h1>
           <span className="text-[9px] text-purple-300 font-bold uppercase tracking-widest block mt-1">Transport Admin</span>
@@ -155,9 +153,7 @@ export function Sidebar() {
       {/* Mobile Top Navbar (visible only on mobile screen widths) */}
       <div className="lg:hidden flex items-center justify-between px-6 py-4 bg-[#351e56] border-b border-[#2d194a]/60 text-slate-100">
         <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center w-8 h-8 bg-white/10 rounded-lg text-white font-black text-lg border border-white/10">
-            NG
-          </div>
+          <img src="/logo.png" alt="Logo" className="w-8 h-8 object-contain bg-white/5 border border-white/10 rounded-lg p-0.5" />
           <span className="font-extrabold text-sm tracking-wide">NaviGuard AI</span>
         </div>
         <button

@@ -103,9 +103,7 @@ export default function LoginPage() {
           
           {/* Brand Header */}
           <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center w-10 h-10 bg-purple-500/10 border border-purple-500/25 rounded-2xl text-purple-400 font-black text-xl shadow-inner">
-              NG
-            </div>
+            <img src="/logo.png" alt="NaviGuard Logo" className="w-10 h-10 object-contain bg-purple-500/5 border border-purple-500/20 rounded-2xl p-1" />
             <span className="font-extrabold text-base tracking-wider text-purple-100">NaviGuard AI</span>
           </div>
 
