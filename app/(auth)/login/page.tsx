@@ -85,10 +85,20 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen bg-[#0e071e] text-slate-100">
+    <div className="relative min-h-screen bg-[#0e071e] text-slate-100 overflow-hidden flex flex-col md:flex-row">
       
-      {/* Left Column: Dark Elegant Login Form Card */}
-      <div className="w-full md:w-[45%] lg:w-[40%] flex items-center justify-center p-6 sm:p-12 bg-[#0e071e] z-10 relative border-r border-[#1f133d]">
+      {/* Full-Screen Background Map & Dark Tonal Overlays */}
+      <div className="absolute inset-0 z-0">
+        <LoginMapAnimation />
+        
+        {/* Dark Purple Tint & Tonal Gradient Fades */}
+        <div className="absolute inset-0 bg-[#0e071e]/50 pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#0e071e] via-[#0e071e]/10 to-[#0e071e]/40 pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#0e071e]/40 via-transparent to-[#0e071e]/60 pointer-events-none" />
+      </div>
+
+      {/* Left Column: Form Panel (Solid bg on desktop, transparent dark shade overlay on mobile) */}
+      <div className="w-full md:w-[45%] lg:w-[40%] min-h-screen flex items-center justify-center p-6 sm:p-12 bg-[#0e071e]/90 md:bg-[#0e071e] z-10 relative border-r border-[#1f133d]/40 backdrop-blur-xs md:backdrop-blur-none">
         <div className="w-full max-w-md space-y-8 animate-in fade-in duration-300">
           
           {/* Brand Header */}
@@ -134,7 +144,7 @@ export default function LoginPage() {
                   type="email"
                   disabled={loading}
                   placeholder="name@school.edu"
-                  className={`block w-full pl-11 pr-3 py-3.5 bg-[#160d2b] border text-white rounded-2xl text-sm transition focus:outline-none focus:ring-4 focus:ring-purple-500/10 ${
+                  className={`block w-full pl-11 pr-3 py-3.5 bg-[#160d2b]/90 border text-white rounded-2xl text-sm transition focus:outline-none focus:ring-4 focus:ring-purple-500/10 ${
                     errors.email
                       ? 'border-red-500/50 focus:ring-red-500/10'
                       : 'border-[#301c56] focus:border-purple-500'
@@ -163,7 +173,7 @@ export default function LoginPage() {
                   type={showPassword ? 'text' : 'password'}
                   disabled={loading}
                   placeholder="••••••••"
-                  className={`block w-full pl-11 pr-10 py-3.5 bg-[#160d2b] border text-white rounded-2xl text-sm transition focus:outline-none focus:ring-4 focus:ring-purple-500/10 ${
+                  className={`block w-full pl-11 pr-10 py-3.5 bg-[#160d2b]/90 border text-white rounded-2xl text-sm transition focus:outline-none focus:ring-4 focus:ring-purple-500/10 ${
                     errors.password
                       ? 'border-red-500/50 focus:ring-red-500/10'
                       : 'border-[#301c56] focus:border-purple-500'
@@ -205,24 +215,24 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* Right Column: Dynamic Live Neon Map Animation with SVG Curved Masks */}
-      <div className="hidden md:block md:w-[55%] lg:w-[60%] bg-[#0e071e] relative overflow-hidden">
+      {/* Right Column: Overlay Wave and Masks (only on desktop to blend the map on the right) */}
+      <div className="hidden md:block md:w-[55%] lg:w-[60%] relative z-10 pointer-events-none">
         
-        {/* Live Neon Map */}
-        <LoginMapAnimation />
-
-        {/* Wavy SVG Mask (masks the left side of map container to match left panel background) */}
-        <svg className="absolute top-0 bottom-0 left-0 w-24 h-full text-[#0e071e] fill-current z-20 pointer-events-none -ml-[1px] hidden md:block" viewBox="0 0 100 100" preserveAspectRatio="none">
+        {/* Wavy solid color mask to bleed left solid bg into map */}
+        <svg className="absolute top-0 bottom-0 left-0 w-24 h-full text-[#0e071e] fill-current z-20 pointer-events-none -ml-[1px]" viewBox="0 0 100 100" preserveAspectRatio="none">
           <path d="M0,0 C50,20 70,40 30,60 C70,80 50,90 0,100 Z" />
         </svg>
 
-        {/* Wavy Neon Dashed Outline SVG */}
-        <svg className="absolute top-0 bottom-0 left-0 w-24 h-full z-20 pointer-events-none -ml-[1px] hidden md:block" viewBox="0 0 100 100" preserveAspectRatio="none">
-          <path d="M0,0 C50,20 70,40 30,60 C70,80 50,90 0,100" fill="none" stroke="#a855f7" strokeWidth="1.5" strokeDasharray="3, 5" opacity="0.75" />
+        {/* Wavy neon dashed stroke */}
+        <svg className="absolute top-0 bottom-0 left-0 w-24 h-full z-20 pointer-events-none -ml-[1px]" viewBox="0 0 100 100" preserveAspectRatio="none">
+          <path d="M0,0 C50,20 70,40 30,60 C70,80 50,90 0,100" fill="none" stroke="#a855f7" strokeWidth="1.5" strokeDasharray="3, 5" opacity="0.8" />
         </svg>
 
+        {/* Gradient left-to-right fade overlay to blend map perfectly */}
+        <div className="absolute inset-y-0 left-0 w-48 bg-gradient-to-r from-[#0e071e] via-[#0e071e]/60 to-transparent z-10 pointer-events-none" />
+
         {/* Floating Brand Stamp (bottom right corner) */}
-        <div className="absolute bottom-8 right-8 z-30 font-black text-white/30 text-2xl tracking-widest font-mono pointer-events-none select-none uppercase">
+        <div className="absolute bottom-8 right-8 z-30 font-black text-white/20 text-2xl tracking-widest font-mono select-none uppercase">
           NaviGuard
         </div>
       </div>
