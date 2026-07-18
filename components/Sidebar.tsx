@@ -163,7 +163,7 @@ export function Sidebar() {
       <div className={cn(
         "lg:hidden sticky top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4 transition-all duration-300 text-slate-100",
         isScrolled 
-          ? "bg-[#351e56]/80 backdrop-blur-md shadow-lg border-b border-purple-500/10" 
+          ? "bg-[#351e56]/35 backdrop-blur-lg shadow-lg border-b border-purple-500/15" 
           : "bg-[#351e56] border-b border-[#2d194a]/60"
       )}>
         <div className="flex items-center gap-3">
