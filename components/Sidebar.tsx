@@ -161,9 +161,9 @@ export function Sidebar() {
     <>
       {/* Mobile Top Navbar (visible only on mobile screen widths, sticks and blurs on scroll) */}
       <div className={cn(
-        "lg:hidden sticky top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4 transition-all duration-300 text-slate-100",
+        "lg:hidden sticky top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4 transition-all duration-300 text-white",
         isScrolled 
-          ? "bg-[#351e56]/35 backdrop-blur-lg shadow-lg border-b border-purple-500/15" 
+          ? "bg-[#130b24]/75 backdrop-blur-lg shadow-lg border-b border-purple-500/15" 
           : "bg-[#351e56] border-b border-[#2d194a]/60"
       )}>
         <div className="flex items-center gap-3">
@@ -172,7 +172,7 @@ export function Sidebar() {
         </div>
         <button
           onClick={() => setIsMobileOpen(!isMobileOpen)}
-          className="p-1 rounded-md text-slate-400 hover:text-white hover:bg-slate-800 focus:outline-none cursor-pointer"
+          className="p-1 rounded-md text-white hover:bg-white/10 focus:outline-none cursor-pointer transition-all"
         >
           {isMobileOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
         </button>

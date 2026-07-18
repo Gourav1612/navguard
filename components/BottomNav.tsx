@@ -147,7 +147,7 @@ export function BottomNav({ children }: { children: React.ReactNode }) {
         <header className={cn(
           "md:hidden sticky top-0 z-30 flex items-center justify-between px-6 py-4 transition-all duration-300 text-white w-full",
           isScrolled 
-            ? "bg-[#351e56]/35 backdrop-blur-lg shadow-lg border-b border-purple-500/15" 
+            ? "bg-[#130b24]/75 backdrop-blur-lg shadow-lg border-b border-purple-500/15" 
             : "bg-gradient-to-r from-[#351e56] to-[#5c3b99] border-b border-transparent shadow-md"
         )}>
           <div className="flex items-center gap-3">
