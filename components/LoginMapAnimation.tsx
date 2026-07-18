@@ -67,7 +67,7 @@ export function LoginMapAnimation() {
   useEffect(() => {
     // 1. Initialize map
     const map = L.map(mapContainerId, {
-      center: [18.932, 72.840],
+      center: [18.932, 72.822],
       zoom: 14,
       zoomControl: false,
       dragging: false,
