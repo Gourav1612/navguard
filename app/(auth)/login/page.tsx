@@ -110,34 +110,44 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* Right Column: Clean Form */}
-      <div className="w-full md:w-1/2 flex items-center justify-center p-8 bg-white border-l border-slate-150">
-        <div className="w-full max-w-md space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-300">
-          {/* Header Title */}
-          <div className="space-y-2">
-            <h3 className="text-3xl font-black text-[#1e1b4b] tracking-tight">Sign In</h3>
-            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+      {/* Right Column: Clean Form (gorgeous responsive cards on mobile, clean side panel on desktop) */}
+      <div className="w-full md:w-1/2 flex items-center justify-center p-4 sm:p-8 bg-[#f4f2f8] md:bg-white border-l border-slate-150">
+        <div className="w-full max-w-md bg-white border border-slate-150 md:border-none rounded-3xl md:rounded-none p-6 sm:p-8 md:p-0 shadow-xl shadow-purple-900/5 md:shadow-none space-y-6 sm:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-300">
+          
+          {/* Mobile Logo Brand Header (visible only on mobile) */}
+          <div className="flex flex-col items-center justify-center gap-2 md:hidden">
+            <div className="flex items-center justify-center w-12 h-12 bg-gradient-to-br from-[#351e56] to-[#5c3b99] rounded-2xl text-white font-black text-xl shadow-lg border border-white/20">
+              NG
+            </div>
+            <h1 className="font-extrabold text-lg tracking-wider text-[#1e1b4b] leading-none">NaviGuard AI</h1>
+            <span className="text-[9px] text-purple-650 font-bold uppercase tracking-widest bg-purple-50 px-2 py-0.5 rounded border border-purple-100/50 mt-1">Security Portal</span>
+          </div>
+
+          {/* Header Title (Centered on mobile, left-aligned on desktop) */}
+          <div className="space-y-2 text-center md:text-left">
+            <h3 className="text-2xl md:text-3xl font-black text-[#1e1b4b] tracking-tight">Sign In</h3>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
               Access your NaviGuard account dashboard
             </p>
           </div>
 
           {/* Alert Error Banner */}
           {error && (
-            <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-xl text-red-800 text-sm animate-in shake duration-200">
-              <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-              <div className="font-medium">{error}</div>
+            <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-2xl text-red-800 text-xs animate-in shake duration-200">
+              <AlertCircle className="w-4.5 h-4.5 text-red-650 flex-shrink-0 mt-0.5" />
+              <div className="font-bold">{error}</div>
             </div>
           )}
 
           {/* Form */}
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             {/* Email Field */}
-            <div className="space-y-1.5">
-              <label htmlFor="email" className="text-xs font-bold uppercase tracking-wider text-slate-500">
+            <div className="space-y-2">
+              <label htmlFor="email" className="text-[10px] font-black uppercase tracking-widest text-slate-400 block pl-1">
                 Email Address
               </label>
-              <div className="relative rounded-lg shadow-sm">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <div className="relative rounded-lg shadow-2xs">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
                   <Mail className="h-5 w-5 text-slate-400" />
                 </div>
                 <input
@@ -145,7 +155,7 @@ export default function LoginPage() {
                   type="email"
                   disabled={loading}
                   placeholder="name@school.edu"
-                  className={`block w-full pl-10 pr-3 py-3 border rounded-xl text-sm transition focus:outline-none focus:ring-2 ${
+                  className={`block w-full pl-11 pr-3 py-3.5 border rounded-2xl text-sm transition focus:outline-none focus:ring-4 focus:ring-purple-500/10 ${
                     errors.email
                       ? 'border-red-300 focus:ring-red-200'
                       : 'border-slate-200 focus:ring-[#5c3b99]/20 focus:border-[#5c3b99]'
@@ -154,21 +164,21 @@ export default function LoginPage() {
                 />
               </div>
               {errors.email && (
-                <p className="text-xs font-semibold text-red-500 mt-1 flex items-center gap-1">
+                <p className="text-xs font-semibold text-red-500 mt-1.5 flex items-center gap-1">
                   <AlertCircle className="w-3.5 h-3.5" /> {errors.email.message}
                 </p>
               )}
             </div>
 
             {/* Password Field */}
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <label htmlFor="password" className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                <label htmlFor="password" className="text-[10px] font-black uppercase tracking-widest text-slate-400 block pl-1">
                   Password
                 </label>
               </div>
-              <div className="relative rounded-lg shadow-sm">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <div className="relative rounded-lg shadow-2xs">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
                   <Lock className="h-5 w-5 text-slate-400" />
                 </div>
                 <input
@@ -176,7 +186,7 @@ export default function LoginPage() {
                   type={showPassword ? 'text' : 'password'}
                   disabled={loading}
                   placeholder="••••••••"
-                  className={`block w-full pl-10 pr-10 py-3 border rounded-xl text-sm transition focus:outline-none focus:ring-2 ${
+                  className={`block w-full pl-11 pr-10 py-3.5 border rounded-2xl text-sm transition focus:outline-none focus:ring-4 focus:ring-purple-500/10 ${
                     errors.password
                       ? 'border-red-300 focus:ring-red-200'
                       : 'border-slate-200 focus:ring-[#5c3b99]/20 focus:border-[#5c3b99]'
@@ -187,13 +197,13 @@ export default function LoginPage() {
                   type="button"
                   disabled={loading}
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-650 focus:outline-none"
+                  className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-650 focus:outline-none"
                 >
                   {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                 </button>
               </div>
               {errors.password && (
-                <p className="text-xs font-semibold text-red-500 mt-1 flex items-center gap-1">
+                <p className="text-xs font-semibold text-red-500 mt-1.5 flex items-center gap-1">
                   <AlertCircle className="w-3.5 h-3.5" /> {errors.password.message}
                 </p>
               )}
@@ -203,12 +213,12 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="flex items-center justify-center w-full py-3.5 px-4 bg-[#5c3b99] hover:bg-[#432775] text-white rounded-xl text-sm font-bold transition-all shadow-lg hover:shadow-xl shadow-purple-500/25 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center justify-center w-full py-4 px-4 bg-gradient-to-r from-[#351e56] via-[#5c3b99] to-[#432775] hover:opacity-95 text-white rounded-2xl text-xs font-black uppercase tracking-wider transition-all shadow-md shadow-purple-500/20 active:scale-[0.99] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? (
                 <>
-                  <Loader2 className="w-5 h-5 animate-spin mr-2" />
-                  Verifying account...
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  Verifying Account...
                 </>
               ) : (
                 'Sign In'
