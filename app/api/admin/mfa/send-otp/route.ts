@@ -4,7 +4,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { sendVerificationEmail } from '@/lib/mail';
 
 export async function POST() {
-  const auth = await requireRole(['admin']);
+  const auth = await requireRole(['admin'], { skipMfa: true });
   if (auth.error) return auth.error;
 
   const { user, profile } = auth;

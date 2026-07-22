@@ -1,7 +1,7 @@
 import { createSupabaseServerClient } from './supabase/server';
 import { NextResponse } from 'next/server';
 
-export async function requireRole(allowedRoles: string[]) {
+export async function requireRole(allowedRoles: string[], options?: { skipMfa?: boolean }) {
   const supabase = await createSupabaseServerClient();
   const {
     data: { user },
@@ -48,6 +48,30 @@ export async function requireRole(allowedRoles: string[]) {
         { status: 403 }
       ),
     };
+  }
+
+  // MFA check for admin API requests (unless explicitly skipped e.g. for login/otp endpoints)
+  if (profile.role === 'admin' && !options?.skipMfa) {
+    const { data: mfaData, error: mfaErr } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    if (!mfaErr && mfaData) {
+      const { currentLevel, nextLevel } = mfaData;
+      if (nextLevel === 'aal2' && currentLevel === 'aal1') {
+        return {
+          error: NextResponse.json(
+            { error: 'Multi-factor authentication challenge required', code: 'MFA_REQUIRED' },
+            { status: 401 }
+          ),
+        };
+      }
+      if (nextLevel === 'aal1') {
+        return {
+          error: NextResponse.json(
+            { error: 'Multi-factor authentication enrollment required', code: 'MFA_SETUP_REQUIRED' },
+            { status: 401 }
+          ),
+        };
+      }
+    }
   }
 
   return { user, profile };

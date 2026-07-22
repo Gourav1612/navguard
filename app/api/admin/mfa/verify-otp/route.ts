@@ -3,7 +3,7 @@ import { requireRole } from '@/lib/auth-guard';
 import { createSupabaseServerClient, createAdminClient } from '@/lib/supabase/server';
 
 export async function POST(request: Request) {
-  const auth = await requireRole(['admin']);
+  const auth = await requireRole(['admin'], { skipMfa: true });
   if (auth.error) return auth.error;
 
   const supabase = await createSupabaseServerClient();
