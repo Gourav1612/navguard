@@ -143,16 +143,10 @@ export default function MfaChallengeClient() {
       const res = await fetch('/api/admin/mfa/verify-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: resetCode }),
+        body: JSON.stringify({ code: resetCode, factorId }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Verification failed');
-
-      // Unenroll the factor to clear MFA requirement
-      const { error: unenrollErr } = await supabase.auth.mfa.unenroll({
-        factorId,
-      });
-      if (unenrollErr) throw unenrollErr;
 
       setResetSuccess(true);
       setResetLoading(false);

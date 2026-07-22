@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireRole } from '@/lib/auth-guard';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { createSupabaseServerClient, createAdminClient } from '@/lib/supabase/server';
 
 export async function POST(request: Request) {
   const auth = await requireRole(['admin']);
@@ -10,7 +10,7 @@ export async function POST(request: Request) {
   const { user } = auth;
 
   try {
-    const { code } = await request.json();
+    const { code, factorId } = await request.json();
 
     if (!code || code.length !== 6) {
       return NextResponse.json(
@@ -42,6 +42,22 @@ export async function POST(request: Request) {
         { error: 'Incorrect verification code. Please check your email.' },
         { status: 400 }
       );
+    }
+
+    // If factorId is provided, perform unenrollment on server-side using service role client
+    if (factorId) {
+      const adminClient = createAdminClient();
+      const { error: factorErr } = await adminClient.auth.admin.mfa.deleteFactor({
+        userId: user.id,
+        id: factorId,
+      });
+
+      if (factorErr) {
+        return NextResponse.json(
+          { error: 'Failed to delete MFA factor verification settings.', details: factorErr.message },
+          { status: 500 }
+        );
+      }
     }
 
     // Clear verification codes on successful match
