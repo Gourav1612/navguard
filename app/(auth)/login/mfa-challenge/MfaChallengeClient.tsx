@@ -25,10 +25,13 @@ export default function MfaChallengeClient() {
   const [resetError, setResetError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.location.pathname !== '/login/mfa-challenge') {
-      window.history.replaceState(null, '', '/login/mfa-challenge');
-    }
-  });
+    const interval = setInterval(() => {
+      if (typeof window !== 'undefined' && window.location.pathname !== '/login/mfa-challenge') {
+        window.history.replaceState(null, '', '/login/mfa-challenge');
+      }
+    }, 200);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     async function checkFactors() {

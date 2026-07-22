@@ -20,10 +20,13 @@ export default function MfaSetupClient() {
   const [success, setSuccess] = useState(false);
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.location.pathname !== '/admin/mfa-setup') {
-      window.history.replaceState(null, '', '/admin/mfa-setup');
-    }
-  });
+    const interval = setInterval(() => {
+      if (typeof window !== 'undefined' && window.location.pathname !== '/admin/mfa-setup') {
+        window.history.replaceState(null, '', '/admin/mfa-setup');
+      }
+    }, 200);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     async function checkAndEnroll() {
