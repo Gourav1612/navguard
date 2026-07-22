@@ -17,8 +17,10 @@ import {
   Menu,
   X,
   Upload,
+  Lock,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 
 interface UserProfile {
   full_name: string;
@@ -30,10 +32,13 @@ export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const supabase = createBrowserSupabaseClient();
   const currentTab = searchParams.get('tab') || '';
   const [user, setUser] = useState<UserProfile | null>(null);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [mfaVerified, setMfaVerified] = useState(false);
+  const [checkingMfa, setCheckingMfa] = useState(true);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -44,19 +49,39 @@ export function Sidebar() {
   }, []);
 
   useEffect(() => {
-    async function fetchMe() {
+    async function checkMfaAndFetchMe() {
       try {
         const res = await fetch('/api/auth/me');
         if (res.ok) {
           const data = await res.json();
           setUser(data);
+          
+          if (data.role === 'admin') {
+            const { data: mfaData, error: mfaErr } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+            if (!mfaErr && mfaData) {
+              const { currentLevel, nextLevel } = mfaData;
+              // Admin must be AAL2 (fully verified with MFA) to view sidebar links
+              if (currentLevel === 'aal2') {
+                setMfaVerified(true);
+              } else {
+                setMfaVerified(false);
+              }
+            } else {
+              setMfaVerified(false);
+            }
+          } else {
+            // Non-admin roles (drivers, parents, students) don't have mandatory MFA
+            setMfaVerified(true);
+          }
         }
       } catch (err) {
-        console.error('Failed to fetch user:', err);
+        console.error('Failed to verify MFA in sidebar:', err);
+      } finally {
+        setCheckingMfa(false);
       }
     }
-    fetchMe();
-  }, []);
+    checkMfaAndFetchMe();
+  }, [supabase]);
 
   const handleLogout = async () => {
     try {
@@ -95,35 +120,53 @@ export function Sidebar() {
 
       {/* Navigation Links */}
       <nav className="flex-1 pl-4 pr-3 py-6 space-y-1.5 overflow-y-auto">
-        {navItems.map((item) => {
-          const itemUrl = new URL(item.href, 'http://localhost');
-          const itemQueryParam = itemUrl.searchParams.get('tab') || '';
-          const isActive = pathname === itemUrl.pathname && currentTab === itemQueryParam;
-          return (
-            <Link
-              key={item.name}
-              href={item.href}
-              onClick={(e) => {
-                setIsMobileOpen(false);
-                e.preventDefault();
-                const targetUrl = new URL(item.href, window.location.origin);
-                const tabVal = targetUrl.searchParams.get('tab') || '';
-                const finalPath = tabVal ? `/dashboard?tab=${tabVal}` : '/dashboard';
-                window.history.pushState(null, '', finalPath);
-                window.dispatchEvent(new PopStateEvent('popstate'));
-              }}
-              className={cn(
-                'flex items-center gap-3 px-4 py-3 text-sm font-semibold transition-all duration-300',
-                isActive
-                  ? 'active-nav-item ml-[-16px] pl-8 rounded-l-none rounded-r-full z-10'
-                  : 'text-purple-200/80 hover:text-white hover:bg-white/5 rounded-xl'
-              )}
-            >
-              <item.icon className="w-5 h-5 flex-shrink-0" />
-              {item.name}
-            </Link>
-          );
-        })}
+        {!checkingMfa && !mfaVerified ? (
+          <div className="flex flex-col items-center justify-center p-6 text-center h-[260px] space-y-3 bg-black/10 border border-white/5 rounded-2xl mx-2">
+            <Lock className="w-8 h-8 text-purple-300 animate-pulse" />
+            <p className="text-xs font-bold text-white leading-normal">
+              MFA Security Locked
+            </p>
+            <p className="text-[10px] text-purple-200/50 leading-relaxed max-w-[160px] mx-auto">
+              Please complete multi-factor verification to unlock navigation.
+            </p>
+          </div>
+        ) : !checkingMfa && mfaVerified ? (
+          navItems.map((item) => {
+            const itemUrl = new URL(item.href, 'http://localhost');
+            const itemQueryParam = itemUrl.searchParams.get('tab') || '';
+            const isActive = pathname === itemUrl.pathname && currentTab === itemQueryParam;
+            return (
+              <Link
+                key={item.name}
+                href={item.href}
+                onClick={(e) => {
+                  setIsMobileOpen(false);
+                  e.preventDefault();
+                  const targetUrl = new URL(item.href, window.location.origin);
+                  const tabVal = targetUrl.searchParams.get('tab') || '';
+                  const finalPath = tabVal ? `/dashboard?tab=${tabVal}` : '/dashboard';
+                  window.history.pushState(null, '', finalPath);
+                  window.dispatchEvent(new PopStateEvent('popstate'));
+                }}
+                className={cn(
+                  'flex items-center gap-3 px-4 py-3 text-sm font-semibold transition-all duration-300',
+                  isActive
+                    ? 'active-nav-item ml-[-16px] pl-8 rounded-l-none rounded-r-full z-10'
+                    : 'text-purple-200/80 hover:text-white hover:bg-white/5 rounded-xl'
+                )}
+              >
+                <item.icon className="w-5 h-5 flex-shrink-0" />
+                {item.name}
+              </Link>
+            );
+          })
+        ) : (
+          <div className="space-y-3 px-2">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="h-10 bg-white/5 animate-pulse rounded-xl" />
+            ))}
+          </div>
+        )}
       </nav>
 
       {/* User Footer Profile & Sign out */}
@@ -195,35 +238,51 @@ export function Sidebar() {
       {isMobileOpen && (
         <div className="lg:hidden fixed inset-x-0 top-[64px] bg-[#351e56]/95 backdrop-blur-md border-b border-[#2d194a] shadow-2xl z-40 animate-in slide-in-from-top duration-300 overflow-hidden flex flex-col p-5 space-y-4">
           <nav className="space-y-1">
-            {navItems.map((item) => {
-              const itemUrl = new URL(item.href, 'http://localhost');
-              const itemQueryParam = itemUrl.searchParams.get('tab') || '';
-              const isActive = pathname === itemUrl.pathname && currentTab === itemQueryParam;
-              return (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  onClick={(e) => {
-                    setIsMobileOpen(false);
-                    e.preventDefault();
-                    const targetUrl = new URL(item.href, window.location.origin);
-                    const tabVal = targetUrl.searchParams.get('tab') || '';
-                    const finalPath = tabVal ? `/dashboard?tab=${tabVal}` : '/dashboard';
-                    window.history.pushState(null, '', finalPath);
-                    window.dispatchEvent(new PopStateEvent('popstate'));
-                  }}
-                  className={cn(
-                    'flex items-center gap-3 px-4 py-3 text-sm font-semibold transition-all duration-300 rounded-xl',
-                    isActive
-                      ? 'bg-white/10 text-white border-l-4 border-purple-400 pl-3'
-                      : 'text-purple-200/80 hover:text-white hover:bg-white/5'
-                  )}
-                >
-                  <item.icon className="w-5 h-5 flex-shrink-0" />
-                  {item.name}
-                </Link>
-              );
-            })}
+            {!checkingMfa && !mfaVerified ? (
+              <div className="flex flex-col items-center justify-center p-6 text-center space-y-2 bg-black/10 border border-white/5 rounded-xl py-8">
+                <Lock className="w-6 h-6 text-purple-300 animate-pulse" />
+                <p className="text-xs font-bold text-white">MFA Security Locked</p>
+                <p className="text-[10px] text-purple-200/50 leading-relaxed max-w-[200px]">
+                  Please complete verification to unlock features.
+                </p>
+              </div>
+            ) : !checkingMfa && mfaVerified ? (
+              navItems.map((item) => {
+                const itemUrl = new URL(item.href, 'http://localhost');
+                const itemQueryParam = itemUrl.searchParams.get('tab') || '';
+                const isActive = pathname === itemUrl.pathname && currentTab === itemQueryParam;
+                return (
+                  <Link
+                    key={item.name}
+                    href={item.href}
+                    onClick={(e) => {
+                      setIsMobileOpen(false);
+                      e.preventDefault();
+                      const targetUrl = new URL(item.href, window.location.origin);
+                      const tabVal = targetUrl.searchParams.get('tab') || '';
+                      const finalPath = tabVal ? `/dashboard?tab=${tabVal}` : '/dashboard';
+                      window.history.pushState(null, '', finalPath);
+                      window.dispatchEvent(new PopStateEvent('popstate'));
+                    }}
+                    className={cn(
+                      'flex items-center gap-3 px-4 py-3 text-sm font-semibold transition-all duration-300 rounded-xl',
+                      isActive
+                        ? 'bg-white/10 text-white border-l-4 border-purple-400 pl-3'
+                        : 'text-purple-200/80 hover:text-white hover:bg-white/5'
+                    )}
+                  >
+                    <item.icon className="w-5 h-5 flex-shrink-0" />
+                    {item.name}
+                  </Link>
+                );
+              })
+            ) : (
+              <div className="space-y-2.5">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="h-9 bg-white/5 animate-pulse rounded-lg" />
+                ))}
+              </div>
+            )}
           </nav>
           
           {/* User Footer Profile & Sign out inside dropdown */}
