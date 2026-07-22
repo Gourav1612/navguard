@@ -175,6 +175,9 @@ export default function MfaChallengeClient() {
       setResetSuccess(true);
       setResetLoading(false);
 
+      // Refresh session immediately to downgrade local token to aal1
+      await supabase.auth.refreshSession();
+
       // Reset lockout states
       localStorage.removeItem('mfa_failed_attempts');
       setFailedAttempts(0);

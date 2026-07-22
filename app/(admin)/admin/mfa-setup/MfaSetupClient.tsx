@@ -138,6 +138,9 @@ export default function MfaSetupClient() {
 
       if (verifyErr) throw new Error(verifyErr.message);
 
+      // Refresh session immediately to upgrade local token to aal2
+      await supabase.auth.refreshSession();
+
       setSuccess(true);
       setVerifying(false);
       

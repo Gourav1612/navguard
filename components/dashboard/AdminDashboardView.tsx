@@ -172,6 +172,9 @@ export default function AdminDashboardView({ tab: initialTab }: { tab?: string }
       });
       if (unenrollErr) throw unenrollErr;
 
+      // Refresh session immediately to downgrade local token to aal1
+      await supabase.auth.refreshSession();
+
       setOtpSuccess(true);
       setTimeout(() => {
         setShowOtpModal(false);
