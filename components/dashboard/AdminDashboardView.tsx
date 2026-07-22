@@ -21,7 +21,7 @@ import { formatDateTime } from '@/lib/utils';
 import { useState, useEffect } from 'react';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 
 // Import all admin subviews
 import BusesView from './subviews/BusesView';
@@ -47,6 +47,7 @@ const AdminMap = dynamic(() => import('@/components/AdminMap').then((m) => m.Adm
 export default function AdminDashboardView({ tab: initialTab }: { tab?: string }) {
   const supabase = createBrowserSupabaseClient();
   const searchParams = useSearchParams();
+  const router = useRouter();
   const tab = searchParams.get('tab') || '';
   
   // MFA states
@@ -80,9 +81,21 @@ export default function AdminDashboardView({ tab: initialTab }: { tab?: string }
       if (activeTotp) {
         setMfaEnabled(true);
         setMfaFactorId(activeTotp.id);
+
+        // Check if authentication assurance level requires challenge (MFA enabled but not verified in this session)
+        const { data: mfaData, error: mfaErr } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+        if (!mfaErr && mfaData) {
+          const { currentLevel, nextLevel } = mfaData;
+          if (nextLevel === 'aal2' && currentLevel === 'aal1') {
+            router.replace('/login/mfa-challenge');
+            return;
+          }
+        }
       } else {
         setMfaEnabled(false);
         setMfaFactorId(null);
+        // Force redirect to enrollment page if no verified MFA factor is set up yet
+        router.replace('/admin/mfa-setup');
       }
     } catch (err) {
       console.error('Failed to list MFA factors:', err);
@@ -90,9 +103,7 @@ export default function AdminDashboardView({ tab: initialTab }: { tab?: string }
   };
 
   useEffect(() => {
-    if (!tab) {
-      checkMfaStatus();
-    }
+    checkMfaStatus();
   }, [tab]);
 
   const [endingTripId, setEndingTripId] = useState<string | null>(null);
