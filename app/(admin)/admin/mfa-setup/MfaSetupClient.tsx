@@ -23,7 +23,7 @@ export default function MfaSetupClient() {
     if (typeof window !== 'undefined' && window.location.pathname !== '/admin/mfa-setup') {
       window.history.replaceState(null, '', '/admin/mfa-setup');
     }
-  }, []);
+  });
 
   useEffect(() => {
     async function checkAndEnroll() {

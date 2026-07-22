@@ -28,7 +28,7 @@ export default function MfaChallengeClient() {
     if (typeof window !== 'undefined' && window.location.pathname !== '/login/mfa-challenge') {
       window.history.replaceState(null, '', '/login/mfa-challenge');
     }
-  }, []);
+  });
 
   useEffect(() => {
     async function checkFactors() {
