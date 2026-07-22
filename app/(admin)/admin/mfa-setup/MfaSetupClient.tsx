@@ -20,6 +20,12 @@ export default function MfaSetupClient() {
   const [success, setSuccess] = useState(false);
 
   useEffect(() => {
+    if (typeof window !== 'undefined' && window.location.pathname !== '/admin/mfa-setup') {
+      window.history.replaceState(null, '', '/admin/mfa-setup');
+    }
+  }, []);
+
+  useEffect(() => {
     async function checkAndEnroll() {
       try {
         console.log('[MFA] 1. Starting getUser...');

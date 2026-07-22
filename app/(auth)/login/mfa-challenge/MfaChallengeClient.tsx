@@ -25,6 +25,12 @@ export default function MfaChallengeClient() {
   const [resetError, setResetError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (typeof window !== 'undefined' && window.location.pathname !== '/login/mfa-challenge') {
+      window.history.replaceState(null, '', '/login/mfa-challenge');
+    }
+  }, []);
+
+  useEffect(() => {
     async function checkFactors() {
       try {
         // 1. Fetch user to verify active session
