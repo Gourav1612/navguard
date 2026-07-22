@@ -23,7 +23,6 @@ export default function MfaChallengeClient() {
   const [resetLoading, setResetLoading] = useState(false);
   const [resetSuccess, setResetSuccess] = useState(false);
   const [resetError, setResetError] = useState<string | null>(null);
-  const [testOtp, setTestOtp] = useState<string | null>(null);
 
   useEffect(() => {
     async function checkFactors() {
@@ -119,17 +118,12 @@ export default function MfaChallengeClient() {
   const handleSendResetOtp = async () => {
     setResetError(null);
     setResetLoading(true);
-    setTestOtp(null);
     try {
       const res = await fetch('/api/admin/mfa/send-otp', { method: 'POST' });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to send reset code');
 
       setResetMode(true);
-      if (data.dev_otp) {
-        setTestOtp(data.dev_otp);
-        console.log(`[MFA-DEV] Reset code received: ${data.dev_otp}`);
-      }
     } catch (err: any) {
       setResetError(err.message || 'Failed to send recovery code.');
     } finally {
@@ -213,11 +207,7 @@ export default function MfaChallengeClient() {
               </p>
             </div>
 
-            {testOtp && (
-              <div className="p-3 bg-purple-500/10 border border-purple-500/25 rounded-2xl text-[#d8b4fe] text-center text-xs font-bold font-mono">
-                🔑 UAT Testing Code: {testOtp}
-              </div>
-            )}
+
 
             {resetError && (
               <div className="flex items-start gap-3 p-4 bg-red-950/40 border border-red-800/50 rounded-2xl text-red-300 text-xs animate-in shake duration-200">

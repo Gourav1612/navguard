@@ -60,8 +60,6 @@ export async function POST() {
     return NextResponse.json({
       success: true,
       message: 'Verification code sent successfully to email.',
-      // Only include UAT developer code in response if NO real email was sent (local testing fallback)
-      ...(!mailResult.sentRealEmail ? { dev_otp: otp } : {})
     });
   } catch (err: any) {
     return NextResponse.json(
