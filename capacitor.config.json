@@ -4,6 +4,7 @@
   "webDir": "public",
   "server": {
     "url": "https://navguard-eight.vercel.app",
-    "cleartext": true
+    "cleartext": true,
+    "errorPath": "/error.html"
   }
 }
