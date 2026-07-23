@@ -105,12 +105,39 @@ export async function GET() {
         };
       });
 
-    // Set default school coordinates for Sunrise Public School
-    const school = {
-      name: 'Sunrise Public School Campus',
-      latitude: 27.5609,
-      longitude: 76.6111,
-    };
+    // Check if the route already has an admin-defined starting point (stop_order === 0)
+    const hasCustomStart = stopsSorted.some((s: any) => s.stop_order === 0);
+
+    let school = null;
+
+    if (!hasCustomStart) {
+      // Fallback to default school details from database dynamically
+      let schoolName = 'School Campus';
+      let schoolLat = 27.5609;
+      let schoolLng = 76.6111;
+
+      const { data: schoolRaw } = await supabase
+        .from('schools')
+        .select('*')
+        .eq('id', driverRaw.school_id)
+        .single();
+
+      if (schoolRaw) {
+        schoolName = schoolRaw.name || schoolName;
+        if (schoolRaw.latitude !== undefined && schoolRaw.latitude !== null) {
+          schoolLat = Number(schoolRaw.latitude);
+        }
+        if (schoolRaw.longitude !== undefined && schoolRaw.longitude !== null) {
+          schoolLng = Number(schoolRaw.longitude);
+        }
+      }
+
+      school = {
+        name: schoolName,
+        latitude: schoolLat,
+        longitude: schoolLng,
+      };
+    }
 
     return NextResponse.json({
       driver: { id: driverRaw.id, license_number: driverRaw.license_number },

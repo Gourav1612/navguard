@@ -18,6 +18,7 @@ import {
   X,
   Upload,
   Lock,
+  Settings,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
@@ -105,6 +106,7 @@ export function Sidebar() {
     { name: 'Assignments', href: '/dashboard?tab=assignments', icon: Compass },
     { name: 'Import Data', href: '/dashboard?tab=import', icon: Upload },
     { name: 'Audit Logs', href: '/dashboard?tab=audit-logs', icon: FileText },
+    { name: 'School Settings', href: '/dashboard?tab=settings', icon: Settings },
   ];
 
   const sidebarContent = (

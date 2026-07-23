@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -46,6 +46,37 @@ export default function AdminRoutes() {
   const [startStopLat, setStartStopLat] = useState('');
   const [startStopLng, setStartStopLng] = useState('');
   const [isLoadingStartLink, setIsLoadingStartLink] = useState(false);
+
+  // Load default school settings for autofill fallback
+  const [defaultSchool, setDefaultSchool] = useState<any>(null);
+
+  useEffect(() => {
+    async function fetchDefaultSchool() {
+      try {
+        const supabase = (await import('@/lib/supabase/client')).createBrowserSupabaseClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        const { data: profile } = await supabase
+          .from('user_profiles')
+          .select('school_id')
+          .eq('id', user.id)
+          .single();
+        if (profile?.school_id) {
+          const { data: school } = await supabase
+            .from('schools')
+            .select('*')
+            .eq('id', profile.school_id)
+            .single();
+          if (school) {
+            setDefaultSchool(school);
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching default school coordinates:', err);
+      }
+    }
+    fetchDefaultSchool();
+  }, []);
 
   // Fetch routes
   const { data: routes = [], isLoading: routesLoading } = useQuery({
@@ -465,6 +496,20 @@ export default function AdminRoutes() {
                     </div>
                   ) : (
                     <div className="space-y-3">
+                      {defaultSchool && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setStartStopName(defaultSchool.name || 'School Campus');
+                            setStartStopAddress(defaultSchool.address || '');
+                            setStartStopLat(defaultSchool.latitude?.toString() || '27.5609');
+                            setStartStopLng(defaultSchool.longitude?.toString() || '76.6111');
+                          }}
+                          className="w-full py-2 bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-750 rounded-xl text-[10px] font-bold uppercase tracking-wider transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                        >
+                          🏫 Use Default School: {defaultSchool.name}
+                        </button>
+                      )}
                       <div className="space-y-1">
                         <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wider block">Import Start Location via Google Maps Link</label>
                         <div className="flex gap-2">

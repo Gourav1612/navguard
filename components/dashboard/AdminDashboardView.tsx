@@ -32,6 +32,7 @@ import StudentsView from './subviews/StudentsView';
 import AssignmentsView from './subviews/AssignmentsView';
 import ImportView from './subviews/ImportView';
 import AuditLogsView from './subviews/AuditLogsView';
+import SettingsView from './subviews/SettingsView';
 
 // Load map dynamically to prevent build failures due to window/document checks during SSR
 const AdminMap = dynamic(() => import('@/components/AdminMap').then((m) => m.AdminMap), {
@@ -207,6 +208,8 @@ export default function AdminDashboardView({ tab: initialTab }: { tab?: string }
       return <ImportView />;
     case 'audit-logs':
       return <AuditLogsView />;
+    case 'settings':
+      return <SettingsView />;
   }
 
   // Fallback to Main Stats Dashboard
