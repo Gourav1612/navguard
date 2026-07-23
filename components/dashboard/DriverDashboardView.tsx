@@ -25,6 +25,36 @@ export default function DriverDashboardView({ tab }: { tab?: string }) {
     enabled: !tab, // Only load details if viewing main dashboard tab
   });
 
+  // One-off telemetry updates as soon as the driver logs in / mounts dashboard
+  useEffect(() => {
+    if (!assignment?.bus?.id) return;
+
+    async function sendInitialTelemetry() {
+      try {
+        navigator.geolocation.getCurrentPosition(async (position) => {
+          const payload = {
+            bus_id: assignment.bus.id,
+            trip_id: null,
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            speed: position.coords.speed || 0,
+            heading: position.coords.heading || 0,
+          };
+          
+          await fetch('/api/driver/location', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+        });
+      } catch (err) {
+        console.error('Failed to send initial driver telemetry:', err);
+      }
+    }
+
+    sendInitialTelemetry();
+  }, [assignment]);
+
   // Start Trip mutation
   const startTripMutation = useMutation({
     mutationFn: async (payload: { bus_id: string; route_id: string }) => {
@@ -85,35 +115,7 @@ export default function DriverDashboardView({ tab }: { tab?: string }) {
     );
   }
 
-  // One-off telemetry updates as soon as the driver logs in / mounts dashboard
-  useEffect(() => {
-    if (!assignment?.bus?.id) return;
 
-    async function sendInitialTelemetry() {
-      try {
-        navigator.geolocation.getCurrentPosition(async (position) => {
-          const payload = {
-            bus_id: assignment.bus.id,
-            trip_id: null,
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
-            speed: position.coords.speed || 0,
-            heading: position.coords.heading || 0,
-          };
-          
-          await fetch('/api/driver/location', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-          });
-        });
-      } catch (err) {
-        console.error('Failed to send initial driver telemetry:', err);
-      }
-    }
-
-    sendInitialTelemetry();
-  }, [assignment]);
 
   const { bus, route, active_trip } = assignment;
   const isTripActive = !!active_trip;
