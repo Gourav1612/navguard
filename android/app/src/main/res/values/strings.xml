@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">NaviGuard</string>
+    <string name="title_activity_main">NaviGuard</string>
+    <string name="package_name">com.navguard.app</string>
+    <string name="custom_url_scheme">com.navguard.app</string>
+</resources>

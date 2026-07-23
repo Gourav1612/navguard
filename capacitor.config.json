@@ -1,0 +1,9 @@
+{
+  "appId": "com.navguard.app",
+  "appName": "NaviGuard",
+  "webDir": "public",
+  "server": {
+    "url": "https://navguard-eight.vercel.app",
+    "cleartext": true
+  }
+}
