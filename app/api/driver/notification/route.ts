@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireRole } from '@/lib/auth-guard';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { createSupabaseServerClient, createAdminClient } from '@/lib/supabase/server';
 
 export async function POST(req: NextRequest) {
   const auth = await requireRole(['driver']);
@@ -8,6 +8,7 @@ export async function POST(req: NextRequest) {
 
   const { user, profile } = auth;
   const supabase = await createSupabaseServerClient();
+  const adminSupabase = createAdminClient();
 
   try {
     const { type, message } = await req.json();
@@ -19,7 +20,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 1. Fetch school_id of the driver
+    // 1. Fetch school_id of the driver using session client
     const { data: driverRaw, error: driverErr } = await supabase
       .from('drivers')
       .select('school_id, license_number')
@@ -33,8 +34,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 2. Insert notification
-    const { data, error } = await supabase
+    // 2. Insert notification using adminSupabase to bypass SELECT policy restriction
+    const { data, error } = await adminSupabase
       .from('notifications')
       .insert({
         school_id: driverRaw.school_id,
