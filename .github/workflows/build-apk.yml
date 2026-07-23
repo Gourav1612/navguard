@@ -50,4 +50,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: NaviGuard-App-Debug
-          path: android/app/build/outputs/apk/debug/NaviGuard.apk
+          path: android/app/build/outputs/apk/debug/*.apk
