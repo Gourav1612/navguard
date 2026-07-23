@@ -3,7 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { Loader2, Bus, Map, Play, ArrowRight, AlertCircle, AlertTriangle } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 // Import subviews
 import DriverRouteView from './subviews/DriverRouteView';
@@ -84,6 +84,36 @@ export default function DriverDashboardView({ tab }: { tab?: string }) {
       </div>
     );
   }
+
+  // One-off telemetry updates as soon as the driver logs in / mounts dashboard
+  useEffect(() => {
+    if (!assignment?.bus?.id) return;
+
+    async function sendInitialTelemetry() {
+      try {
+        navigator.geolocation.getCurrentPosition(async (position) => {
+          const payload = {
+            bus_id: assignment.bus.id,
+            trip_id: null,
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            speed: position.coords.speed || 0,
+            heading: position.coords.heading || 0,
+          };
+          
+          await fetch('/api/driver/location', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+        });
+      } catch (err) {
+        console.error('Failed to send initial driver telemetry:', err);
+      }
+    }
+
+    sendInitialTelemetry();
+  }, [assignment]);
 
   const { bus, route, active_trip } = assignment;
   const isTripActive = !!active_trip;

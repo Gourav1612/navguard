@@ -4,18 +4,14 @@ import { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 
-interface ActiveTrip {
-  trip_id: string;
-  bus: {
-    id: string;
-    name: string;
-  };
-  driver: {
-    full_name: string;
-  };
-  route: {
-    name: string;
-  };
+interface BusLocation {
+  bus_id: string;
+  bus_name: string;
+  registration_plate: string;
+  is_active: boolean;
+  trip_id: string | null;
+  driver_name: string;
+  route_name: string;
   latest_location: {
     latitude: number;
     longitude: number;
@@ -26,10 +22,11 @@ interface ActiveTrip {
 }
 
 interface AdminMapProps {
-  activeTrips: ActiveTrip[];
+  activeTrips?: any[];
+  busesLocations?: BusLocation[];
 }
 
-export function AdminMap({ activeTrips = [] }: AdminMapProps) {
+export function AdminMap({ activeTrips = [], busesLocations = [] }: AdminMapProps) {
   const mapRef = useRef<L.Map | null>(null);
   // Track markers by busId
   const markersRef = useRef<Record<string, L.Marker>>({});
@@ -37,11 +34,11 @@ export function AdminMap({ activeTrips = [] }: AdminMapProps) {
   useEffect(() => {
     // Default center to Jaipur or first active bus
     let center: L.LatLngExpression = [26.9124, 75.7873];
-    const tripsWithLocation = activeTrips.filter((t) => t.latest_location);
-    if (tripsWithLocation.length > 0 && tripsWithLocation[0].latest_location) {
+    const busesWithLocation = busesLocations.filter((b) => b.latest_location);
+    if (busesWithLocation.length > 0 && busesWithLocation[0].latest_location) {
       center = [
-        tripsWithLocation[0].latest_location.latitude,
-        tripsWithLocation[0].latest_location.longitude,
+        busesWithLocation[0].latest_location.latitude,
+        busesWithLocation[0].latest_location.longitude,
       ];
     }
 
@@ -54,11 +51,14 @@ export function AdminMap({ activeTrips = [] }: AdminMapProps) {
     mapRef.current = map;
 
     // Bus Icon Factory
-    const createBusIcon = (name: string) => {
+    const createBusIcon = (name: string, isActive: boolean) => {
+      const bgClass = isActive 
+        ? 'bg-amber-400 border-amber-600 text-slate-800' 
+        : 'bg-slate-200 border-slate-400 text-slate-500';
       return L.divIcon({
         className: '',
         html: `
-          <div class="relative flex items-center justify-center w-9 h-9 bg-amber-400 border-2 border-amber-600 rounded-full shadow-lg transition-all duration-300">
+          <div class="relative flex items-center justify-center w-9 h-9 ${bgClass} border-2 rounded-full shadow-lg transition-all duration-300">
             <span class="text-sm">🚌</span>
             <div class="absolute top-10 bg-slate-900/90 text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow whitespace-nowrap border border-slate-700">
               ${name}
@@ -70,24 +70,28 @@ export function AdminMap({ activeTrips = [] }: AdminMapProps) {
       });
     };
 
-    // Render initial active bus markers
-    activeTrips.forEach((trip) => {
-      if (trip.latest_location) {
-        const { latitude, longitude, speed } = trip.latest_location;
-        const icon = createBusIcon(trip.bus.name);
+    // Render initial bus markers
+    busesLocations.forEach((bus) => {
+      if (bus.latest_location) {
+        const { latitude, longitude, speed } = bus.latest_location;
+        const icon = createBusIcon(bus.bus_name, bus.is_active);
         
         const marker = L.marker([latitude, longitude], { icon }).addTo(map);
         
         marker.bindPopup(`
           <div class="font-sans space-y-1">
-            <div class="font-bold text-slate-950 text-sm">${trip.bus.name}</div>
-            <div class="text-xs text-slate-500"><span class="font-semibold text-slate-700">Route:</span> ${trip.route.name}</div>
-            <div class="text-xs text-slate-500"><span class="font-semibold text-slate-700">Driver:</span> ${trip.driver.full_name}</div>
+            <div class="font-bold text-slate-950 text-sm flex items-center gap-1.5">
+              ${bus.bus_name}
+              <span class="inline-block w-2.5 h-2.5 rounded-full ${bus.is_active ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}"></span>
+            </div>
+            <div class="text-xs text-slate-500"><span class="font-semibold text-slate-700">Status:</span> ${bus.is_active ? 'Active Trip' : 'Inactive'}</div>
+            <div class="text-xs text-slate-500"><span class="font-semibold text-slate-700">Route:</span> ${bus.route_name}</div>
+            <div class="text-xs text-slate-500"><span class="font-semibold text-slate-700">Driver:</span> ${bus.driver_name}</div>
             <div class="text-xs text-slate-500"><span class="font-semibold text-slate-700">Speed:</span> ${speed.toFixed(1)} km/h</div>
           </div>
         `);
         
-        markersRef.current[trip.bus.id] = marker;
+        markersRef.current[bus.bus_id] = marker;
       }
     });
 
@@ -99,22 +103,28 @@ export function AdminMap({ activeTrips = [] }: AdminMapProps) {
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'bus_locations' },
         (payload: any) => {
-          const { bus_id, latitude, longitude, speed, heading } = payload.new;
+          const { bus_id, latitude, longitude, speed } = payload.new;
           
-          // Find matching trip for bus metadata
-          const matchingTrip = activeTrips.find((t) => t.bus.id === bus_id);
-          const busName = matchingTrip ? matchingTrip.bus.name : 'Active Bus';
-          const routeName = matchingTrip ? matchingTrip.route.name : 'Assigned Route';
-          const driverName = matchingTrip ? matchingTrip.driver.full_name : 'Assigned Driver';
+          // Find matching bus metadata
+          const matchingBus = busesLocations.find((b) => b.bus_id === bus_id);
+          const busName = matchingBus ? matchingBus.bus_name : 'Active Bus';
+          const isActive = matchingBus ? matchingBus.is_active : false;
+          const routeName = matchingBus ? matchingBus.route_name : 'Assigned Route';
+          const driverName = matchingBus ? matchingBus.driver_name : 'Assigned Driver';
 
           const marker = markersRef.current[bus_id];
-          const icon = createBusIcon(busName);
+          const icon = createBusIcon(busName, isActive);
 
           if (marker) {
             marker.setLatLng([latitude, longitude]);
+            marker.setIcon(icon);
             marker.setPopupContent(`
               <div class="font-sans space-y-1">
-                <div class="font-bold text-slate-950 text-sm">${busName}</div>
+                <div class="font-bold text-slate-950 text-sm flex items-center gap-1.5">
+                  ${busName}
+                  <span class="inline-block w-2.5 h-2.5 rounded-full ${isActive ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}"></span>
+                </div>
+                <div class="text-xs text-slate-500"><span class="font-semibold text-slate-700">Status:</span> ${isActive ? 'Active Trip' : 'Inactive'}</div>
                 <div class="text-xs text-slate-500"><span class="font-semibold text-slate-700">Route:</span> ${routeName}</div>
                 <div class="text-xs text-slate-500"><span class="font-semibold text-slate-700">Driver:</span> ${driverName}</div>
                 <div class="text-xs text-slate-500"><span class="font-semibold text-slate-700">Speed:</span> ${Number(speed || 0).toFixed(1)} km/h</div>
@@ -125,7 +135,11 @@ export function AdminMap({ activeTrips = [] }: AdminMapProps) {
             const newMarker = L.marker([latitude, longitude], { icon }).addTo(map);
             newMarker.bindPopup(`
               <div class="font-sans space-y-1">
-                <div class="font-bold text-slate-950 text-sm">${busName}</div>
+                <div class="font-bold text-slate-950 text-sm flex items-center gap-1.5">
+                  ${busName}
+                  <span class="inline-block w-2.5 h-2.5 rounded-full ${isActive ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}"></span>
+                </div>
+                <div class="text-xs text-slate-500"><span class="font-semibold text-slate-700">Status:</span> ${isActive ? 'Active Trip' : 'Inactive'}</div>
                 <div class="text-xs text-slate-500"><span class="font-semibold text-slate-700">Route:</span> ${routeName}</div>
                 <div class="text-xs text-slate-500"><span class="font-semibold text-slate-700">Driver:</span> ${driverName}</div>
                 <div class="text-xs text-slate-500"><span class="font-semibold text-slate-700">Speed:</span> ${Number(speed || 0).toFixed(1)} km/h</div>
@@ -149,7 +163,7 @@ export function AdminMap({ activeTrips = [] }: AdminMapProps) {
       resizeObserver.disconnect();
       map.remove();
     };
-  }, [activeTrips]);
+  }, [activeTrips, busesLocations]);
 
   return (
     <div className="relative z-0 w-full h-[450px] border border-slate-200 rounded-2xl overflow-hidden shadow-inner">

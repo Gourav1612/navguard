@@ -81,7 +81,7 @@ const INDIA_BOUNDS = {
 
 export const LocationSchema = z.object({
   bus_id: z.string().uuid(),
-  trip_id: z.string().uuid(),
+  trip_id: z.string().uuid().nullable().optional(),
   latitude: z.coerce.number()
     .min(INDIA_BOUNDS.lat.min, 'Latitude must be between 6.0 and 37.6 (India bounds)')
     .max(INDIA_BOUNDS.lat.max, 'Latitude must be between 6.0 and 37.6 (India bounds)'),

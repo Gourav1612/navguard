@@ -189,6 +189,99 @@ export default function AdminDashboardView({ tab: initialTab }: { tab?: string }
       setOtpLoading(false);
     }
   };
+  // Real-time Notification Subscriber state
+  const [adminSchoolId, setAdminSchoolId] = useState<string | null>(null);
+  const [toastNotification, setToastNotification] = useState<{
+    id: string;
+    title: string;
+    message: string;
+    type: string;
+  } | null>(null);
+
+  useEffect(() => {
+    async function getAdminProfile() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      
+      const { data: profile } = await supabase
+        .from('user_profiles')
+        .select('school_id')
+        .eq('id', user.id)
+        .single();
+        
+      if (profile?.school_id) {
+        setAdminSchoolId(profile.school_id);
+      }
+    }
+    getAdminProfile();
+  }, [supabase]);
+
+  useEffect(() => {
+    if (!adminSchoolId) return;
+
+    const channel = supabase
+      .channel('admin-realtime-notifications')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
+          filter: `school_id=eq.${adminSchoolId}`,
+        },
+        (payload: any) => {
+          const newNotif = payload.new;
+          setToastNotification({
+            id: newNotif.id,
+            title: newNotif.title,
+            message: newNotif.message,
+            type: newNotif.type,
+          });
+
+          // Play premium Audio Context Double Chime Sound
+          try {
+            const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+            gain.gain.setValueAtTime(0.08, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+            osc.start(ctx.currentTime);
+            osc.stop(ctx.currentTime + 0.15);
+            
+            const osc2 = ctx.createOscillator();
+            const gain2 = ctx.createGain();
+            osc2.connect(gain2);
+            gain2.connect(ctx.destination);
+            osc2.type = 'sine';
+            osc2.frequency.setValueAtTime(880, ctx.currentTime + 0.08);
+            gain2.gain.setValueAtTime(0.08, ctx.currentTime + 0.08);
+            gain2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+            osc2.start(ctx.currentTime + 0.08);
+            osc2.stop(ctx.currentTime + 0.3);
+          } catch (audioErr) {
+            console.error('Realtime notification sound chime failed:', audioErr);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [adminSchoolId, supabase]);
+
+  useEffect(() => {
+    if (!toastNotification) return;
+    const timer = setTimeout(() => {
+      setToastNotification(null);
+    }, 6000);
+    return () => clearTimeout(timer);
+  }, [toastNotification]);
 
   // Dynamic Routing based on Search Param tab
   switch (tab) {
@@ -240,7 +333,7 @@ export default function AdminDashboardView({ tab: initialTab }: { tab?: string }
     );
   }
 
-  const { metrics, active_trips } = data;
+  const { metrics, active_trips, buses_locations = [] } = data;
 
   const stats = [
     { name: 'Total Fleet Buses', value: metrics.total_buses, icon: Bus, color: 'text-blue-600 bg-blue-50 border-blue-100' },
@@ -295,7 +388,7 @@ export default function AdminDashboardView({ tab: initialTab }: { tab?: string }
       {/* Map Segment */}
       <div className="space-y-3">
         <h3 className="text-lg font-bold text-slate-800 tracking-tight">Active Fleet Map</h3>
-        <AdminMap activeTrips={active_trips} />
+        <AdminMap activeTrips={active_trips} busesLocations={buses_locations} />
       </div>
 
       {/* Active Trips Table */}
@@ -492,6 +585,34 @@ export default function AdminDashboardView({ tab: initialTab }: { tab?: string }
               </form>
             )}
           </div>
+        </div>
+      )}
+      {/* Real-time In-App Notification Toast */}
+      {toastNotification && (
+        <div className="fixed bottom-6 right-6 z-[9999] max-w-sm w-full bg-slate-905/95 backdrop-blur border border-slate-750 text-white rounded-2xl p-4.5 shadow-2xl flex items-start gap-3.5 animate-in slide-in-from-bottom duration-300">
+          <div className={`p-2.5 rounded-xl flex-shrink-0 ${
+            toastNotification.type === 'gps_off' ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+          }`}>
+            {toastNotification.type === 'gps_off' ? (
+              <Radio className="w-5.5 h-5.5 animate-pulse" />
+            ) : (
+              <ShieldAlert className="w-5.5 h-5.5" />
+            )}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex justify-between items-center">
+              <span className="font-bold text-xs uppercase tracking-wider text-slate-400">Security Alert</span>
+              <span className="text-[9px] font-medium text-slate-500">Just now</span>
+            </div>
+            <h4 className="font-extrabold text-sm text-slate-100 mt-1 leading-tight">{toastNotification.title}</h4>
+            <p className="text-xs text-slate-300 mt-1 font-semibold leading-relaxed">{toastNotification.message}</p>
+          </div>
+          <button 
+            onClick={() => setToastNotification(null)}
+            className="text-slate-500 hover:text-slate-350 p-0.5 rounded-lg transition-all"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
       )}
     </div>

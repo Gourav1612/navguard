@@ -107,6 +107,48 @@ export async function GET() {
       })
     );
 
+    // 4. Fetch all buses for this school to show both active and inactive drivers' last locations
+    const { data: allBuses } = await supabase
+      .from('buses')
+      .select('id, name, registration_plate')
+      .eq('school_id', profile.school_id);
+
+    const allBusesWithLocation = await Promise.all(
+      (allBuses || []).map(async (bus: any) => {
+        const { data: locationData } = await supabase
+          .from('bus_locations')
+          .select('latitude, longitude, speed, heading, recorded_at')
+          .eq('bus_id', bus.id)
+          .order('recorded_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        const activeTrip: any = (activeTripsRaw || []).find((t: any) => {
+          const busObj: any = t.buses || {};
+          return busObj.id === bus.id;
+        });
+
+        return {
+          bus_id: bus.id,
+          bus_name: bus.name,
+          registration_plate: bus.registration_plate,
+          is_active: !!activeTrip,
+          trip_id: activeTrip?.id || null,
+          driver_name: activeTrip?.drivers?.user_profiles?.full_name || 'Inactive',
+          route_name: activeTrip?.routes?.name || 'No Active Route',
+          latest_location: locationData
+            ? {
+                latitude: Number(locationData.latitude),
+                longitude: Number(locationData.longitude),
+                speed: Number(locationData.speed),
+                heading: Number(locationData.heading),
+                recorded_at: locationData.recorded_at,
+              }
+            : null,
+        };
+      })
+    );
+
     return NextResponse.json({
       metrics: {
         total_buses: totalBuses || 0,
@@ -115,6 +157,7 @@ export async function GET() {
         total_drivers: totalDrivers || 0,
       },
       active_trips: activeTripsWithLocation,
+      buses_locations: allBusesWithLocation,
     });
   } catch (err: any) {
     return NextResponse.json(

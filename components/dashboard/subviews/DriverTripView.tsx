@@ -116,8 +116,17 @@ export default function DriverTripPage() {
         async (location: any, error: any) => {
           if (error) {
             console.error('Background Geolocation watch error:', error);
+            const msg = error.message || 'GPS location error.';
             setGpsStatus('error');
-            setGpsErrorMsg(error.message || 'GPS location error.');
+            setGpsErrorMsg(msg);
+            
+            // Send GPS interruption notification to Admin
+            fetch('/api/driver/notification', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ type: 'gps_off', message: msg })
+            }).catch(console.error);
+
             return;
           }
           if (location) {
@@ -157,19 +166,26 @@ export default function DriverTripPage() {
         (err) => {
           console.error('GPS watch error:', err);
           setGpsStatus('error');
+          let errMsg = 'Unknown GPS error occurred.';
           switch (err.code) {
             case err.PERMISSION_DENIED:
-              setGpsErrorMsg('GPS Access Denied. Please enable location services.');
+              errMsg = 'GPS Access Denied. Please enable location services.';
               break;
             case err.POSITION_UNAVAILABLE:
-              setGpsErrorMsg('GPS location info unavailable.');
+              errMsg = 'GPS location info unavailable.';
               break;
             case err.TIMEOUT:
-              setGpsErrorMsg('GPS connection timeout.');
+              errMsg = 'GPS connection timeout.';
               break;
-            default:
-              setGpsErrorMsg('Unknown GPS error occurred.');
           }
+          setGpsErrorMsg(errMsg);
+
+          // Send GPS interruption notification to Admin
+          fetch('/api/driver/notification', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: 'gps_off', message: errMsg })
+          }).catch(console.error);
         },
         {
           enableHighAccuracy: true,
@@ -193,9 +209,25 @@ export default function DriverTripPage() {
     };
   }, [activeTrip, bus]);
 
-  const handleEndTrip = () => {
+  const handleEndTrip = async () => {
     if (!activeTrip) return;
     if (confirm('End this route trip? Location tracking will stop immediately.')) {
+      const allCompleted = passedStops.length >= stopsList.length;
+      if (!allCompleted) {
+        // Send notification to Admin that trip was ended early!
+        try {
+          await fetch('/api/driver/notification', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type: 'trip_ended_early',
+              message: `Ended the trip early. Only completed ${passedStops.length} out of ${stopsList.length} stops.`
+            })
+          });
+        } catch (nErr) {
+          console.error('Failed to dispatch notification:', nErr);
+        }
+      }
       endTripMutation.mutate(activeTrip.trip_id);
     }
   };

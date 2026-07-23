@@ -59,29 +59,35 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 2. Verify trip is active and belongs to this driver
-    const { data: trip, error: tripErr } = await supabase
-      .from('trips')
-      .select('id, status, driver_id, route_id')
-      .eq('id', trip_id)
-      .maybeSingle();
+    let trip = null;
 
-    if (tripErr || !trip) {
-      return NextResponse.json(
-        { error: 'Trip record not found', code: 'NOT_FOUND' },
-        { status: 404 }
-      );
+    if (trip_id) {
+      // 2. Verify trip is active and belongs to this driver
+      const { data: tripRaw, error: tripErr } = await supabase
+        .from('trips')
+        .select('id, status, driver_id, route_id')
+        .eq('id', trip_id)
+        .maybeSingle();
+
+      if (tripErr || !tripRaw) {
+        return NextResponse.json(
+          { error: 'Trip record not found', code: 'NOT_FOUND' },
+          { status: 404 }
+        );
+      }
+
+      if (tripRaw.driver_id !== driver.id || tripRaw.status !== 'active') {
+        return NextResponse.json(
+          { error: 'Forbidden: Trip is inactive or belongs to another driver', code: 'FORBIDDEN' },
+          { status: 403 }
+        );
+      }
+
+      trip = tripRaw;
     }
 
-    if (trip.driver_id !== driver.id || trip.status !== 'active') {
-      return NextResponse.json(
-        { error: 'Forbidden: Trip is inactive or belongs to another driver', code: 'FORBIDDEN' },
-        { status: 403 }
-      );
-    }
-
-    // A. Geofence Check: Verify location is close to assigned route's stops
-    if (trip.route_id) {
+    // A. Geofence Check: Verify location is close to assigned route's stops (Only if active trip exists)
+    if (trip && trip.route_id) {
       const { data: stops } = await supabase
         .from('stops')
         .select('latitude, longitude')
@@ -110,7 +116,7 @@ export async function POST(req: NextRequest) {
     const { data: lastLoc } = await supabase
       .from('bus_locations')
       .select('latitude, longitude, recorded_at')
-      .eq('trip_id', trip_id)
+      .eq(trip_id ? 'trip_id' : 'bus_id', trip_id || bus_id)
       .order('recorded_at', { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -135,8 +141,8 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Proximity / Deviation Alerts Check
-    if (trip.route_id) {
+    // Proximity / Deviation Alerts Check (Only if active trip exists)
+    if (trip && trip.route_id) {
       const { data: stops = [] } = await supabase
         .from('stops')
         .select('*')
