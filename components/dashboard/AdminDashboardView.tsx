@@ -278,10 +278,23 @@ export default function AdminDashboardView({ tab: initialTab }: { tab?: string }
   useEffect(() => {
     if (!toastNotification) return;
     const timer = setTimeout(() => {
+      // Auto dismiss but keep in DB (just hide from UI)
       setToastNotification(null);
     }, 6000);
     return () => clearTimeout(timer);
   }, [toastNotification]);
+
+  const dismissNotification = async (notifId: string) => {
+    setToastNotification(null);
+    try {
+      await supabase
+        .from('notifications')
+        .delete()
+        .eq('id', notifId);
+    } catch (err) {
+      console.error('Failed to delete notification:', err);
+    }
+  };
 
   // Dynamic Routing based on Search Param tab
   switch (tab) {
@@ -608,7 +621,7 @@ export default function AdminDashboardView({ tab: initialTab }: { tab?: string }
             <p className="text-xs text-slate-300 mt-1 font-semibold leading-relaxed">{toastNotification.message}</p>
           </div>
           <button 
-            onClick={() => setToastNotification(null)}
+            onClick={() => dismissNotification(toastNotification.id)}
             className="text-slate-500 hover:text-slate-350 p-0.5 rounded-lg transition-all"
           >
             <X className="w-4 h-4" />

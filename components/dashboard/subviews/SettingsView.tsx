@@ -23,8 +23,8 @@ export default function SettingsView() {
   const [schoolId, setSchoolId] = useState<string | null>(null);
   const [schoolName, setSchoolName] = useState('');
   const [schoolAddress, setSchoolAddress] = useState('');
-  const [latitude, setLatitude] = useState<number>(27.5609);
-  const [longitude, setLongitude] = useState<number>(76.6111);
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
 
   // Link parsing states
   const [inputMode, setInputMode] = useState<'link' | 'manual'>('link');
@@ -61,9 +61,13 @@ export default function SettingsView() {
             setSchoolAddress(school.address || '');
             if (school.latitude !== undefined && school.latitude !== null) {
               setLatitude(Number(school.latitude));
+            } else {
+              setLatitude(null);
             }
             if (school.longitude !== undefined && school.longitude !== null) {
               setLongitude(Number(school.longitude));
+            } else {
+              setLongitude(null);
             }
           }
         }
@@ -171,7 +175,7 @@ export default function SettingsView() {
     );
   }
 
-  const mapStops = [
+  const mapStops = latitude !== null && longitude !== null ? [
     {
       id: 'school',
       name: `🏫 ${schoolName || 'School'}`,
@@ -180,7 +184,7 @@ export default function SettingsView() {
       stop_order: 0,
       address: schoolAddress,
     }
-  ];
+  ] : [];
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in duration-200">
@@ -301,9 +305,8 @@ export default function SettingsView() {
                     <input
                       type="number"
                       step="any"
-                      required
-                      value={latitude}
-                      onChange={(e) => setLatitude(Number(e.target.value))}
+                      value={latitude !== null ? latitude : ''}
+                      onChange={(e) => setLatitude(e.target.value ? Number(e.target.value) : null)}
                       placeholder="e.g. 27.5609"
                       className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 focus:border-purple-500 rounded-xl text-sm font-medium focus:outline-none transition"
                     />
@@ -313,9 +316,8 @@ export default function SettingsView() {
                     <input
                       type="number"
                       step="any"
-                      required
-                      value={longitude}
-                      onChange={(e) => setLongitude(Number(e.target.value))}
+                      value={longitude !== null ? longitude : ''}
+                      onChange={(e) => setLongitude(e.target.value ? Number(e.target.value) : null)}
                       placeholder="e.g. 76.6111"
                       className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 focus:border-purple-500 rounded-xl text-sm font-medium focus:outline-none transition"
                     />
@@ -351,14 +353,14 @@ export default function SettingsView() {
               <LiveMap
                 busId="dummy"
                 stops={mapStops}
-                initialLocation={{ latitude, longitude }}
+                initialLocation={latitude !== null && longitude !== null ? { latitude, longitude } : { latitude: 27.5609, longitude: 76.6111 }}
                 showBus={false}
-                focusLocation={{ latitude, longitude }}
+                focusLocation={latitude !== null && longitude !== null ? { latitude, longitude } : null}
               />
             </div>
             <div className="text-[10px] text-slate-400 font-medium leading-relaxed flex items-start gap-1 p-2 bg-slate-50 rounded-xl">
               <Info className="w-4 h-4 text-slate-400 flex-shrink-0" />
-              <span>Current coordinates: {latitude.toFixed(6)}, {longitude.toFixed(6)}</span>
+              <span>Current coordinates: {latitude !== null ? latitude.toFixed(6) : 'Not Configured'}, {longitude !== null ? longitude.toFixed(6) : 'Not Configured'}</span>
             </div>
           </div>
         </div>

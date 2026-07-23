@@ -196,23 +196,47 @@ export default function AdminRoutes() {
 
   const handleOpenAddForm = () => {
     setSelectedRoute(null);
-    setStopsList([]);
     reset({
       name: '',
       bus_id: '',
       description: '',
       is_active: true,
     });
+    if (defaultSchool && defaultSchool.latitude !== null && defaultSchool.longitude !== null) {
+      const schoolStop = {
+        name: defaultSchool.name || 'School Campus',
+        address: defaultSchool.address || '',
+        latitude: Number(defaultSchool.latitude),
+        longitude: Number(defaultSchool.longitude),
+        stop_order: 0,
+      };
+      setStopsList([schoolStop]);
+    } else {
+      setStopsList([]);
+    }
     setIsEditing(true);
   };
 
   const handleOpenEditForm = (route: any) => {
     setSelectedRoute(route);
-    setStopsList(route.stops || []);
     setValue('name', route.name);
     setValue('bus_id', route.bus_id || '');
     setValue('description', route.description || '');
     setValue('is_active', route.is_active);
+    if (route.stops && route.stops.length > 0) {
+      setStopsList(route.stops);
+    } else if (defaultSchool && defaultSchool.latitude !== null && defaultSchool.longitude !== null) {
+      const schoolStop = {
+        name: defaultSchool.name || 'School Campus',
+        address: defaultSchool.address || '',
+        latitude: Number(defaultSchool.latitude),
+        longitude: Number(defaultSchool.longitude),
+        stop_order: 0,
+      };
+      setStopsList([schoolStop]);
+    } else {
+      setStopsList([]);
+    }
     setIsEditing(true);
   };
 
