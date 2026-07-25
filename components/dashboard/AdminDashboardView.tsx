@@ -276,6 +276,30 @@ export default function AdminDashboardView({ tab: initialTab }: { tab?: string }
   }, [adminSchoolId, supabase]);
 
   useEffect(() => {
+    if (!adminSchoolId) return;
+
+    const tripsChannel = supabase
+      .channel('admin-realtime-trips')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'trips',
+          filter: `school_id=eq.${adminSchoolId}`,
+        },
+        () => {
+          refetch();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(tripsChannel);
+    };
+  }, [adminSchoolId, supabase, refetch]);
+
+  useEffect(() => {
     if (!toastNotification) return;
     const timer = setTimeout(() => {
       // Auto dismiss but keep in DB (just hide from UI)
