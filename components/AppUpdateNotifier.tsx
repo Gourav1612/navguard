@@ -32,13 +32,20 @@ export default function AppUpdateNotifier() {
     const BATTERY_OPT_KEY = 'naviguard_battery_opt_shown';
     const alreadyShown = localStorage.getItem(BATTERY_OPT_KEY);
     if (!alreadyShown) {
-      // Small delay so app UI is ready before opening settings
+      // Small delay so app UI is fully rendered before showing the system dialog
       setTimeout(async () => {
         try {
-          await BatteryOptimization.openBatterySettings();
+          // Check current status first — skip if already granted
+          const statusResult = await BatteryOptimization.isIgnoringBatteryOptimizations();
+          if (!statusResult?.value) {
+            // Shows the native system popup:
+            // "Allow NaviGuard to always run in the background?" [Deny] [Allow]
+            await BatteryOptimization.requestIgnoreBatteryOptimization();
+          }
+          // Mark as shown so we never bother the user again
           localStorage.setItem(BATTERY_OPT_KEY, 'true');
         } catch (err) {
-          console.error('Failed to open battery settings on launch:', err);
+          console.error('Failed to request battery optimization on launch:', err);
         }
       }, 1500);
     }
