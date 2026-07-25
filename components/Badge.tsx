@@ -7,6 +7,8 @@ const STATUS_COLORS: Record<string, string> = {
   completed: 'bg-blue-100 text-blue-800 border-blue-200',
   pending: 'bg-orange-100 text-orange-800 border-orange-200',
   cancelled: 'bg-red-100 text-red-800 border-red-200',
+  offline: 'bg-red-100 text-red-800 border-red-200',
+  stale: 'bg-red-100 text-red-800 border-red-200',
 };
 
 interface BadgeProps {

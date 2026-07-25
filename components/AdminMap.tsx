@@ -51,10 +51,12 @@ export function AdminMap({ activeTrips = [], busesLocations = [] }: AdminMapProp
     mapRef.current = map;
 
     // Bus Icon Factory
-    const createBusIcon = (name: string, isActive: boolean) => {
-      const bgClass = isActive 
-        ? 'bg-amber-400 border-amber-600 text-slate-800' 
-        : 'bg-slate-200 border-slate-400 text-slate-500';
+    const createBusIcon = (name: string, isActive: boolean, isStale?: boolean) => {
+      const bgClass = isStale
+        ? 'bg-red-500 border-red-700 text-white'
+        : isActive 
+          ? 'bg-amber-400 border-amber-600 text-slate-800' 
+          : 'bg-slate-200 border-slate-400 text-slate-500';
       return L.divIcon({
         className: '',
         html: `
@@ -73,8 +75,8 @@ export function AdminMap({ activeTrips = [], busesLocations = [] }: AdminMapProp
     // Render initial bus markers
     busesLocations.forEach((bus) => {
       if (bus.latest_location) {
-        const { latitude, longitude, speed } = bus.latest_location;
-        const icon = createBusIcon(bus.bus_name, bus.is_active);
+        const { latitude, longitude, speed, is_stale } = bus.latest_location as any;
+        const icon = createBusIcon(bus.bus_name, bus.is_active, is_stale);
         
         const marker = L.marker([latitude, longitude], { icon }).addTo(map);
         
@@ -82,12 +84,12 @@ export function AdminMap({ activeTrips = [], busesLocations = [] }: AdminMapProp
           <div class="font-sans space-y-1.5">
             <div class="font-bold text-slate-950 text-sm flex items-center gap-1.5">
               ${bus.bus_name}
-              <span class="inline-block w-2.5 h-2.5 rounded-full ${bus.is_active ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}"></span>
+              <span class="inline-block w-2.5 h-2.5 rounded-full ${bus.is_active ? (is_stale ? 'bg-red-500' : 'bg-emerald-500 animate-pulse') : 'bg-slate-400'}"></span>
             </div>
-            <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Status:</span> ${bus.is_active ? 'Active Trip' : 'Inactive'}</div>
+            <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Status:</span> ${bus.is_active ? (is_stale ? '⚠️ Offline / GPS Lost' : 'Active Trip') : 'Inactive'}</div>
             <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Route:</span> ${bus.route_name}</div>
             <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Driver:</span> ${bus.driver_name}</div>
-            <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Speed:</span> ${speed.toFixed(1)} km/h</div>
+            <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Speed:</span> ${is_stale ? '0.0' : speed.toFixed(1)} km/h</div>
             <div class="pt-2 border-t border-slate-100 mt-2">
               <a 
                 href="https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}" 

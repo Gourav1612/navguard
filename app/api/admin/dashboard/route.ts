@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireRole } from '@/lib/auth-guard';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { createSupabaseServerClient, createAdminClient } from '@/lib/supabase/server';
 
 export async function GET() {
   const auth = await requireRole(['admin']);
@@ -8,6 +8,7 @@ export async function GET() {
 
   const { profile } = auth;
   const supabase = await createSupabaseServerClient();
+  const adminClient = createAdminClient();
 
   try {
     // 1. Fetch metrics in parallel
@@ -94,15 +95,48 @@ export async function GET() {
           route: {
             name: routeObj.name || 'No Route Assigned',
           },
-          latest_location: locationData
-            ? {
-                latitude: Number(locationData.latitude),
-                longitude: Number(locationData.longitude),
-                speed: Number(locationData.speed),
-                heading: Number(locationData.heading),
-                recorded_at: locationData.recorded_at,
-              }
-            : null,
+          latest_location: (() => {
+            if (!locationData) return null;
+            const recTime = new Date(locationData.recorded_at).getTime();
+            const elapsed = Date.now() - recTime;
+            const isStale = elapsed > 8000;
+
+            if (isStale) {
+              const driverName = driverObj.user_profiles?.full_name || 'Unassigned Driver';
+              // Fire async check to create notifications if not exists
+              (async () => {
+                try {
+                  const { data: existingNotif } = await adminClient
+                    .from('notifications')
+                    .select('id')
+                    .eq('type', 'gps_off')
+                    .like('message', `%${driverName}%`)
+                    .eq('is_read', false)
+                    .maybeSingle();
+
+                  if (!existingNotif) {
+                    await adminClient.from('notifications').insert({
+                      school_id: profile.school_id,
+                      title: '📶 Driver GPS Interrupted',
+                      message: `${driverName} went offline or stopped location reporting.`,
+                      type: 'gps_off',
+                    });
+                  }
+                } catch (e) {
+                  console.error('Failed to auto-insert stale GPS notification:', e);
+                }
+              })();
+            }
+
+            return {
+              latitude: Number(locationData.latitude),
+              longitude: Number(locationData.longitude),
+              speed: isStale ? 0 : Number(locationData.speed),
+              heading: Number(locationData.heading),
+              recorded_at: locationData.recorded_at,
+              is_stale: isStale,
+            };
+          })(),
         };
       })
     );
@@ -136,15 +170,20 @@ export async function GET() {
           trip_id: activeTrip?.id || null,
           driver_name: activeTrip?.drivers?.user_profiles?.full_name || 'Inactive',
           route_name: activeTrip?.routes?.name || 'No Active Route',
-          latest_location: locationData
-            ? {
-                latitude: Number(locationData.latitude),
-                longitude: Number(locationData.longitude),
-                speed: Number(locationData.speed),
-                heading: Number(locationData.heading),
-                recorded_at: locationData.recorded_at,
-              }
-            : null,
+          latest_location: (() => {
+            if (!locationData) return null;
+            const recTime = new Date(locationData.recorded_at).getTime();
+            const elapsed = Date.now() - recTime;
+            const isStale = elapsed > 8000;
+            return {
+              latitude: Number(locationData.latitude),
+              longitude: Number(locationData.longitude),
+              speed: isStale ? 0 : Number(locationData.speed),
+              heading: Number(locationData.heading),
+              recorded_at: locationData.recorded_at,
+              is_stale: isStale,
+            };
+          })(),
         };
       })
     );

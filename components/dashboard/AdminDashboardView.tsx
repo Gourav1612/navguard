@@ -480,13 +480,19 @@ export default function AdminDashboardView({ tab: initialTab }: { tab?: string }
                         <td className="px-6 py-4.5 font-medium text-slate-600">{trip.route.name}</td>
                         <td className="px-6 py-4.5 text-slate-600">{trip.driver.full_name}</td>
                         <td className="px-6 py-4.5">
-                          <Badge status={hasLoc ? 'active' : 'pending'} />
+                          <Badge status={hasLoc ? (trip.latest_location.is_stale ? 'offline' : 'active') : 'pending'} />
                         </td>
                         <td className="px-6 py-4.5 font-mono font-semibold text-slate-800">
                           {hasLoc ? `${trip.latest_location.speed.toFixed(1)} km/h` : '—'}
                         </td>
                         <td className="px-6 py-4.5 text-slate-500 text-xs font-medium">
-                          {hasLoc ? formatDateTime(trip.latest_location.recorded_at) : 'Waiting for link...'}
+                          {hasLoc ? (
+                            trip.latest_location.is_stale ? (
+                              <span className="text-red-500 font-bold">⚠️ Offline (Last: {formatDateTime(trip.latest_location.recorded_at)})</span>
+                            ) : (
+                              formatDateTime(trip.latest_location.recorded_at)
+                            )
+                          ) : 'Waiting for link...'}
                         </td>
                         <td className="px-6 py-4.5 text-right">
                           <button
@@ -524,10 +530,18 @@ export default function AdminDashboardView({ tab: initialTab }: { tab?: string }
                       <p className="text-slate-450 text-[10px] font-semibold mt-1">Route: {trip.route.name}</p>
                     </div>
                     <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[10px] font-extrabold uppercase ${
-                      hasLoc ? 'bg-emerald-50 text-emerald-800 border border-emerald-100' : 'bg-slate-50 text-slate-500 border border-slate-150'
+                      hasLoc 
+                        ? (trip.latest_location.is_stale 
+                            ? 'bg-red-50 text-red-800 border border-red-100' 
+                            : 'bg-emerald-50 text-emerald-800 border border-emerald-100')
+                        : 'bg-slate-50 text-slate-500 border border-slate-150'
                     }`}>
-                      <span className={`w-1.5 h-1.5 rounded-full ${hasLoc ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`}></span>
-                      {hasLoc ? 'Active' : 'Pending'}
+                      <span className={`w-1.5 h-1.5 rounded-full ${
+                        hasLoc 
+                          ? (trip.latest_location.is_stale ? 'bg-red-500' : 'bg-emerald-500 animate-pulse') 
+                          : 'bg-slate-400'
+                      }`}></span>
+                      {hasLoc ? (trip.latest_location.is_stale ? 'Offline' : 'Active') : 'Pending'}
                     </span>
                   </div>
                   
@@ -545,7 +559,13 @@ export default function AdminDashboardView({ tab: initialTab }: { tab?: string }
                     <div className="col-span-2">
                       <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Last Telemetry</span>
                       <span className="text-slate-500 block mt-0.5 text-[11px] font-medium leading-relaxed">
-                        {hasLoc ? formatDateTime(trip.latest_location.recorded_at) : 'Waiting for link...'}
+                        {hasLoc ? (
+                          trip.latest_location.is_stale ? (
+                            <span className="text-red-500 font-bold">⚠️ Offline (Last: {formatDateTime(trip.latest_location.recorded_at)})</span>
+                          ) : (
+                            formatDateTime(trip.latest_location.recorded_at)
+                          )
+                        ) : 'Waiting for link...'}
                       </span>
                     </div>
                   </div>
