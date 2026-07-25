@@ -7,6 +7,7 @@ import { Loader2, Radio, CheckCircle, Navigation, ShieldAlert, Users, XCircle, A
 import { Capacitor, registerPlugin } from '@capacitor/core';
 
 const BackgroundGeolocation = registerPlugin<any>('BackgroundGeolocation');
+const BatteryOptimization = registerPlugin<any>('BatteryOptimization');
 
 export default function DriverTripPage() {
   const router = useRouter();
@@ -264,6 +265,19 @@ export default function DriverTripPage() {
     }
   };
 
+  const openBatterySettings = async () => {
+    if (Capacitor.isNativePlatform()) {
+      try {
+        await BatteryOptimization.openBatterySettings();
+      } catch (err) {
+        console.error('Failed to open battery settings:', err);
+        alert('Please open phone Settings > Apps > NaviGuard > Battery > select Unrestricted.');
+      }
+    } else {
+      alert('This setting is only applicable on native Android/iOS mobile devices.');
+    }
+  };
+
   const toggleStopPassed = async (stopId: string) => {
     const isPassing = !passedStops.includes(stopId);
     
@@ -380,6 +394,26 @@ export default function DriverTripPage() {
           </span>
         </div>
       </div>
+
+      {Capacitor.isNativePlatform() && (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex flex-col gap-3">
+          <div className="flex gap-2.5 items-start">
+            <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+            <div className="space-y-0.5">
+              <h4 className="font-extrabold text-slate-800 text-[10px] uppercase tracking-wider">Enable Always-On Tracking</h4>
+              <p className="text-slate-600 text-[11px] leading-relaxed font-semibold">
+                Please set battery optimization to <strong>"Unrestricted"</strong> to ensure GPS tracking works in background when screen is locked.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={openBatterySettings}
+            className="w-full py-2 bg-amber-500 hover:bg-amber-600 text-white text-[11px] font-bold rounded-xl transition shadow cursor-pointer text-center"
+          >
+            ⚙️ Open Battery Settings
+          </button>
+        </div>
+      )}
 
       {gpsErrorMsg && (
         <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-red-800 text-xs font-semibold">
