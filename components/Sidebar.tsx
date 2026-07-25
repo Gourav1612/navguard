@@ -40,6 +40,14 @@ export function Sidebar() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [mfaVerified, setMfaVerified] = useState(false);
   const [checkingMfa, setCheckingMfa] = useState(true);
+  const [showDownloadBtn, setShowDownloadBtn] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const isNative = (window as any).Capacitor?.isNativePlatform?.() || false;
+      setShowDownloadBtn(!isNative);
+    }
+  }, []);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -299,6 +307,15 @@ export function Sidebar() {
                   <span className="text-[10px] text-purple-300/70 font-mono block mt-1 truncate">{user.email}</span>
                 </div>
               </div>
+            )}
+            {showDownloadBtn && (
+              <a
+                href="/NaviGuard.apk"
+                download
+                className="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider text-purple-200 border border-purple-500/20 bg-purple-500/5 hover:bg-purple-500/10 transition-all duration-300 no-underline text-center cursor-pointer"
+              >
+                📥 Download Mobile App
+              </a>
             )}
             <button
               onClick={handleLogout}

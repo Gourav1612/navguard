@@ -662,7 +662,7 @@ export default function AdminDashboardView({ tab: initialTab }: { tab?: string }
       )}
       {/* Real-time In-App Notification Toast */}
       {toastNotification && (
-        <div className="fixed bottom-6 right-6 z-[9999] max-w-sm w-full bg-slate-905/95 backdrop-blur border border-slate-750 text-white rounded-2xl p-4.5 shadow-2xl flex items-start gap-3.5 animate-in slide-in-from-bottom duration-300">
+        <div className="fixed bottom-6 right-6 z-[9999] max-w-sm w-full bg-[#160d2b]/95 backdrop-blur-md border border-[#301c56]/80 text-white rounded-3xl p-5 shadow-2xl flex items-start gap-3.5 animate-in slide-in-from-bottom duration-300">
           <div className={`p-2.5 rounded-xl flex-shrink-0 ${
             toastNotification.type === 'gps_off' ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
           }`}>
