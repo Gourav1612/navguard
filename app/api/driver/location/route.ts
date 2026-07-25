@@ -219,8 +219,9 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 3. Log GPS coordinates
-    const { data: newLocation, error: locErr } = await supabase
+    // 3. Log GPS coordinates using adminClient to bypass insert RLS active-trip constraint on bus_locations
+    const adminSupabase = createAdminClient();
+    const { data: newLocation, error: locErr } = await adminSupabase
       .from('bus_locations')
       .insert({
         bus_id,
