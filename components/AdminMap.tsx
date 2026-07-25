@@ -31,6 +31,7 @@ export function AdminMap({ activeTrips = [], busesLocations = [] }: AdminMapProp
   // Track markers by busId
   const markersRef = useRef<Record<string, L.Marker>>({});
 
+  // 1. Initialize Leaflet Map exactly once on mount
   useEffect(() => {
     // Default center to Jaipur or first active bus
     let center: L.LatLngExpression = [26.9124, 75.7873];
@@ -42,13 +43,31 @@ export function AdminMap({ activeTrips = [], busesLocations = [] }: AdminMapProp
       ];
     }
 
-    // Initialize Leaflet map
     const map = L.map('admin-map', { zoomControl: true }).setView(center, 13);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© OpenStreetMap contributors',
     }).addTo(map);
 
     mapRef.current = map;
+
+    // Handle container resize
+    const resizeObserver = new ResizeObserver(() => {
+      map.invalidateSize();
+    });
+    const container = document.getElementById('admin-map');
+    if (container) resizeObserver.observe(container);
+
+    return () => {
+      resizeObserver.disconnect();
+      map.remove();
+      mapRef.current = null;
+    };
+  }, []); // Run ONLY once on mount
+
+  // 2. Sync markers and listen to Supabase realtime events on the mounted map (preserves zoom level)
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
 
     // Bus Icon Factory
     const createBusIcon = (name: string, isActive: boolean, isStale?: boolean) => {
@@ -72,38 +91,64 @@ export function AdminMap({ activeTrips = [], busesLocations = [] }: AdminMapProp
       });
     };
 
-    // Render initial bus markers
+    // Render or update active markers
     busesLocations.forEach((bus) => {
       if (bus.latest_location) {
         const { latitude, longitude, speed, is_stale } = bus.latest_location as any;
         const icon = createBusIcon(bus.bus_name, bus.is_active, is_stale);
         
-        const marker = L.marker([latitude, longitude], { icon }).addTo(map);
-        
-        marker.bindPopup(`
-          <div class="font-sans space-y-1.5">
-            <div class="font-bold text-slate-950 text-sm flex items-center gap-1.5">
-              ${bus.bus_name}
-              <span class="inline-block w-2.5 h-2.5 rounded-full ${bus.is_active ? (is_stale ? 'bg-red-500' : 'bg-emerald-500 animate-pulse') : 'bg-slate-400'}"></span>
+        let marker = markersRef.current[bus.bus_id];
+        if (marker) {
+          marker.setLatLng([latitude, longitude]);
+          marker.setIcon(icon);
+          marker.setPopupContent(`
+            <div class="font-sans space-y-1.5">
+              <div class="font-bold text-slate-950 text-sm flex items-center gap-1.5">
+                ${bus.bus_name}
+                <span class="inline-block w-2.5 h-2.5 rounded-full ${bus.is_active ? (is_stale ? 'bg-red-500' : 'bg-emerald-500 animate-pulse') : 'bg-slate-400'}"></span>
+              </div>
+              <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Status:</span> ${bus.is_active ? (is_stale ? '⚠️ Offline / GPS Lost' : 'Active Trip') : 'Inactive'}</div>
+              <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Route:</span> ${bus.route_name}</div>
+              <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Driver:</span> ${bus.driver_name}</div>
+              <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Speed:</span> ${is_stale ? '0.0' : speed.toFixed(1)} km/h</div>
+              <div class="pt-2 border-t border-slate-100 mt-2">
+                <a 
+                  href="https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}" 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  class="inline-flex items-center justify-center w-full px-2 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-[#5c3b99] text-[10px] font-bold rounded-lg transition-all text-center no-underline"
+                >
+                  📍 Open Location
+                </a>
+              </div>
             </div>
-            <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Status:</span> ${bus.is_active ? (is_stale ? '⚠️ Offline / GPS Lost' : 'Active Trip') : 'Inactive'}</div>
-            <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Route:</span> ${bus.route_name}</div>
-            <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Driver:</span> ${bus.driver_name}</div>
-            <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Speed:</span> ${is_stale ? '0.0' : speed.toFixed(1)} km/h</div>
-            <div class="pt-2 border-t border-slate-100 mt-2">
-              <a 
-                href="https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}" 
-                target="_blank" 
-                rel="noopener noreferrer" 
-                class="inline-flex items-center justify-center w-full px-2 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-[#5c3b99] text-[10px] font-bold rounded-lg transition-all text-center no-underline"
-              >
-                📍 Open Location
-              </a>
+          `);
+        } else {
+          marker = L.marker([latitude, longitude], { icon }).addTo(map);
+          marker.bindPopup(`
+            <div class="font-sans space-y-1.5">
+              <div class="font-bold text-slate-950 text-sm flex items-center gap-1.5">
+                ${bus.bus_name}
+                <span class="inline-block w-2.5 h-2.5 rounded-full ${bus.is_active ? (is_stale ? 'bg-red-500' : 'bg-emerald-500 animate-pulse') : 'bg-slate-400'}"></span>
+              </div>
+              <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Status:</span> ${bus.is_active ? (is_stale ? '⚠️ Offline / GPS Lost' : 'Active Trip') : 'Inactive'}</div>
+              <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Route:</span> ${bus.route_name}</div>
+              <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Driver:</span> ${bus.driver_name}</div>
+              <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Speed:</span> ${is_stale ? '0.0' : speed.toFixed(1)} km/h</div>
+              <div class="pt-2 border-t border-slate-100 mt-2">
+                <a 
+                  href="https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}" 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  class="inline-flex items-center justify-center w-full px-2 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-[#5c3b99] text-[10px] font-bold rounded-lg transition-all text-center no-underline"
+                >
+                  📍 Open Location
+                </a>
+              </div>
             </div>
-          </div>
-        `);
-        
-        markersRef.current[bus.bus_id] = marker;
+          `);
+          markersRef.current[bus.bus_id] = marker;
+        }
       }
     });
 
@@ -130,7 +175,7 @@ export function AdminMap({ activeTrips = [], busesLocations = [] }: AdminMapProp
           if (marker) {
             marker.setLatLng([latitude, longitude]);
             marker.setIcon(icon);
-             marker.setPopupContent(`
+            marker.setPopupContent(`
               <div class="font-sans space-y-1.5">
                 <div class="font-bold text-slate-950 text-sm flex items-center gap-1.5">
                   ${busName}
@@ -153,7 +198,6 @@ export function AdminMap({ activeTrips = [], busesLocations = [] }: AdminMapProp
               </div>
             `);
           } else {
-            // New active bus locations detected in real-time
             const newMarker = L.marker([latitude, longitude], { icon }).addTo(map);
             newMarker.bindPopup(`
               <div class="font-sans space-y-1.5">
@@ -183,19 +227,10 @@ export function AdminMap({ activeTrips = [], busesLocations = [] }: AdminMapProp
       )
       .subscribe();
 
-    // Handle container resize
-    const resizeObserver = new ResizeObserver(() => {
-      map.invalidateSize();
-    });
-    const container = document.getElementById('admin-map');
-    if (container) resizeObserver.observe(container);
-
     return () => {
       supabase.removeChannel(channel);
-      resizeObserver.disconnect();
-      map.remove();
     };
-  }, [activeTrips, busesLocations]);
+  }, [busesLocations]);
 
   return (
     <div className="relative z-0 w-full h-[450px] border border-slate-200 rounded-2xl overflow-hidden shadow-inner">
