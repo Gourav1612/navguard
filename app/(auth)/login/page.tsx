@@ -113,7 +113,7 @@ export default function LoginPage() {
           <div className="flex items-center justify-between gap-4 w-full">
             <div className="flex items-center gap-3">
               <img src="/logo.png" alt="NaviGuard Logo" className="w-10 h-10 object-contain bg-purple-500/5 border border-purple-500/20 rounded-2xl p-1" />
-              <span className="font-extrabold text-base tracking-wider text-purple-100">NaviGuard AI</span>
+              <span className="font-extrabold text-base tracking-wider text-purple-100">NaviGuard</span>
             </div>
             {showDownloadBtn && (
               <a

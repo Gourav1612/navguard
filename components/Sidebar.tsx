@@ -123,7 +123,7 @@ export function Sidebar() {
       <div className="flex items-center gap-3 px-6 py-6 border-b border-[#2d194a]/60">
         <img src="/logo.png" alt="Logo" className="w-10 h-10 object-contain bg-white/5 border border-white/10 rounded-xl p-1" />
         <div>
-          <h1 className="font-extrabold text-base tracking-wide leading-none text-white">NaviGuard AI</h1>
+          <h1 className="font-extrabold text-base tracking-wide leading-none text-white">NaviGuard</h1>
           <span className="text-[9px] text-purple-300 font-bold uppercase tracking-widest block mt-1">Transport Admin</span>
         </div>
       </div>

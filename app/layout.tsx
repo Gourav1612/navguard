@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "NaviGuard AI — School Transport Management & Live Tracking",
+  title: "NaviGuard — School Transport Management & Live Tracking",
   description: "Real-time school bus GPS tracking, automated ETAs, and role-based transport dashboards for schools, drivers, parents, and students.",
 };
 
