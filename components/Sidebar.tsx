@@ -221,7 +221,7 @@ export function Sidebar() {
       )}>
         <div className="flex items-center gap-3">
           <img src="/logo.png" alt="Logo" className="w-8 h-8 object-contain bg-white/5 border border-white/10 rounded-lg p-0.5" />
-          <span className="font-extrabold text-sm tracking-wide">NaviGuard AI</span>
+          <span className="font-extrabold text-sm tracking-wide">NaviGuard</span>
         </div>
         <button
           onClick={() => setIsMobileOpen(!isMobileOpen)}
