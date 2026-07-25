@@ -402,8 +402,8 @@ export default function AdminStudents() {
         </select>
       </div>
 
-      {/* Table Container */}
-      <div className="bg-white border border-slate-150 rounded-2xl shadow-sm overflow-hidden">
+      {/* Table Containe      {/* Desktop View Table */}
+      <div className="hidden md:block bg-white border border-slate-150 rounded-2xl shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
@@ -456,7 +456,7 @@ export default function AdminStudents() {
                     <td className="px-6 py-4.5 text-right space-x-2.5">
                       <button
                         onClick={() => handleOpenEditModal(student)}
-                        className="inline-flex items-center justify-center p-2 border border-slate-200 hover:border-slate-300 text-slate-600 rounded-lg transition"
+                        className="inline-flex items-center justify-center p-2 border border-slate-200 hover:border-slate-350 text-slate-650 rounded-lg transition"
                       >
                         <Edit2 className="w-3.5 h-3.5" />
                       </button>
@@ -473,6 +473,77 @@ export default function AdminStudents() {
             </tbody>
           </table>
         </div>
+      </div>
+
+      {/* Mobile Responsive Cards View */}
+      <div className="block md:hidden space-y-4">
+        {filteredStudents.length === 0 ? (
+          <div className="bg-white border border-slate-150 rounded-2xl p-8 text-center text-slate-400 text-xs font-semibold">
+            No students found matching this criteria.
+          </div>
+        ) : (
+          filteredStudents.map((student: any) => (
+            <div key={student.id} className="bg-white border border-slate-155 rounded-2xl p-5 shadow-sm space-y-4">
+              <div className="flex justify-between items-start gap-2">
+                <div className="min-w-0">
+                  <h4 className="font-bold text-slate-900 text-sm truncate">{student.user?.full_name}</h4>
+                  <p className="text-slate-400 text-[10px] flex items-center gap-1 mt-1 font-semibold truncate">
+                    <Mail className="w-3.5 h-3.5 flex-shrink-0" /> {student.user?.email}
+                  </p>
+                </div>
+                <span className="bg-slate-100 border border-slate-200 text-slate-700 px-2.5 py-1 rounded-xl text-[10px] font-extrabold uppercase font-mono flex-shrink-0">
+                  Roll: {student.roll_number}
+                </span>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-3 pt-3.5 border-t border-slate-100 text-xs font-semibold">
+                <div>
+                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Grade Group</span>
+                  <span className="text-slate-700 block mt-0.5">Grade {student.grade}</span>
+                </div>
+                <div>
+                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Assigned Bus</span>
+                  <span className="text-slate-700 block mt-0.5">
+                    {student.bus ? (
+                      <span className="inline-flex items-center gap-1 text-[#3b82f6]">
+                        <Bus className="w-3.5 h-3.5" /> {student.bus.name}
+                      </span>
+                    ) : (
+                      <span className="text-slate-400 italic">Unassigned</span>
+                    )}
+                  </span>
+                </div>
+                <div className="col-span-2">
+                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Pickup Stop Name</span>
+                  <span className="text-slate-700 block mt-0.5">
+                    {student.stop ? (
+                      <span className="inline-flex items-center gap-1.5 text-[#10b981]">
+                        <MapPin className="w-3.5 h-3.5" /> {student.stop.name}
+                      </span>
+                    ) : (
+                      <span className="text-slate-400 italic">Unassigned</span>
+                    )}
+                  </span>
+                </div>
+              </div>
+              
+              <div className="flex justify-end gap-3 pt-3.5 border-t border-slate-100">
+                <button
+                  onClick={() => handleOpenEditModal(student)}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2.5 border border-slate-200 hover:border-slate-350 text-slate-650 rounded-xl text-xs font-bold transition"
+                >
+                  <Edit2 className="w-3.5 h-3.5" /> Edit
+                </button>
+                <button
+                  onClick={() => handleDelete(student.id)}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2.5 border border-red-200 hover:border-red-300 hover:bg-red-50 text-red-650 rounded-xl text-xs font-bold transition"
+                >
+                  <Trash2 className="w-3.5 h-3.5" /> Delete
+                </button>
+              </div>
+            </div>
+          ))
+        )}
       </div>
 
       {/* Onboard / Edit Student Modal */}
