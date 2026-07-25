@@ -79,15 +79,25 @@ export function AdminMap({ activeTrips = [], busesLocations = [] }: AdminMapProp
         const marker = L.marker([latitude, longitude], { icon }).addTo(map);
         
         marker.bindPopup(`
-          <div class="font-sans space-y-1">
+          <div class="font-sans space-y-1.5">
             <div class="font-bold text-slate-950 text-sm flex items-center gap-1.5">
               ${bus.bus_name}
               <span class="inline-block w-2.5 h-2.5 rounded-full ${bus.is_active ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}"></span>
             </div>
-            <div class="text-xs text-slate-500"><span class="font-semibold text-slate-700">Status:</span> ${bus.is_active ? 'Active Trip' : 'Inactive'}</div>
-            <div class="text-xs text-slate-500"><span class="font-semibold text-slate-700">Route:</span> ${bus.route_name}</div>
-            <div class="text-xs text-slate-500"><span class="font-semibold text-slate-700">Driver:</span> ${bus.driver_name}</div>
-            <div class="text-xs text-slate-500"><span class="font-semibold text-slate-700">Speed:</span> ${speed.toFixed(1)} km/h</div>
+            <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Status:</span> ${bus.is_active ? 'Active Trip' : 'Inactive'}</div>
+            <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Route:</span> ${bus.route_name}</div>
+            <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Driver:</span> ${bus.driver_name}</div>
+            <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Speed:</span> ${speed.toFixed(1)} km/h</div>
+            <div class="pt-2 border-t border-slate-100 mt-2">
+              <a 
+                href="https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                class="inline-flex items-center justify-center w-full px-2 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-[#5c3b99] text-[10px] font-bold rounded-lg transition-all text-center no-underline"
+              >
+                📍 Open Location
+              </a>
+            </div>
           </div>
         `);
         
@@ -118,31 +128,51 @@ export function AdminMap({ activeTrips = [], busesLocations = [] }: AdminMapProp
           if (marker) {
             marker.setLatLng([latitude, longitude]);
             marker.setIcon(icon);
-            marker.setPopupContent(`
-              <div class="font-sans space-y-1">
+             marker.setPopupContent(`
+              <div class="font-sans space-y-1.5">
                 <div class="font-bold text-slate-950 text-sm flex items-center gap-1.5">
                   ${busName}
                   <span class="inline-block w-2.5 h-2.5 rounded-full ${isActive ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}"></span>
                 </div>
-                <div class="text-xs text-slate-500"><span class="font-semibold text-slate-700">Status:</span> ${isActive ? 'Active Trip' : 'Inactive'}</div>
-                <div class="text-xs text-slate-500"><span class="font-semibold text-slate-700">Route:</span> ${routeName}</div>
-                <div class="text-xs text-slate-500"><span class="font-semibold text-slate-700">Driver:</span> ${driverName}</div>
-                <div class="text-xs text-slate-500"><span class="font-semibold text-slate-700">Speed:</span> ${Number(speed || 0).toFixed(1)} km/h</div>
+                <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Status:</span> ${isActive ? 'Active Trip' : 'Inactive'}</div>
+                <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Route:</span> ${routeName}</div>
+                <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Driver:</span> ${driverName}</div>
+                <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Speed:</span> ${Number(speed || 0).toFixed(1)} km/h</div>
+                <div class="pt-2 border-t border-slate-100 mt-2">
+                  <a 
+                    href="https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}" 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    class="inline-flex items-center justify-center w-full px-2 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-[#5c3b99] text-[10px] font-bold rounded-lg transition-all text-center no-underline"
+                  >
+                    📍 Open Location
+                  </a>
+                </div>
               </div>
             `);
           } else {
             // New active bus locations detected in real-time
             const newMarker = L.marker([latitude, longitude], { icon }).addTo(map);
             newMarker.bindPopup(`
-              <div class="font-sans space-y-1">
+              <div class="font-sans space-y-1.5">
                 <div class="font-bold text-slate-950 text-sm flex items-center gap-1.5">
                   ${busName}
                   <span class="inline-block w-2.5 h-2.5 rounded-full ${isActive ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}"></span>
                 </div>
-                <div class="text-xs text-slate-500"><span class="font-semibold text-slate-700">Status:</span> ${isActive ? 'Active Trip' : 'Inactive'}</div>
-                <div class="text-xs text-slate-500"><span class="font-semibold text-slate-700">Route:</span> ${routeName}</div>
-                <div class="text-xs text-slate-500"><span class="font-semibold text-slate-700">Driver:</span> ${driverName}</div>
-                <div class="text-xs text-slate-500"><span class="font-semibold text-slate-700">Speed:</span> ${Number(speed || 0).toFixed(1)} km/h</div>
+                <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Status:</span> ${isActive ? 'Active Trip' : 'Inactive'}</div>
+                <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Route:</span> ${routeName}</div>
+                <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Driver:</span> ${driverName}</div>
+                <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Speed:</span> ${Number(speed || 0).toFixed(1)} km/h</div>
+                <div class="pt-2 border-t border-slate-100 mt-2">
+                  <a 
+                    href="https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}" 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    class="inline-flex items-center justify-center w-full px-2 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-[#5c3b99] text-[10px] font-bold rounded-lg transition-all text-center no-underline"
+                  >
+                    📍 Open Location
+                  </a>
+                </div>
               </div>
             `);
             markersRef.current[bus_id] = newMarker;
