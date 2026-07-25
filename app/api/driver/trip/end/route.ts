@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
     // 2. Fetch trip details and verify driver matches
     const { data: trip, error: tripFetchErr } = await adminClient
       .from('trips')
-      .select('id, status, driver_id')
+      .select('id, status, driver_id, bus_id, school_id')
       .eq('id', trip_id)
       .maybeSingle();
 
@@ -79,6 +79,43 @@ export async function POST(req: NextRequest) {
         { error: 'Failed to end trip record', code: 'SERVER_ERROR', details: updateErr },
         { status: 500 }
       );
+    }
+
+    // Insert Trip Ended notification for Admin and clear location entry
+    try {
+      const [{ data: driverProfile }, { data: busData }] = await Promise.all([
+        adminClient
+          .from('user_profiles')
+          .select('full_name')
+          .eq('id', user.id)
+          .single(),
+        adminClient
+          .from('buses')
+          .select('name, registration_plate')
+          .eq('id', trip.bus_id)
+          .single()
+      ]);
+
+      const driverName = driverProfile?.full_name || 'Driver';
+      const busName = busData?.name || 'Bus';
+      const busPlate = busData?.registration_plate || 'N/A';
+
+      await adminClient
+        .from('notifications')
+        .insert({
+          school_id: trip.school_id,
+          title: '🛑 Trip Ended',
+          message: `${driverName} has ended the trip on ${busName} (${busPlate}).`,
+          type: 'trip_end'
+        });
+
+      // Clear bus location from active map tracking
+      await adminClient
+        .from('bus_locations')
+        .delete()
+        .eq('bus_id', trip.bus_id);
+    } catch (cleanupErr) {
+      console.error('Failed to run trip end notification/cleanup:', cleanupErr);
     }
 
     return NextResponse.json({

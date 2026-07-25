@@ -53,7 +53,7 @@ export async function GET() {
       .from('trips')
       .select(`
         id,
-        buses (id, name),
+        buses (id, name, registration_plate),
         drivers (id, user_profiles (full_name)),
         routes (id, name)
       `)
@@ -115,10 +115,12 @@ export async function GET() {
                     .maybeSingle();
 
                   if (!existingNotif) {
+                    const busName = busObj.name || 'Unknown Bus';
+                    const busPlate = busObj.registration_plate || 'N/A';
                     await adminClient.from('notifications').insert({
                       school_id: profile.school_id,
                       title: '📶 Driver GPS Interrupted',
-                      message: `${driverName} went offline or stopped location reporting. [trip:${trip.id}]`,
+                      message: `${driverName} on ${busName} (${busPlate}) went offline or stopped location reporting. [trip:${trip.id}]`,
                       type: 'gps_off',
                     });
                   }
