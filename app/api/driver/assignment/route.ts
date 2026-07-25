@@ -111,32 +111,19 @@ export async function GET() {
     let school = null;
 
     if (!hasCustomStart) {
-      // Fallback to default school details from database dynamically
-      let schoolName = 'School Campus';
-      let schoolLat = 27.5609;
-      let schoolLng = 76.6111;
-
       const { data: schoolRaw } = await supabase
         .from('schools')
         .select('*')
         .eq('id', driverRaw.school_id)
         .single();
 
-      if (schoolRaw) {
-        schoolName = schoolRaw.name || schoolName;
-        if (schoolRaw.latitude !== undefined && schoolRaw.latitude !== null) {
-          schoolLat = Number(schoolRaw.latitude);
-        }
-        if (schoolRaw.longitude !== undefined && schoolRaw.longitude !== null) {
-          schoolLng = Number(schoolRaw.longitude);
-        }
+      if (schoolRaw && schoolRaw.latitude !== null && schoolRaw.longitude !== null) {
+        school = {
+          name: schoolRaw.name || 'School Campus',
+          latitude: Number(schoolRaw.latitude),
+          longitude: Number(schoolRaw.longitude),
+        };
       }
-
-      school = {
-        name: schoolName,
-        latitude: schoolLat,
-        longitude: schoolLng,
-      };
     }
 
     return NextResponse.json({
