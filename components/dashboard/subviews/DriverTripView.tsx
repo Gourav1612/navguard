@@ -71,7 +71,7 @@ export default function DriverTripPage() {
     if (!bus || !activeTrip) return;
 
     const now = Date.now();
-    const GPS_INTERVAL_MS = 15000; // Throttle to post every 15 seconds
+    const GPS_INTERVAL_MS = 5000; // Throttle to post every 5 seconds
     if (now - lastSentRef.current < GPS_INTERVAL_MS) return;
     lastSentRef.current = now;
 
