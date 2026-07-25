@@ -5,8 +5,16 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { Loader2, Radio, CheckCircle, Navigation, ShieldAlert, Users, XCircle, AlertTriangle } from 'lucide-react';
 import { Capacitor, registerPlugin } from '@capacitor/core';
+import { createClient } from '@supabase/supabase-js';
 
 const BackgroundGeolocation = registerPlugin<any>('BackgroundGeolocation');
+const LocationService = registerPlugin<any>('LocationService');
+
+const supabaseClient = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
+
 
 export default function DriverTripPage() {
   const router = useRouter();
@@ -114,10 +122,46 @@ export default function DriverTripPage() {
       }
     }, 5000);
 
+    let tokenRefreshInterval: ReturnType<typeof setInterval> | null = null;
+
     if (Capacitor.isNativePlatform()) {
       setGpsStatus('searching');
       setGpsErrorMsg(null);
 
+      // ── Native Foreground Service (survives app force-kill) ──────────────────
+      // Start a native Android service that posts location directly via HTTP,
+      // bypassing the JS layer entirely, so tracking works even after swipe-kill.
+      (async () => {
+        try {
+          const { data: { session } } = await supabaseClient.auth.getSession();
+          const token = session?.access_token;
+          if (token) {
+            await LocationService.startTracking({
+              token,
+              busId: bus.id,
+              tripId: activeTrip.trip_id || '',
+              serverUrl: `${window.location.origin}/api/driver/location`,
+            });
+
+            // Refresh the token every 45 min so the native service stays authenticated
+            tokenRefreshInterval = setInterval(async () => {
+              try {
+                const { data: { session: newSession } } = await supabaseClient.auth.getSession();
+                const newToken = newSession?.access_token;
+                if (newToken) {
+                  await LocationService.updateToken({ token: newToken });
+                }
+              } catch (e) {
+                console.error('Failed to refresh native service token:', e);
+              }
+            }, 45 * 60 * 1000); // 45 minutes
+          }
+        } catch (e) {
+          console.error('Failed to start native location service:', e);
+        }
+      })();
+
+      // ── JS Watcher (for UI updates while app is open / in background) ────────
       BackgroundGeolocation.addWatcher(
         {
           backgroundMessage: "Tracking bus location in background...",
@@ -230,6 +274,11 @@ export default function DriverTripPage() {
 
     return () => {
       clearInterval(intervalId);
+      if (tokenRefreshInterval) clearInterval(tokenRefreshInterval);
+      // Stop native foreground service when component unmounts
+      if (Capacitor.isNativePlatform()) {
+        LocationService.stopTracking().catch(console.error);
+      }
       if (watchIdRef.current !== null) {
         if (typeof watchIdRef.current === 'string') {
           BackgroundGeolocation.removeWatcher({ id: watchIdRef.current });
