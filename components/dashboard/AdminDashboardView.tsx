@@ -294,8 +294,24 @@ export default function AdminDashboardView({ tab: initialTab }: { tab?: string }
       )
       .subscribe();
 
+    const locationsChannel = supabase
+      .channel('admin-realtime-locations')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'bus_locations',
+        },
+        () => {
+          refetch();
+        }
+      )
+      .subscribe();
+
     return () => {
       supabase.removeChannel(tripsChannel);
+      supabase.removeChannel(locationsChannel);
     };
   }, [adminSchoolId, supabase, refetch]);
 
