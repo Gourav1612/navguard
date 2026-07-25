@@ -78,6 +78,36 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Insert Trip Started notification for Admin
+    try {
+      const [{ data: driverProfile }, { data: busData }] = await Promise.all([
+        adminClient
+          .from('user_profiles')
+          .select('full_name')
+          .eq('id', user.id)
+          .single(),
+        adminClient
+          .from('buses')
+          .select('name')
+          .eq('id', bus_id)
+          .single()
+      ]);
+      
+      const driverName = driverProfile?.full_name || 'Driver';
+      const busName = busData?.name || 'Bus';
+
+      await adminClient
+        .from('notifications')
+        .insert({
+          school_id: driver.school_id,
+          title: '🏁 Trip Started',
+          message: `${driverName} has started the trip on ${busName}.`,
+          type: 'trip_start'
+        });
+    } catch (notifErr) {
+      console.error('Failed to insert trip start notification:', notifErr);
+    }
+
     return NextResponse.json(
       {
         trip_id: newTrip.id,

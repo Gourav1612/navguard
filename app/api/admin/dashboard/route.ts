@@ -110,15 +110,15 @@ export async function GET() {
                     .from('notifications')
                     .select('id')
                     .eq('type', 'gps_off')
-                    .like('message', `%${driverName}%`)
-                    .eq('is_read', false)
+                    .like('message', `%trip:${trip.id}%`)
+                    .limit(1)
                     .maybeSingle();
 
                   if (!existingNotif) {
                     await adminClient.from('notifications').insert({
                       school_id: profile.school_id,
                       title: '📶 Driver GPS Interrupted',
-                      message: `${driverName} went offline or stopped location reporting.`,
+                      message: `${driverName} went offline or stopped location reporting. [trip:${trip.id}]`,
                       type: 'gps_off',
                     });
                   }
