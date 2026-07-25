@@ -33,6 +33,7 @@ export function AdminMap({ activeTrips = [], busesLocations = [] }: AdminMapProp
 
   // 1. Initialize Leaflet Map exactly once on mount
   useEffect(() => {
+    console.log("AdminMap: First effect mounting...");
     // Default center to Jaipur or first active bus
     let center: L.LatLngExpression = [26.9124, 75.7873];
     const busesWithLocation = busesLocations.filter((b) => b.latest_location);
@@ -58,6 +59,7 @@ export function AdminMap({ activeTrips = [], busesLocations = [] }: AdminMapProp
     if (container) resizeObserver.observe(container);
 
     return () => {
+      console.log("AdminMap: First effect unmounting (map cleanup)...");
       resizeObserver.disconnect();
       map.remove();
       mapRef.current = null;
@@ -66,8 +68,12 @@ export function AdminMap({ activeTrips = [], busesLocations = [] }: AdminMapProp
 
   // 2. Sync markers and listen to Supabase realtime events on the mounted map (preserves zoom level)
   useEffect(() => {
+    console.log("AdminMap: Second effect running due to busesLocations change...", busesLocations);
     const map = mapRef.current;
-    if (!map) return;
+    if (!map) {
+      console.log("AdminMap: Second effect skipped, map is not initialized yet");
+      return;
+    }
 
     // Bus Icon Factory
     const createBusIcon = (name: string, isActive: boolean, isStale?: boolean) => {
