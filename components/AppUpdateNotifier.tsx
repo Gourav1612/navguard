@@ -1,9 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Capacitor } from '@capacitor/core';
+import { Capacitor, registerPlugin } from '@capacitor/core';
 import { App } from '@capacitor/app';
 import { Download } from 'lucide-react';
+
+const BatteryOptimization = registerPlugin<any>('BatteryOptimization');
 
 function compareVersions(v1: string, v2: string): number {
   const parts1 = v1.split('.').map(Number);
@@ -26,6 +28,22 @@ export default function AppUpdateNotifier() {
     // Only execute on native mobile platforms
     if (!Capacitor.isNativePlatform()) return;
 
+    // --- Auto Battery Optimization Redirect (first launch only) ---
+    const BATTERY_OPT_KEY = 'naviguard_battery_opt_shown';
+    const alreadyShown = localStorage.getItem(BATTERY_OPT_KEY);
+    if (!alreadyShown) {
+      // Small delay so app UI is ready before opening settings
+      setTimeout(async () => {
+        try {
+          await BatteryOptimization.openBatterySettings();
+          localStorage.setItem(BATTERY_OPT_KEY, 'true');
+        } catch (err) {
+          console.error('Failed to open battery settings on launch:', err);
+        }
+      }, 1500);
+    }
+
+    // --- Version Update Check ---
     const checkUpdate = async () => {
       try {
         const res = await fetch('/version.json');
