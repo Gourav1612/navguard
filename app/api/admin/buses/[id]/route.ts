@@ -93,16 +93,33 @@ export async function DELETE(
       );
     }
 
-    // Clean up any historical trips linked to this bus first to prevent foreign key blocks
-    const { error: tripsDeleteErr } = await supabase.from('trips').delete().eq('bus_id', id);
-    if (tripsDeleteErr) {
+    // Check if any driver is assigned to this bus
+    const { data: driverCheck } = await supabase
+      .from('drivers')
+      .select('id, user:user_profiles(full_name)')
+      .eq('bus_id', id)
+      .maybeSingle();
+
+    if (driverCheck) {
+      const driverName = (driverCheck.user as any)?.full_name || 'A driver';
       return NextResponse.json(
-        {
-          error: `Failed to clean up bus's trip history: ${tripsDeleteErr.message}`,
-          code: 'SERVER_ERROR',
-          details: tripsDeleteErr
-        },
-        { status: 500 }
+        { error: `Cannot delete bus because it is currently assigned to driver: ${driverName}. Unassign them first.`, code: 'ASSIGNED_TO_DRIVER' },
+        { status: 400 }
+      );
+    }
+
+    // Check if the bus has any associated trips to protect trip history integrity
+    const { data: tripCheck } = await supabase
+      .from('trips')
+      .select('id')
+      .eq('bus_id', id)
+      .limit(1)
+      .maybeSingle();
+
+    if (tripCheck) {
+      return NextResponse.json(
+        { error: 'Cannot delete bus because it is linked to active or historical trip logs.', code: 'ASSIGNED_TO_TRIP' },
+        { status: 400 }
       );
     }
 

@@ -44,6 +44,24 @@ export async function PATCH(
 
     const { full_name, phone, license_number, license_expiry, bus_id, is_active } = parsed.data;
 
+    // Check if the bus_id is already assigned to a different driver
+    if (bus_id !== undefined && bus_id !== null) {
+      const { data: busTaken } = await adminClient
+        .from('drivers')
+        .select('id, user:user_profiles(full_name)')
+        .eq('bus_id', bus_id)
+        .neq('id', id)
+        .maybeSingle();
+
+      if (busTaken) {
+        const driverName = (busTaken.user as any)?.full_name || 'Another driver';
+        return NextResponse.json(
+          { error: `This bus is already assigned to driver: ${driverName}`, code: 'BUS_TAKEN' },
+          { status: 409 }
+        );
+      }
+    }
+
     // 1. Update public.drivers details
     const driverUpdates: any = {};
     if (license_number !== undefined) driverUpdates.license_number = license_number;
@@ -107,7 +125,7 @@ export async function DELETE(
     // Verify ownership
     const { data: driver, error: fetchErr } = await adminClient
       .from('drivers')
-      .select('id, user_id')
+      .select('id, user_id, bus_id')
       .eq('id', id)
       .eq('school_id', profile.school_id)
       .maybeSingle();
@@ -119,16 +137,26 @@ export async function DELETE(
       );
     }
 
-    // Clean up any historical trips linked to this driver first to prevent foreign key blocks
-    const { error: tripsDeleteErr } = await adminClient.from('trips').delete().eq('driver_id', id);
-    if (tripsDeleteErr) {
+    // Block deletion if driver is currently assigned to a bus
+    if (driver.bus_id) {
       return NextResponse.json(
-        { 
-          error: `Failed to clean up driver's trip history: ${tripsDeleteErr.message}`, 
-          code: 'SERVER_ERROR', 
-          details: tripsDeleteErr 
-        },
-        { status: 500 }
+        { error: 'Cannot delete driver because they are currently assigned to a bus. Unassign the bus first.', code: 'ASSIGNED_TO_BUS' },
+        { status: 400 }
+      );
+    }
+
+    // Block deletion if driver has any associated trips to preserve logs
+    const { data: tripCheck } = await adminClient
+      .from('trips')
+      .select('id')
+      .eq('driver_id', id)
+      .limit(1)
+      .maybeSingle();
+
+    if (tripCheck) {
+      return NextResponse.json(
+        { error: 'Cannot delete driver because they are linked to active or historical route trips.', code: 'ASSIGNED_TO_TRIP' },
+        { status: 400 }
       );
     }
 

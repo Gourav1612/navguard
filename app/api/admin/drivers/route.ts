@@ -95,6 +95,23 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Check if the bus_id is already assigned to another driver
+    if (bus_id) {
+      const { data: busTaken } = await adminClient
+        .from('drivers')
+        .select('id, user:user_profiles(full_name)')
+        .eq('bus_id', bus_id)
+        .maybeSingle();
+
+      if (busTaken) {
+        const driverName = (busTaken.user as any)?.full_name || 'Another driver';
+        return NextResponse.json(
+          { error: `This bus is already assigned to driver: ${driverName}`, code: 'BUS_TAKEN' },
+          { status: 409 }
+        );
+      }
+    }
+
     // 1. Create user in Supabase auth using service role admin client
     const { data: authData, error: authErr } = await adminClient.auth.admin.createUser({
       email,
