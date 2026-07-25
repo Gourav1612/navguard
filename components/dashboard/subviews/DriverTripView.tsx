@@ -17,6 +17,7 @@ export default function DriverTripPage() {
   const [gpsErrorMsg, setGpsErrorMsg] = useState<string | null>(null);
   const watchIdRef = useRef<number | string | null>(null);
   const lastSentRef = useRef<number>(0);
+  const lastPositionRef = useRef<{ latitude: number; longitude: number; speed: number; heading: number } | null>(null);
 
   // Fetch driver assignment & check if there's an active trip
   const { data: assignment, isLoading, error } = useQuery({
@@ -101,6 +102,18 @@ export default function DriverTripPage() {
   useEffect(() => {
     if (!activeTrip || !bus) return;
 
+    // Set up interval to post location every 5 seconds regardless of coordinate changes (forces continuous heartbeat)
+    const intervalId = setInterval(async () => {
+      if (lastPositionRef.current) {
+        await postDriverLocation(
+          lastPositionRef.current.latitude,
+          lastPositionRef.current.longitude,
+          lastPositionRef.current.speed,
+          lastPositionRef.current.heading
+        );
+      }
+    }, 5000);
+
     if (Capacitor.isNativePlatform()) {
       setGpsStatus('searching');
       setGpsErrorMsg(null);
@@ -132,11 +145,20 @@ export default function DriverTripPage() {
           if (location) {
             setGpsStatus('active');
             setGpsErrorMsg(null);
+            
+            const coords = {
+              latitude: location.latitude,
+              longitude: location.longitude,
+              speed: location.speed || 0,
+              heading: location.bearing || 0
+            };
+            lastPositionRef.current = coords;
+
             await postDriverLocation(
-              location.latitude,
-              location.longitude,
-              location.speed,
-              location.bearing
+              coords.latitude,
+              coords.longitude,
+              coords.speed,
+              coords.heading
             );
           }
         }
@@ -156,11 +178,20 @@ export default function DriverTripPage() {
         async (position) => {
           setGpsStatus('active');
           setGpsErrorMsg(null);
+
+          const coords = {
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            speed: position.coords.speed || 0,
+            heading: position.coords.heading || 0
+          };
+          lastPositionRef.current = coords;
+
           await postDriverLocation(
-            position.coords.latitude,
-            position.coords.longitude,
-            position.coords.speed || 0,
-            position.coords.heading || 0
+            coords.latitude,
+            coords.longitude,
+            coords.speed,
+            coords.heading
           );
         },
         (err) => {
@@ -198,6 +229,7 @@ export default function DriverTripPage() {
     }
 
     return () => {
+      clearInterval(intervalId);
       if (watchIdRef.current !== null) {
         if (typeof watchIdRef.current === 'string') {
           BackgroundGeolocation.removeWatcher({ id: watchIdRef.current });
