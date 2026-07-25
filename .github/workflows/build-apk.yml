@@ -1,57 +1,130 @@
-name: Build Android APK (Cloud Build)
+name: 🏗️ Build NaviGuard APK
 
 on:
-  push:
-    branches:
-      - main
+  # Manual trigger — you control when to build & release
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'New app version (e.g. 1.0.2)'
+        required: true
+        default: '1.0.0'
+      release_notes:
+        description: 'What changed in this version?'
+        required: false
+        default: 'Bug fixes and performance improvements'
 
 jobs:
-  build:
+  build-apk:
+    name: Build & Publish APK
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Code
+      # ── 1. Checkout ──────────────────────────────────────────────────────────
+      - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Set up Node.js
+      # ── 2. Node.js ───────────────────────────────────────────────────────────
+      - name: Set up Node.js 20
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: '20'
           cache: 'npm'
 
-      - name: Install Web Dependencies
-        run: npm install --legacy-peer-deps
+      - name: Install npm dependencies
+        run: npm ci
 
-      - name: Build Next.js Web Assets
-        run: |
-          export NEXT_PUBLIC_SUPABASE_URL="https://dummy-url.supabase.co"
-          export NEXT_PUBLIC_SUPABASE_ANON_KEY="dummy-key"
-          npm run build
-
-      - name: Sync Capacitor
-        run: npx cap sync
-
-      - name: Set up Java JDK 21
+      # ── 3. Java (required by Gradle) ─────────────────────────────────────────
+      - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
-          distribution: 'zulu'
-          java-version: '21'
+          java-version: '17'
+          distribution: 'temurin'
 
-      - name: Setup Android SDK
+      # ── 4. Android SDK ───────────────────────────────────────────────────────
+      - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Build Android Debug APK
+      - name: Accept Android SDK licenses
+        run: yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses || true
+
+      # ── 5. Sync Capacitor native code ────────────────────────────────────────
+      - name: Sync Capacitor (copy native plugins to android/)
+        run: npx cap sync android --no-build
+
+      # ── 6. Bump version in version.json ──────────────────────────────────────
+      - name: Update version.json
+        run: |
+          echo '{
+            "version": "${{ github.event.inputs.version }}",
+            "apkUrl": "/NaviGuard.apk",
+            "releaseNotes": "${{ github.event.inputs.release_notes }}"
+          }' > public/version.json
+          cat public/version.json
+
+      # ── 7. Update Android versionCode & versionName ──────────────────────────
+      - name: Bump Android versionCode and versionName in build.gradle
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          # Convert semver (1.2.3) to a simple integer (10203) for versionCode
+          IFS='.' read -r MAJ MIN PAT <<< "$VERSION"
+          VERSION_CODE=$(( MAJ * 10000 + MIN * 100 + PAT ))
+          sed -i "s/versionCode [0-9]*/versionCode $VERSION_CODE/" android/app/build.gradle
+          sed -i "s/versionName \"[^\"]*\"/versionName \"$VERSION\"/" android/app/build.gradle
+          echo "Android versionCode=$VERSION_CODE versionName=$VERSION"
+
+      # ── 8. Build debug APK ───────────────────────────────────────────────────
+      - name: Make gradlew executable
+        run: chmod +x android/gradlew
+
+      - name: Build debug APK
         run: |
           cd android
-          chmod +x gradlew
-          ./gradlew assembleDebug
+          ./gradlew assembleDebug --no-daemon
+        env:
+          ANDROID_SDK_ROOT: ${{ env.ANDROID_SDK_ROOT }}
 
-      - name: Rename APK to NaviGuard.apk
+      # ── 9. Copy APK → public/ so Vercel can serve it for in-app updates ──────
+      - name: Copy APK to public folder
         run: |
-          mv android/app/build/outputs/apk/debug/app-debug.apk android/app/build/outputs/apk/debug/NaviGuard.apk
+          cp android/app/build/outputs/apk/debug/app-debug.apk public/NaviGuard.apk
+          echo "APK size: $(du -sh public/NaviGuard.apk | cut -f1)"
 
-      - name: Upload APK Artifact
+      # ── 10. Commit updated files back to repo (Vercel auto-deploys) ──────────
+      - name: Commit APK and version.json
+        run: |
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "GitHub Actions Bot"
+          git add public/NaviGuard.apk public/version.json android/app/build.gradle
+          git commit -m "release: NaviGuard v${{ github.event.inputs.version }} APK [skip ci]"
+          git push
+
+      # ── 11. Create GitHub Release with the APK attached ──────────────────────
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ github.event.inputs.version }}
+          name: NaviGuard v${{ github.event.inputs.version }}
+          body: |
+            ## 📱 NaviGuard v${{ github.event.inputs.version }}
+
+            ${{ github.event.inputs.release_notes }}
+
+            ### Installation
+            Download the APK below and install it on the driver's Android device.
+
+            > ⚠️ Make sure to allow installation from unknown sources in your phone settings.
+          files: public/NaviGuard.apk
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ── 12. Upload APK as workflow artifact too (backup) ─────────────────────
+      - name: Upload APK as workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: NaviGuard-App-Debug
-          path: android/app/build/outputs/apk/debug/NaviGuard.apk
+          name: NaviGuard-v${{ github.event.inputs.version }}.apk
+          path: public/NaviGuard.apk
+          retention-days: 30
