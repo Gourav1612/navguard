@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { useRouter } from 'next/navigation';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -26,6 +26,14 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showDownloadBtn, setShowDownloadBtn] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const isNative = (window as any).Capacitor?.isNativePlatform?.() || false;
+      setShowDownloadBtn(!isNative);
+    }
+  }, []);
 
   const {
     register,
@@ -102,9 +110,20 @@ export default function LoginPage() {
         <div className="w-full max-w-md space-y-8 animate-in fade-in duration-300">
           
           {/* Brand Header */}
-          <div className="flex items-center gap-3">
-            <img src="/logo.png" alt="NaviGuard Logo" className="w-10 h-10 object-contain bg-purple-500/5 border border-purple-500/20 rounded-2xl p-1" />
-            <span className="font-extrabold text-base tracking-wider text-purple-100">NaviGuard AI</span>
+          <div className="flex items-center justify-between gap-4 w-full">
+            <div className="flex items-center gap-3">
+              <img src="/logo.png" alt="NaviGuard Logo" className="w-10 h-10 object-contain bg-purple-500/5 border border-purple-500/20 rounded-2xl p-1" />
+              <span className="font-extrabold text-base tracking-wider text-purple-100">NaviGuard AI</span>
+            </div>
+            {showDownloadBtn && (
+              <a
+                href="/NaviGuard.apk"
+                download
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 text-purple-300 hover:text-purple-200 rounded-xl text-[10px] font-bold transition-all no-underline"
+              >
+                📥 Download App
+              </a>
+            )}
           </div>
 
           {/* Title Header */}
