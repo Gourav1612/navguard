@@ -408,7 +408,8 @@ export default function AdminDashboardView({ tab: initialTab }: { tab?: string }
       <div className="space-y-4">
         <h3 className="text-lg font-bold text-slate-800 tracking-tight">Ongoing Trips</h3>
         
-        <div className="bg-white border border-slate-150 rounded-2xl shadow-sm overflow-hidden">
+        {/* Desktop View Table */}
+        <div className="hidden md:block bg-white border border-slate-150 rounded-2xl shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
@@ -463,6 +464,65 @@ export default function AdminDashboardView({ tab: initialTab }: { tab?: string }
               </tbody>
             </table>
           </div>
+        </div>
+
+        {/* Mobile Responsive Cards View */}
+        <div className="block md:hidden space-y-4">
+          {active_trips.length === 0 ? (
+            <div className="bg-white border border-slate-150 rounded-2xl p-8 text-center text-slate-400 text-xs font-semibold">
+              No active trips currently running.
+            </div>
+          ) : (
+            active_trips.map((trip: any) => {
+              const hasLoc = !!trip.latest_location;
+              const isEnding = endingTripId === trip.trip_id;
+              return (
+                <div key={trip.trip_id} className="bg-white border border-slate-155 rounded-2xl p-5 shadow-sm space-y-4">
+                  <div className="flex justify-between items-start gap-2">
+                    <div>
+                      <h4 className="font-bold text-slate-900 text-sm">{trip.bus.name}</h4>
+                      <p className="text-slate-450 text-[10px] font-semibold mt-1">Route: {trip.route.name}</p>
+                    </div>
+                    <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[10px] font-extrabold uppercase ${
+                      hasLoc ? 'bg-emerald-50 text-emerald-800 border border-emerald-100' : 'bg-slate-50 text-slate-500 border border-slate-150'
+                    }`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${hasLoc ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`}></span>
+                      {hasLoc ? 'Active' : 'Pending'}
+                    </span>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-3 pt-3.5 border-t border-slate-100 text-xs font-semibold">
+                    <div>
+                      <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">On-Duty Driver</span>
+                      <span className="text-slate-700 block mt-0.5">{trip.driver.full_name}</span>
+                    </div>
+                    <div>
+                      <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Live Speed</span>
+                      <span className="text-slate-700 block mt-0.5 font-mono">
+                        {hasLoc ? `${trip.latest_location.speed.toFixed(1)} km/h` : '—'}
+                      </span>
+                    </div>
+                    <div className="col-span-2">
+                      <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Last Telemetry</span>
+                      <span className="text-slate-500 block mt-0.5 text-[11px] font-medium leading-relaxed">
+                        {hasLoc ? formatDateTime(trip.latest_location.recorded_at) : 'Waiting for link...'}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <div className="pt-3.5 border-t border-slate-100">
+                    <button
+                      onClick={() => handleEndTrip(trip.trip_id)}
+                      disabled={isEnding}
+                      className="w-full flex items-center justify-center gap-1.5 py-2.5 bg-red-50 hover:bg-red-100 disabled:bg-slate-100 disabled:text-slate-400 text-red-650 hover:text-red-750 border border-red-100 hover:border-red-200 rounded-xl text-xs font-bold transition cursor-pointer"
+                    >
+                      🛑 {isEnding ? 'Ending...' : 'End Trip'}
+                    </button>
+                  </div>
+                </div>
+              );
+            })
+          )}
         </div>
       </div>
 
