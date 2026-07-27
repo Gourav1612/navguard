@@ -31,7 +31,6 @@ export default function DriverDashboardView({ tab }: { tab?: string }) {
       if (!res.ok) throw new Error('Failed to load shift assignments');
       return res.json();
     },
-    enabled: !tab, // Only load details if viewing main dashboard tab
   });
 
   // One-off telemetry updates as soon as the driver logs in / mounts dashboard
