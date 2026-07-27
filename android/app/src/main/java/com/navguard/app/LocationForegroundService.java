@@ -124,24 +124,29 @@ public class LocationForegroundService extends Service {
             return;
         }
 
+        final String finalToken = token;
+        final String finalBusId = busId;
+        final String finalTripId = tripId;
+        final String finalServerUrl = serverUrl;
+
         executor.execute(() -> {
             HttpURLConnection conn = null;
             try {
                 JSONObject json = new JSONObject();
-                json.put("bus_id", busId);
+                json.put("bus_id", finalBusId);
                 json.put("latitude", location.getLatitude());
                 json.put("longitude", location.getLongitude());
                 // Convert m/s → km/h; default 0
                 double speedKmh = location.hasSpeed() ? location.getSpeed() * 3.6 : 0;
                 json.put("speed", speedKmh);
                 json.put("heading", location.hasBearing() ? location.getBearing() : 0);
-                if (tripId != null && !tripId.isEmpty()) json.put("trip_id", tripId);
+                if (finalTripId != null && !finalTripId.isEmpty()) json.put("trip_id", finalTripId);
 
-                URL url = new URL(serverUrl);
+                URL url = new URL(finalServerUrl);
                 conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("POST");
                 conn.setRequestProperty("Content-Type", "application/json");
-                conn.setRequestProperty("Authorization", "Bearer " + token);
+                conn.setRequestProperty("Authorization", "Bearer " + finalToken);
                 conn.setDoOutput(true);
                 conn.setConnectTimeout(10000);
                 conn.setReadTimeout(10000);
