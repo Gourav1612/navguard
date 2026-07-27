@@ -198,6 +198,15 @@ export default function AdminDashboardView({ tab: initialTab }: { tab?: string }
     type: string;
   } | null>(null);
 
+  // Request Notification permission for system popup alerts
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      if (Notification.permission === 'default') {
+        Notification.requestPermission().catch(console.error);
+      }
+    }
+  }, []);
+
   useEffect(() => {
     async function getAdminProfile() {
       const { data: { user } } = await supabase.auth.getUser();
@@ -237,6 +246,19 @@ export default function AdminDashboardView({ tab: initialTab }: { tab?: string }
             message: newNotif.message,
             type: newNotif.type,
           });
+
+          // Show native browser system notification (upper banner popup)
+          if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+            try {
+              new Notification(newNotif.title, {
+                body: newNotif.message,
+                icon: '/logo.png',
+                tag: newNotif.id,
+              });
+            } catch (err) {
+              console.error('Failed to trigger native notification:', err);
+            }
+          }
 
           // Play premium Audio Context Double Chime Sound
           try {
