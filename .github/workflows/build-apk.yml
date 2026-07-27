@@ -5,6 +5,10 @@ on:
   push:
     branches:
       - main
+    paths:
+      - 'android/**'
+      - 'capacitor.config.json'
+      - '.github/workflows/build-apk.yml'
   # Allow manual trigger if custom version or custom notes are desired
   workflow_dispatch:
     inputs:

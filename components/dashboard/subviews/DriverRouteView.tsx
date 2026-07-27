@@ -127,41 +127,50 @@ export default function DriverRoutePage() {
 
       {/* Route Stops Sequence Info */}
       <div className="bg-white border border-slate-150 rounded-2xl p-5 shadow-sm space-y-3">
-        <h4 className="font-bold text-slate-800 text-xs uppercase tracking-wider">Transit Sequence Details ({allStops.length} Stops)</h4>
-        <div className="space-y-3 max-h-[160px] overflow-y-auto pr-1">
-          {allStops.map((stop: any, idx: number) => {
-            const isFocused = stop.id === focusedStopId;
-            return (
-              <div
-                key={stop.id}
-                onClick={() => {
-                  setFocusedStopId(stop.id);
-                  setFocusedStopLocation({ latitude: stop.latitude, longitude: stop.longitude });
-                }}
-                className={`flex items-start gap-3 text-xs font-medium border-b border-slate-50 pb-2.5 last:border-0 last:pb-0 cursor-pointer p-2 rounded-xl transition-all duration-200 ${
-                  isFocused ? 'bg-primary/10 border-l-4 border-l-primary pl-3' : 'hover:bg-slate-50'
-                }`}
-              >
-                <span className={`flex items-center justify-center w-5 h-5 rounded-full font-bold text-[10px] flex-shrink-0 mt-0.5 ${
-                  isFocused ? 'bg-primary text-white font-extrabold' : 'bg-slate-100 text-slate-600'
-                }`}>
-                  {idx + 1}
-                </span>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className={`font-bold leading-none truncate ${isFocused ? 'text-primary' : 'text-slate-900'}`}>{stop.name}</p>
-                    {isFocused && (
-                      <span className="text-[8px] font-black text-primary bg-primary/10 px-1.5 py-0.5 rounded uppercase tracking-wider">
-                        Active stop
+        {(() => {
+          const listStops = allStops.filter((stop: any) => stop.stop_order !== 0);
+          return (
+            <>
+              <h4 className="font-bold text-slate-800 text-xs uppercase tracking-wider">
+                Transit Sequence Details ({listStops.length} Stops)
+              </h4>
+              <div className="space-y-3 max-h-[160px] overflow-y-auto pr-1">
+                {listStops.map((stop: any, idx: number) => {
+                  const isFocused = stop.id === focusedStopId;
+                  return (
+                    <div
+                      key={stop.id}
+                      onClick={() => {
+                        setFocusedStopId(stop.id);
+                        setFocusedStopLocation({ latitude: stop.latitude, longitude: stop.longitude });
+                      }}
+                      className={`flex items-start gap-3 text-xs font-medium border-b border-slate-50 pb-2.5 last:border-0 last:pb-0 cursor-pointer p-2 rounded-xl transition-all duration-200 ${
+                        isFocused ? 'bg-primary/10 border-l-4 border-l-primary pl-3' : 'hover:bg-slate-50'
+                      }`}
+                    >
+                      <span className={`flex items-center justify-center w-5 h-5 rounded-full font-bold text-[10px] flex-shrink-0 mt-0.5 ${
+                        isFocused ? 'bg-primary text-white font-extrabold' : 'bg-slate-100 text-slate-600'
+                      }`}>
+                        {idx + 1}
                       </span>
-                    )}
-                  </div>
-                  <p className="text-[10px] text-slate-400 mt-1 truncate max-w-[200px]">{stop.address || 'No address details listed'}</p>
-                </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className={`font-bold leading-none truncate ${isFocused ? 'text-primary' : 'text-slate-900'}`}>{stop.name}</p>
+                          {isFocused && (
+                            <span className="text-[8px] font-black text-primary bg-primary/10 px-1.5 py-0.5 rounded uppercase tracking-wider">
+                              Active stop
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[10px] text-slate-400 mt-1 truncate max-w-[200px]">{stop.address || 'No address details listed'}</p>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-            );
-          })}
-        </div>
+            </>
+          );
+        })()}
       </div>
     </div>
   );
