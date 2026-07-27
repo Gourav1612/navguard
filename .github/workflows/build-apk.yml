@@ -1,19 +1,27 @@
 name: 🏗️ Build NaviGuard APK
 
 on:
-  # Manual trigger — you control when to build & release
+  # Trigger build automatically on push to main branch
+  push:
+    branches:
+      - main
+  # Allow manual trigger if custom version or custom notes are desired
   workflow_dispatch:
     inputs:
       version:
-        description: 'New app version (e.g. 1.0.2)'
-        required: true
-        default: '1.0.0'
-      release_notes:
-        description: 'What changed in this version?'
+        description: 'New app version (e.g. 1.0.2). Leave empty to auto-increment.'
         required: false
-        default: 'Bug fixes and performance improvements'
+      release_notes:
+        description: 'What changed in this version? (Commit message is used if blank)'
+        required: false
+
 permissions:
   contents: write
+
+env:
+  VERSION: ''
+  VERSION_CODE: ''
+  RELEASE_NOTES: ''
 
 jobs:
   build-apk:
@@ -55,26 +63,57 @@ jobs:
       - name: Sync Capacitor (copy native plugins to android/)
         run: npx cap sync android
 
+      # ── 5.5 Determine version and release notes dynamically ──────────────────
+      - name: Determine version and release notes
+        id: determine_version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ github.event.inputs.version }}" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+            RELEASE_NOTES="${{ github.event.inputs.release_notes }}"
+            if [ -z "$RELEASE_NOTES" ]; then
+              RELEASE_NOTES="Manual build: v$VERSION"
+            fi
+            # Convert semver (1.2.3) to a simple integer for versionCode
+            IFS='.' read -r MAJ MIN PAT <<< "$VERSION"
+            VERSION_CODE=$(( MAJ * 10000 + MIN * 100 + PAT ))
+          else
+            # Auto-increment logic
+            CURRENT_VERSION=$(grep "versionName" android/app/build.gradle | sed 's/.*"\(.*\)".*/\1/')
+            CURRENT_CODE=$(grep "versionCode" android/app/build.gradle | sed 's/[^0-9]*//g')
+            
+            # Parse and increment patch version
+            IFS='.' read -r MAJ MIN PAT <<< "$CURRENT_VERSION"
+            NEW_PAT=$(( PAT + 1 ))
+            VERSION="$MAJ.$MIN.$NEW_PAT"
+            VERSION_CODE=$(( CURRENT_CODE + 1 ))
+            
+            # Get latest commit message for release notes
+            RELEASE_NOTES="Auto-build: $(git log -1 --pretty=%s)"
+          fi
+
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "VERSION_CODE=$VERSION_CODE" >> $GITHUB_ENV
+          echo "RELEASE_NOTES=$RELEASE_NOTES" >> $GITHUB_ENV
+          echo "Determined Version: $VERSION"
+          echo "Determined Version Code: $VERSION_CODE"
+          echo "Determined Release Notes: $RELEASE_NOTES"
+
       # ── 6. Bump version in version.json ──────────────────────────────────────
       - name: Update version.json
         run: |
           echo '{
-            "version": "${{ github.event.inputs.version }}",
+            "version": "${{ env.VERSION }}",
             "apkUrl": "/NaviGuard.apk",
-            "releaseNotes": "${{ github.event.inputs.release_notes }}"
+            "releaseNotes": "${{ env.RELEASE_NOTES }}"
           }' > public/version.json
           cat public/version.json
 
       # ── 7. Update Android versionCode & versionName ──────────────────────────
       - name: Bump Android versionCode and versionName in build.gradle
         run: |
-          VERSION="${{ github.event.inputs.version }}"
-          # Convert semver (1.2.3) to a simple integer (10203) for versionCode
-          IFS='.' read -r MAJ MIN PAT <<< "$VERSION"
-          VERSION_CODE=$(( MAJ * 10000 + MIN * 100 + PAT ))
-          sed -i "s/versionCode [0-9]*/versionCode $VERSION_CODE/" android/app/build.gradle
-          sed -i "s/versionName \"[^\"]*\"/versionName \"$VERSION\"/" android/app/build.gradle
-          echo "Android versionCode=$VERSION_CODE versionName=$VERSION"
+          sed -i "s/versionCode [0-9]*/versionCode ${{ env.VERSION_CODE }}/" android/app/build.gradle
+          sed -i "s/versionName \"[^\"]*\"/versionName \"${{ env.VERSION }}\"/" android/app/build.gradle
+          echo "Android versionCode=${{ env.VERSION_CODE }} versionName=${{ env.VERSION }}"
 
       # ── 7.5 Generate consistent debug.keystore if not exists ────────────────
       - name: Generate debug.keystore if missing
@@ -109,19 +148,19 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git config user.name "GitHub Actions Bot"
           git add public/NaviGuard.apk public/version.json android/app/build.gradle android/app/debug.keystore
-          git commit -m "release: NaviGuard v${{ github.event.inputs.version }} APK [skip ci]"
+          git commit -m "release: NaviGuard v${{ env.VERSION }} APK [skip ci]"
           git push
 
       # ── 11. Create GitHub Release with the APK attached ──────────────────────
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ github.event.inputs.version }}
-          name: NaviGuard v${{ github.event.inputs.version }}
+          tag_name: v${{ env.VERSION }}
+          name: NaviGuard v${{ env.VERSION }}
           body: |
-            ## 📱 NaviGuard v${{ github.event.inputs.version }}
+            ## 📱 NaviGuard v${{ env.VERSION }}
 
-            ${{ github.event.inputs.release_notes }}
+            ${{ env.RELEASE_NOTES }}
 
             ### Installation
             Download the APK below and install it on the driver's Android device.
@@ -137,6 +176,6 @@ jobs:
       - name: Upload APK as workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: NaviGuard-v${{ github.event.inputs.version }}.apk
+          name: NaviGuard-v${{ env.VERSION }}.apk
           path: public/NaviGuard.apk
           retention-days: 30
