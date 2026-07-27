@@ -4,6 +4,12 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.PowerManager;
 import android.provider.Settings;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
+import android.content.Context;
+import android.os.Build;
+import androidx.core.app.NotificationCompat;
 
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
@@ -89,6 +95,59 @@ public class BatteryOptimizationPlugin extends Plugin {
             call.resolve();
         } catch (Exception e) {
             call.reject("Could not open system browser: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Triggers a native system local notification.
+     * Useful for showing alerts on modern Android versions inside WebViews.
+     */
+    @PluginMethod
+    public void showLocalNotification(PluginCall call) {
+        String title = call.getString("title");
+        String message = call.getString("message");
+        if (title == null || message == null) {
+            call.reject("Missing title or message");
+            return;
+        }
+
+        try {
+            NotificationManager manager = (NotificationManager) getContext().getSystemService(Context.NOTIFICATION_SERVICE);
+            String channelId = "admin_alerts_channel";
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                NotificationChannel channel = new NotificationChannel(
+                        channelId,
+                        "Admin Alerts",
+                        NotificationManager.IMPORTANCE_HIGH
+                );
+                channel.setDescription("System notifications for admin portal alerts");
+                if (manager != null) {
+                    manager.createNotificationChannel(channel);
+                }
+            }
+
+            Intent intent = new Intent(getContext(), MainActivity.class);
+            PendingIntent pendingIntent = PendingIntent.getActivity(
+                    getContext(), 0, intent,
+                    PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+            );
+
+            NotificationCompat.Builder builder = new NotificationCompat.Builder(getContext(), channelId)
+                    .setContentTitle(title)
+                    .setContentText(message)
+                    .setSmallIcon(android.R.drawable.ic_dialog_info)
+                    .setContentIntent(pendingIntent)
+                    .setAutoCancel(true)
+                    .setPriority(NotificationCompat.PRIORITY_HIGH);
+
+            if (manager != null) {
+                int id = (title + message).hashCode();
+                manager.notify(id, builder.build());
+            }
+            call.resolve();
+        } catch (Exception e) {
+            call.reject("Failed to show local notification: " + e.getMessage());
         }
     }
 }

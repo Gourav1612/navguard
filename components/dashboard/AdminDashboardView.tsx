@@ -22,6 +22,9 @@ import { useState, useEffect } from 'react';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
+import { Capacitor, registerPlugin } from '@capacitor/core';
+
+const BatteryOptimization = registerPlugin<any>('BatteryOptimization');
 
 // Import all admin subviews
 import BusesView from './subviews/BusesView';
@@ -247,8 +250,15 @@ export default function AdminDashboardView({ tab: initialTab }: { tab?: string }
             type: newNotif.type,
           });
 
-          // Show native browser system notification (upper banner popup)
-          if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+          // Show native browser or app system notification (upper banner popup)
+          if (Capacitor.isNativePlatform()) {
+            BatteryOptimization.showLocalNotification({
+              title: newNotif.title,
+              message: newNotif.message,
+            }).catch((err: any) => {
+              console.error('Failed to trigger native local notification:', err);
+            });
+          } else if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
             try {
               new Notification(newNotif.title, {
                 body: newNotif.message,
