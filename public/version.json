@@ -1,5 +1,5 @@
 {
-  "version": "1.0.15",
+  "version": "1.0.16",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: fix: restore service to main process to ensure onTaskRemoved triggers and sets the getForegroundService AlarmManager restart"
+  "releaseNotes": "Auto-build: fix: change onResume access modifier from protected to public in MainActivity.java to match BridgeActivity definition"
 }
