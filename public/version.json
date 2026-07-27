@@ -1,5 +1,5 @@
 {
-  "version": "1.0.20",
+  "version": "1.0.21",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: fix: restore LocationForegroundService to separate process (:tracking_service) to survive task tray swipe-away, using process-safe JSON files for credentials"
+  "releaseNotes": "Auto-build: fix: filter out school stop from DriverRouteView list, and restrict build-apk workflow to trigger on android/capacitor/workflow pushes only"
 }
