@@ -4,6 +4,11 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Build;
+import android.util.Log;
+import org.json.JSONObject;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.FileReader;
 
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
@@ -38,7 +43,7 @@ public class LocationServicePlugin extends Plugin {
             return;
         }
 
-        // Persist credentials so the foreground service can read them
+        // Persist credentials to SharedPreferences
         SharedPreferences prefs = getContext().getSharedPreferences(
                 LocationForegroundService.PREFS_NAME,
                 Context.MODE_PRIVATE
@@ -49,6 +54,24 @@ public class LocationServicePlugin extends Plugin {
                 .putString("trip_id", tripId)
                 .putString("server_url", serverUrl)
                 .apply();
+
+        // Also persist credentials to a process-safe JSON file on disk
+        try {
+            JSONObject json = new JSONObject();
+            json.put("auth_token", token);
+            json.put("bus_id", busId);
+            json.put("trip_id", tripId);
+            json.put("server_url", serverUrl);
+
+            File file = new File(getContext().getFilesDir(), "tracking_credentials.json");
+            FileWriter writer = new FileWriter(file);
+            writer.write(json.toString());
+            writer.flush();
+            writer.close();
+            Log.d("LocationServicePlugin", "Successfully wrote tracking_credentials.json to internal files");
+        } catch (Exception e) {
+            Log.e("LocationServicePlugin", "Failed to write tracking_credentials.json", e);
+        }
 
         // Start the foreground service
         Intent serviceIntent = new Intent(getContext(), LocationForegroundService.class);
@@ -70,12 +93,22 @@ public class LocationServicePlugin extends Plugin {
         Intent serviceIntent = new Intent(getContext(), LocationForegroundService.class);
         getContext().stopService(serviceIntent);
 
-        // Clear stored credentials
+        // Clear stored credentials in SharedPreferences
         SharedPreferences prefs = getContext().getSharedPreferences(
                 LocationForegroundService.PREFS_NAME,
                 Context.MODE_PRIVATE
         );
         prefs.edit().clear().apply();
+
+        // Also delete the credentials file
+        try {
+            File file = new File(getContext().getFilesDir(), "tracking_credentials.json");
+            if (file.exists()) {
+                file.delete();
+            }
+        } catch (Exception e) {
+            Log.e("LocationServicePlugin", "Failed to delete tracking_credentials.json", e);
+        }
 
         call.resolve();
     }
@@ -97,6 +130,31 @@ public class LocationServicePlugin extends Plugin {
                 Context.MODE_PRIVATE
         );
         prefs.edit().putString("auth_token", token).apply();
+
+        // Also update the token in the process-safe JSON file
+        try {
+            File file = new File(getContext().getFilesDir(), "tracking_credentials.json");
+            JSONObject json;
+            if (file.exists()) {
+                FileReader reader = new FileReader(file);
+                char[] chars = new char[(int) file.length()];
+                reader.read(chars);
+                reader.close();
+                json = new JSONObject(new String(chars));
+            } else {
+                json = new JSONObject();
+            }
+            json.put("auth_token", token);
+
+            FileWriter writer = new FileWriter(file);
+            writer.write(json.toString());
+            writer.flush();
+            writer.close();
+            Log.d("LocationServicePlugin", "Successfully updated token in tracking_credentials.json");
+        } catch (Exception e) {
+            Log.e("LocationServicePlugin", "Failed to update token in tracking_credentials.json", e);
+        }
+
         call.resolve();
     }
 }

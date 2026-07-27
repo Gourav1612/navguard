@@ -84,11 +84,40 @@ public class LocationForegroundService extends Service {
     }
 
     private void postLocationToServer(Location location) {
-        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
-        String token = prefs.getString("auth_token", null);
-        String busId = prefs.getString("bus_id", null);
-        String tripId = prefs.getString("trip_id", null);
-        String serverUrl = prefs.getString("server_url", null);
+        String token = null;
+        String busId = null;
+        String tripId = null;
+        String serverUrl = null;
+
+        // Try reading from process-safe JSON file first
+        try {
+            java.io.File file = new java.io.File(getFilesDir(), "tracking_credentials.json");
+            if (file.exists()) {
+                java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.FileReader(file));
+                StringBuilder sb = new StringBuilder();
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    sb.append(line);
+                }
+                reader.close();
+                JSONObject json = new JSONObject(sb.toString());
+                token = json.optString("auth_token", null);
+                busId = json.optString("bus_id", null);
+                tripId = json.optString("trip_id", null);
+                serverUrl = json.optString("server_url", null);
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to read credentials file, falling back to SharedPreferences", e);
+        }
+
+        // Fallback to SharedPreferences if file was missing/empty
+        if (token == null || busId == null || serverUrl == null) {
+            SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+            token = prefs.getString("auth_token", null);
+            busId = prefs.getString("bus_id", null);
+            tripId = prefs.getString("trip_id", null);
+            serverUrl = prefs.getString("server_url", null);
+        }
 
         if (token == null || busId == null || serverUrl == null) {
             Log.w(TAG, "Missing tracking credentials, skipping location post");
