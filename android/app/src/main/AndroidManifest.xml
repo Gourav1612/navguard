@@ -37,7 +37,6 @@
         <service
             android:name=".LocationForegroundService"
             android:foregroundServiceType="location"
-            android:process=":tracking_service"
             android:stopWithTask="false"
             android:exported="false" />
 
