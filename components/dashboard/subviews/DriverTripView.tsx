@@ -289,7 +289,11 @@ export default function DriverTripPage({
 
           <div className="flex gap-3">
             <a
-              href={`https://www.google.com/maps/dir/?api=1&destination=${nextStop.latitude},${nextStop.longitude}&travelmode=driving`}
+              href={
+                currentLocation
+                  ? `https://www.google.com/maps/dir/?api=1&origin=${currentLocation.latitude},${currentLocation.longitude}&destination=${nextStop.latitude},${nextStop.longitude}&travelmode=driving`
+                  : `https://www.google.com/maps/dir/?api=1&destination=${nextStop.latitude},${nextStop.longitude}&travelmode=driving`
+              }
               target="_blank"
               rel="noopener noreferrer"
               className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-xl border border-white/20 shadow-md transition text-center cursor-pointer"

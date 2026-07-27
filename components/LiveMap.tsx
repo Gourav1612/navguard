@@ -19,6 +19,7 @@ interface LiveMapProps {
   highlightStopId?: string; // name of the student's stop to highlight
   showBus?: boolean;
   focusLocation?: { latitude: number; longitude: number } | null;
+  userLocation?: { latitude: number; longitude: number } | null;
 }
 
 export function LiveMap({
@@ -28,6 +29,7 @@ export function LiveMap({
   highlightStopId,
   showBus = true,
   focusLocation,
+  userLocation,
 }: LiveMapProps) {
   const mapRef = useRef<L.Map | null>(null);
   const markerRef = useRef<L.Marker | null>(null);
@@ -253,6 +255,25 @@ export function LiveMap({
       }).addTo(map);
     }
 
+    // Place user location marker if provided (Parent/User Location)
+    let userMarker: L.Marker | null = null;
+    if (userLocation?.latitude && userLocation?.longitude) {
+      const userIcon = L.divIcon({
+        className: '',
+        html: `
+          <div class="relative flex items-center justify-center w-8 h-8 bg-green-500 border-2 border-white rounded-full shadow-lg">
+            <span class="text-sm">👤</span>
+            <div class="absolute -inset-1 rounded-full border border-green-500 animate-ping opacity-75"></div>
+          </div>
+        `,
+        iconSize: [32, 32],
+        iconAnchor: [16, 16],
+      });
+      userMarker = L.marker([userLocation.latitude, userLocation.longitude], { icon: userIcon })
+        .addTo(map)
+        .bindPopup('<div class="font-bold text-slate-850 text-xs">Your Location</div>');
+    }
+
     // Supabase Realtime channel setup
     const supabase = createBrowserSupabaseClient();
     
@@ -295,9 +316,10 @@ export function LiveMap({
       destroyed = true; // cancel any pending OSRM/straight-line callbacks
       supabase.removeChannel(channel);
       resizeObserver.disconnect();
+      if (userMarker) userMarker.remove();
       map.remove();
     };
-  }, [busId, stops, highlightStopId, showBus, routeMode]);
+  }, [busId, stops, highlightStopId, showBus, routeMode, userLocation]);
 
   useEffect(() => {
     if (mapRef.current && focusLocation?.latitude && focusLocation?.longitude) {

@@ -22,6 +22,22 @@ export default function ParentTrackPage({ busId: propBusId }: { busId?: string }
   const router = useRouter();
   const params = useParams();
   const busId = propBusId || (params?.busId as string);
+  const [parentLocation, setParentLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setParentLocation({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+          });
+        },
+        (err) => console.log('Parent location access denied or timed out.', err),
+        { enableHighAccuracy: true }
+      );
+    }
+  }, []);
 
   // Fetch live track details
   const { data: trackData, isLoading, error, refetch } = useQuery({
@@ -77,6 +93,37 @@ export default function ParentTrackPage({ busId: propBusId }: { busId?: string }
     }
   }
 
+  // Calculate parent distance to stop and school
+  let distToStopStr = '';
+  let distToSchoolStr = '';
+
+  if (parentLocation) {
+    // Find parent's assigned stop coords by matching name in route_stops
+    const parentStop = route_stops.find((s: any) => s.name === child_stop?.name);
+    if (parentStop) {
+      const d = getDistanceKm(parentLocation.latitude, parentLocation.longitude, parentStop.latitude, parentStop.longitude);
+      distToStopStr = d < 1 ? `${Math.round(d * 1000)}m` : `${d.toFixed(1)} km`;
+    }
+    
+    // Find school stop coords (stop_order === 0 or school object)
+    let schoolLat = null;
+    let schoolLng = null;
+    
+    const schoolStop = route_stops.find((s: any) => s.stop_order === 0);
+    if (schoolStop) {
+      schoolLat = schoolStop.latitude;
+      schoolLng = schoolStop.longitude;
+    } else if (trackData.school?.latitude) {
+      schoolLat = trackData.school.latitude;
+      schoolLng = trackData.school.longitude;
+    }
+    
+    if (schoolLat !== null && schoolLng !== null) {
+      const d = getDistanceKm(parentLocation.latitude, parentLocation.longitude, schoolLat, schoolLng);
+      distToSchoolStr = d < 1 ? `${Math.round(d * 1000)}m` : `${d.toFixed(1)} km`;
+    }
+  }
+
   return (
     <div className="space-y-6 w-full pt-2 animate-in fade-in duration-300">
       {/* Top Header */}
@@ -114,6 +161,7 @@ export default function ParentTrackPage({ busId: propBusId }: { busId?: string }
                 highlightStopId={child_stop?.name}
                 initialLocation={latest_location}
                 showBus={isTripActive}
+                userLocation={parentLocation}
               />
             ) : (
               <div className="w-full h-full bg-slate-50 flex flex-col items-center justify-center text-slate-400 p-6 text-center">
@@ -154,6 +202,37 @@ export default function ParentTrackPage({ busId: propBusId }: { busId?: string }
             ) : (
               <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4 text-center text-amber-800 font-bold text-xs py-6">
                 Bus is currently inactive. Waiting for driver to start the trip.
+              </div>
+            )}
+
+            {parentLocation && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-slate-100 pt-4">
+                {distToStopStr && (
+                  <div className="flex items-center gap-4 bg-blue-50/40 border border-blue-100/60 p-4 rounded-2xl">
+                    <div className="flex items-center justify-center w-10 h-10 bg-blue-100 rounded-xl text-primary flex-shrink-0 text-lg">
+                      📍
+                    </div>
+                    <div>
+                      <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block">Distance to Your Stop</span>
+                      <span className="text-sm font-black text-slate-800 block mt-1 font-sans">
+                        {distToStopStr}
+                      </span>
+                    </div>
+                  </div>
+                )}
+                {distToSchoolStr && (
+                  <div className="flex items-center gap-4 bg-purple-50/40 border border-purple-100/60 p-4 rounded-2xl">
+                    <div className="flex items-center justify-center w-10 h-10 bg-purple-100 rounded-xl text-purple-650 flex-shrink-0 text-lg">
+                      🏫
+                    </div>
+                    <div>
+                      <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block">Distance to School</span>
+                      <span className="text-sm font-black text-slate-800 block mt-1 font-sans">
+                        {distToSchoolStr}
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
