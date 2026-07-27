@@ -12,6 +12,7 @@ public class MainActivity extends BridgeActivity {
     // Session-level flags to prompt the user once per app launch session
     private static boolean notifPromptShownThisSession = false;
     private static boolean bgLocPromptShownThisSession = false;
+    private static boolean batteryPromptShownThisSession = false;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -40,7 +41,7 @@ public class MainActivity extends BridgeActivity {
                             })
                             .setCancelable(false)
                             .show();
-                    return; // Return early to let this dialog complete first
+                    return; // Let this dialog complete first
                 }
             }
         }
@@ -62,7 +63,40 @@ public class MainActivity extends BridgeActivity {
                                 })
                                 .setCancelable(false)
                                 .show();
+                        return; // Let this dialog complete first
                     }
+                }
+            }
+        }
+
+        // 3. Request Battery Optimization Exemption on Android 6+ (API 23+)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            android.os.PowerManager pm = (android.os.PowerManager) getSystemService(android.content.Context.POWER_SERVICE);
+            if (pm != null && !pm.isIgnoringBatteryOptimizations(getPackageName())) {
+                if (!batteryPromptShownThisSession) {
+                    new android.app.AlertDialog.Builder(this)
+                            .setTitle("Ignore Battery Optimizations")
+                            .setMessage("To prevent the Android OS from stopping location updates when the app is swiped away or the screen is off, please select 'Allow' on the next system dialog.")
+                            .setPositiveButton("Continue", (dialog, which) -> {
+                                batteryPromptShownThisSession = true;
+                                try {
+                                    android.content.Intent intent = new android.content.Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
+                                    intent.setData(android.net.Uri.parse("package:" + getPackageName()));
+                                    startActivity(intent);
+                                } catch (Exception e) {
+                                    try {
+                                        android.content.Intent intent = new android.content.Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS);
+                                        startActivity(intent);
+                                    } catch (Exception ex) {
+                                        android.util.Log.e("MainActivity", "Failed to request battery ignore", ex);
+                                    }
+                                }
+                            })
+                            .setNegativeButton("Not Now", (dialog, which) -> {
+                                batteryPromptShownThisSession = true;
+                            })
+                            .setCancelable(false)
+                            .show();
                 }
             }
         }
