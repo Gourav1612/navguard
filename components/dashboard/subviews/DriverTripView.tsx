@@ -50,6 +50,13 @@ export default function DriverTripPage() {
       return data;
     },
     onSuccess: () => {
+      // Clean up native background service tracking on trip end
+      if (Capacitor.isNativePlatform()) {
+        LocationService.stopTracking().catch((err: any) => {
+          console.error('Failed to stop native location service on trip end:', err);
+        });
+      }
+
       // Clean up watch position
       if (watchIdRef.current !== null) {
         if (typeof watchIdRef.current === 'string') {
@@ -275,10 +282,6 @@ export default function DriverTripPage() {
     return () => {
       clearInterval(intervalId);
       if (tokenRefreshInterval) clearInterval(tokenRefreshInterval);
-      // Stop native foreground service when component unmounts
-      if (Capacitor.isNativePlatform()) {
-        LocationService.stopTracking().catch(console.error);
-      }
       if (watchIdRef.current !== null) {
         if (typeof watchIdRef.current === 'string') {
           BackgroundGeolocation.removeWatcher({ id: watchIdRef.current });
