@@ -3,7 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { Loader2, Bus, Map, Play, ArrowRight, AlertCircle, AlertTriangle } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Capacitor, registerPlugin } from '@capacitor/core';
 import { createClient } from '@supabase/supabase-js';
 
@@ -12,6 +12,7 @@ import DriverRouteView from './subviews/DriverRouteView';
 import DriverTripView from './subviews/DriverTripView';
 
 const LocationService = registerPlugin<any>('LocationService');
+const BackgroundGeolocation = registerPlugin<any>('BackgroundGeolocation');
 
 const supabaseClient = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -32,6 +33,196 @@ export default function DriverDashboardView({ tab }: { tab?: string }) {
       return res.json();
     },
   });
+
+  const [gpsStatus, setGpsStatus] = useState<'searching' | 'active' | 'error'>('searching');
+  const [lastTelemetryTime, setLastTelemetryTime] = useState<Date | null>(null);
+  const [gpsErrorMsg, setGpsErrorMsg] = useState<string | null>(null);
+
+  const watchIdRef = useRef<number | string | null>(null);
+  const lastSentRef = useRef<number>(0);
+  const lastPositionRef = useRef<{ latitude: number; longitude: number; speed: number; heading: number } | null>(null);
+
+  const postDriverLocation = async (
+    latitude: number,
+    longitude: number,
+    speedVal?: number,
+    headingVal?: number
+  ) => {
+    const bus = assignment?.bus;
+    const activeTrip = assignment?.active_trip;
+    if (!bus || !activeTrip) return;
+
+    const now = Date.now();
+    const GPS_INTERVAL_MS = 5000; // Throttle to post every 5 seconds
+    if (now - lastSentRef.current < GPS_INTERVAL_MS) return;
+    lastSentRef.current = now;
+
+    try {
+      const res = await fetch('/api/driver/location', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bus_id: bus.id,
+          trip_id: activeTrip.trip_id,
+          latitude,
+          longitude,
+          speed: Math.max(0, speedVal || 0) * 3.6, // convert m/s to km/h
+          heading: headingVal || 0,
+        }),
+      });
+
+      if (res.ok) {
+        setLastTelemetryTime(new Date());
+      }
+    } catch (err) {
+      console.error('Failed to post GPS coords:', err);
+    }
+  };
+
+  // Initialize Geolocation Tracking Watcher globally when trip is active
+  useEffect(() => {
+    const activeTrip = assignment?.active_trip;
+    const bus = assignment?.bus;
+    if (!activeTrip || !bus) return;
+
+    // Set up interval to post location every 5 seconds regardless of coordinate changes (forces continuous heartbeat)
+    const intervalId = setInterval(async () => {
+      if (lastPositionRef.current) {
+        await postDriverLocation(
+          lastPositionRef.current.latitude,
+          lastPositionRef.current.longitude,
+          lastPositionRef.current.speed,
+          lastPositionRef.current.heading
+        );
+      }
+    }, 5000);
+
+    if (Capacitor.isNativePlatform()) {
+      setGpsStatus('searching');
+      setGpsErrorMsg(null);
+
+      BackgroundGeolocation.addWatcher(
+        {
+          backgroundMessage: "Tracking bus location in background...",
+          backgroundTitle: "NaviGuard Active",
+          requestPermissions: true,
+          stale: false,
+          distanceFilter: 10,
+        },
+        async (location: any, error: any) => {
+          if (error) {
+            console.error('Background Geolocation watch error:', error);
+            const msg = error.message || 'GPS location error.';
+            setGpsStatus('error');
+            setGpsErrorMsg(msg);
+            
+            // Send GPS interruption notification to Admin
+            fetch('/api/driver/notification', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ type: 'gps_off', message: msg })
+            }).catch(console.error);
+
+            return;
+          }
+          if (location) {
+            setGpsStatus('active');
+            setGpsErrorMsg(null);
+            
+            const coords = {
+              latitude: location.latitude,
+              longitude: location.longitude,
+              speed: location.speed || 0,
+              heading: location.bearing || 0
+            };
+            lastPositionRef.current = coords;
+
+            await postDriverLocation(
+              coords.latitude,
+              coords.longitude,
+              coords.speed,
+              coords.heading
+            );
+          }
+        }
+      ).then((id: string) => {
+        watchIdRef.current = id;
+      });
+    } else {
+      if (!navigator.geolocation) {
+        setGpsStatus('error');
+        setGpsErrorMsg('Browser does not support GPS Geolocation.');
+        return;
+      }
+
+      setGpsStatus('searching');
+
+      const wId = navigator.geolocation.watchPosition(
+        async (position) => {
+          setGpsStatus('active');
+          setGpsErrorMsg(null);
+
+          const coords = {
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            speed: position.coords.speed || 0,
+            heading: position.coords.heading || 0
+          };
+          lastPositionRef.current = coords;
+
+          await postDriverLocation(
+            coords.latitude,
+            coords.longitude,
+            coords.speed,
+            coords.heading
+          );
+        },
+        (err) => {
+          console.error('GPS watch error:', err);
+          setGpsStatus('error');
+          let errMsg = 'Unknown GPS error occurred.';
+          switch (err.code) {
+            case err.PERMISSION_DENIED:
+              errMsg = 'GPS Access Denied. Please enable location services.';
+              break;
+            case err.POSITION_UNAVAILABLE:
+              errMsg = 'GPS location info unavailable.';
+              break;
+            case err.TIMEOUT:
+              errMsg = 'GPS connection timeout.';
+              break;
+          }
+          setGpsErrorMsg(errMsg);
+
+          // Send GPS interruption notification to Admin
+          fetch('/api/driver/notification', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: 'gps_off', message: errMsg })
+          }).catch(console.error);
+        },
+        {
+          enableHighAccuracy: true,
+          maximumAge: 10000,
+          timeout: 15000,
+        }
+      );
+
+      watchIdRef.current = wId;
+    }
+
+    return () => {
+      clearInterval(intervalId);
+      if (watchIdRef.current !== null) {
+        if (typeof watchIdRef.current === 'string') {
+          BackgroundGeolocation.removeWatcher({ id: watchIdRef.current });
+        } else {
+          navigator.geolocation.clearWatch(watchIdRef.current);
+        }
+        watchIdRef.current = null;
+      }
+    };
+  }, [assignment]);
 
   // One-off telemetry updates as soon as the driver logs in / mounts dashboard
   useEffect(() => {
@@ -149,7 +340,13 @@ export default function DriverDashboardView({ tab }: { tab?: string }) {
     case 'route':
       return <DriverRouteView />;
     case 'trip':
-      return <DriverTripView />;
+      return (
+        <DriverTripView
+          gpsStatus={gpsStatus}
+          gpsErrorMsg={gpsErrorMsg}
+          lastTelemetryTime={lastTelemetryTime}
+        />
+      );
   }
 
   const handleStartTrip = () => {
