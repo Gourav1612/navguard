@@ -12,6 +12,8 @@ on:
         description: 'What changed in this version?'
         required: false
         default: 'Bug fixes and performance improvements'
+permissions:
+  contents: write
 
 jobs:
   build-apk:
