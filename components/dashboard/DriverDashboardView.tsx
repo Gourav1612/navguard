@@ -55,6 +55,13 @@ export default function DriverDashboardView({ tab }: { tab?: string }) {
     sendInitialTelemetry();
   }, [assignment]);
 
+  // Auto-redirect to active trip console if a trip is already active
+  useEffect(() => {
+    if (assignment?.active_trip) {
+      router.push('/dashboard?tab=trip');
+    }
+  }, [assignment, router]);
+
   // Start Trip mutation
   const startTripMutation = useMutation({
     mutationFn: async (payload: { bus_id: string; route_id: string }) => {
