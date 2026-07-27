@@ -102,6 +102,51 @@ export function AdminMap({ activeTrips = [], busesLocations = [] }: AdminMapProp
       ? activeTrips
       : activeTrips.filter((t) => t.bus?.id === filterBusId);
 
+    // Helper function to draw actual road route using OSRM with straight-line fallback
+    function drawRoadRoute(coords: [number, number][], routeColor: string) {
+      if (coords.length < 2) return;
+      const leafletMap = map;
+      if (!leafletMap) return;
+      const osrmCoords = coords.map(([lat, lng]) => `${lng},${lat}`).join(';');
+      const url = `https://router.project-osrm.org/route/v1/driving/${osrmCoords}?overview=full&geometries=geojson`;
+
+      fetch(url)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.code === 'Ok' && data.routes?.[0]?.geometry?.coordinates) {
+            const roadCoords = data.routes[0].geometry.coordinates.map(
+              ([lng, lat]: [number, number]) => [lat, lng] as L.LatLngExpression
+            );
+            const routePolyline = L.polyline(roadCoords, {
+              color: routeColor,
+              weight: 6,
+              opacity: 0.8,
+            }).addTo(leafletMap);
+            routeLayersRef.current.push(routePolyline);
+          } else {
+            // Fallback to dashed line
+            const routePolyline = L.polyline(coords as any, {
+              color: routeColor,
+              weight: 5,
+              opacity: 0.65,
+              dashArray: '5, 8'
+            }).addTo(leafletMap);
+            routeLayersRef.current.push(routePolyline);
+          }
+        })
+        .catch((err) => {
+          console.warn('AdminMap OSRM routing failed, using straight fallback:', err);
+          // Fallback to dashed line
+          const routePolyline = L.polyline(coords as any, {
+            color: routeColor,
+            weight: 5,
+            opacity: 0.65,
+            dashArray: '5, 8'
+          }).addTo(leafletMap);
+          routeLayersRef.current.push(routePolyline);
+        });
+    }
+
     // Draw route lines and stops for filtered active trips
     filteredTrips.forEach((trip, tripIdx) => {
       const routeStops = trip.route?.stops || [];
@@ -112,32 +157,44 @@ export function AdminMap({ activeTrips = [], busesLocations = [] }: AdminMapProp
         const colors = ['#4f46e5', '#0ea5e9', '#10b981', '#f59e0b', '#ec4899'];
         const routeColor = colors[tripIdx % colors.length];
 
-        // Draw polyline connecting stops
-        const polylineCoords = sortedStops.map((stop: any) => [Number(stop.latitude), Number(stop.longitude)] as L.LatLngExpression);
-        if (polylineCoords.length > 1) {
-          const routePolyline = L.polyline(polylineCoords, {
-            color: routeColor,
-            weight: 5,
-            opacity: 0.65,
-            dashArray: '5, 8'
-          }).addTo(map);
-          routeLayersRef.current.push(routePolyline);
+        // Find matching bus location for this trip
+        const busLoc = busesLocations.find((b) => b.bus_id === trip.bus?.id);
+        const hasLatestLoc = busLoc?.latest_location;
+
+        // Construct coordinate points for routing line
+        let routingCoords: [number, number][] = [];
+        if (hasLatestLoc && busLoc.latest_location) {
+          // Prepend bus location, and connect to other stops (excluding Stop 0 / school starting point)
+          const otherStops = sortedStops.filter((s: any) => s.stop_order !== 0);
+          routingCoords = [
+            [Number(busLoc.latest_location.latitude), Number(busLoc.latest_location.longitude)],
+            ...otherStops.map((stop: any) => [Number(stop.latitude), Number(stop.longitude)] as [number, number])
+          ];
+        } else {
+          // If bus is inactive or has no coordinates yet, show full original route from Stop 0
+          routingCoords = sortedStops.map((stop: any) => [Number(stop.latitude), Number(stop.longitude)] as [number, number]);
         }
+
+        // Draw the road route line starting from the bus's location
+        drawRoadRoute(routingCoords, routeColor);
 
         // Draw stop circle markers
         sortedStops.forEach((stop: any, idx: number) => {
           let color = '#3b82f6';
           let fillColor = '#93c5fd';
           let radius = 5;
+          let labelText = `Transit Stop #${idx + 1}`;
 
-          if (idx === 0) {
-            color = '#ef4444'; // Start stop (School Campus)
+          if (stop.stop_order === 0) {
+            color = '#ef4444'; // Designed Start stop (School Campus)
             fillColor = '#f87171';
-            radius = 7;
+            radius = 8;
+            labelText = '🚩 Designed Start: School Campus';
           } else if (idx === sortedStops.length - 1) {
             color = '#10b981'; // End stop
             fillColor = '#34d399';
             radius = 7;
+            labelText = '🏁 End Destination';
           }
 
           const stopMarker = L.circleMarker([Number(stop.latitude), Number(stop.longitude)], {
@@ -151,7 +208,7 @@ export function AdminMap({ activeTrips = [], busesLocations = [] }: AdminMapProp
             .bindPopup(`
               <div class="font-sans">
                 <div class="font-bold text-slate-800 text-xs">${stop.name}</div>
-                <div class="text-[10px] text-slate-500">Transit Stop #${idx + 1}</div>
+                <div class="text-[10px] text-slate-500">${labelText}</div>
               </div>
             `);
           routeLayersRef.current.push(stopMarker);
