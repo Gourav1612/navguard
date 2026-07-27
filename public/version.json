@@ -1,5 +1,5 @@
 {
-  "version": "1.0.7",
+  "version": "1.0.8",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Bug fixes and performance improvements"
+  "releaseNotes": "Auto-build: ci: declare static env placeholder values to clear VS Code warnings and trigger push automation build"
 }
