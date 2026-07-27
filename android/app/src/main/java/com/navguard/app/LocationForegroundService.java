@@ -48,7 +48,11 @@ public class LocationForegroundService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        startForeground(1001, buildNotification());
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+            startForeground(1001, buildNotification(), android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION);
+        } else {
+            startForeground(1001, buildNotification());
+        }
         startLocationUpdates();
         return START_STICKY; // Android restarts the service if killed
     }
