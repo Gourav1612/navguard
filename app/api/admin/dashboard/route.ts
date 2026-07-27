@@ -55,7 +55,7 @@ export async function GET() {
         id,
         buses (id, name, registration_plate),
         drivers (id, user_profiles (full_name)),
-        routes (id, name)
+        routes (id, name, stops (id, name, stop_order, latitude, longitude))
       `)
       .eq('school_id', profile.school_id)
       .eq('status', 'active');
@@ -93,7 +93,9 @@ export async function GET() {
             full_name: driverObj.user_profiles?.full_name || 'Unassigned Driver',
           },
           route: {
+            id: routeObj.id || null,
             name: routeObj.name || 'No Route Assigned',
+            stops: routeObj.stops || [],
           },
           latest_location: (() => {
             if (!locationData) return null;
