@@ -1,5 +1,5 @@
 {
-  "version": "1.0.17",
+  "version": "1.0.18",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: fix: add notification permission explainer dialog at runtime on Android 13+ to match the background location flow"
+  "releaseNotes": "Auto-build: fix: integrate unified sequential permissions wizard in MainActivity.java onResume for Notification, Background Location, and Battery Exemption prompts"
 }
