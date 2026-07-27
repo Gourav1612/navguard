@@ -1,5 +1,5 @@
 {
-  "version": "1.0.12",
+  "version": "1.0.13",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: fix: restore service to main process to fix sharedPreferences reading, and add sound & vibration alerts to LocationForegroundService notification"
+  "releaseNotes": "Auto-build: fix: use PendingIntent.getForegroundService for AlarmManager restart on Android 8+ (fixes background start restrictions on swipe-close)"
 }
