@@ -20,12 +20,14 @@ interface DriverTripPageProps {
   gpsStatus: 'searching' | 'active' | 'error';
   gpsErrorMsg: string | null;
   lastTelemetryTime: Date | null;
+  currentLocation?: { latitude: number; longitude: number } | null;
 }
 
 export default function DriverTripPage({
   gpsStatus,
   gpsErrorMsg,
-  lastTelemetryTime
+  lastTelemetryTime,
+  currentLocation
 }: DriverTripPageProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -186,6 +188,26 @@ export default function DriverTripPage({
   // Find next stop (the first stop that has not been checked off)
   const nextStop = stopsList.find((s: any) => !passedStops.includes(s.id));
 
+  // Distance to next stop calculation
+  let distanceStr = '';
+  if (currentLocation && nextStop) {
+    const nextLat = Number(nextStop.latitude);
+    const nextLng = Number(nextStop.longitude);
+    if (!isNaN(nextLat) && !isNaN(nextLng)) {
+      const dist = calculateDistanceKm(
+        currentLocation.latitude,
+        currentLocation.longitude,
+        nextLat,
+        nextLng
+      );
+      if (dist < 1) {
+        distanceStr = `${Math.round(dist * 1000)}m`;
+      } else {
+        distanceStr = `${dist.toFixed(1)} km`;
+      }
+    }
+  }
+
   return (
     <div className="space-y-6 max-w-sm mx-auto pt-2">
       {/* Active Trip Header */}
@@ -240,6 +262,11 @@ export default function DriverTripPage({
             <span className="text-[9px] font-bold text-white/60 uppercase tracking-wider block">NEXT DESTINATION</span>
             <h4 className="font-extrabold text-base leading-tight mt-0.5">{nextStop.name}</h4>
             <span className="text-[10px] text-white/85 block mt-1">Order Index: Stop {nextStop.stop_order}</span>
+            {distanceStr && (
+              <span className="inline-flex items-center gap-1 mt-2.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-white/20 text-white border border-white/10">
+                <Navigation className="w-3 h-3 fill-current rotate-45" /> {distanceStr} away
+              </span>
+            )}
           </div>
 
           <div className="bg-white/10 rounded-xl p-3 border border-white/10">
@@ -353,4 +380,21 @@ export default function DriverTripPage({
       </button>
     </div>
   );
+}
+
+// Helper functions for Haversine distance calculation
+function calculateDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371; // Earth's radius in km
+  const dLat = deg2rad(lat2 - lat1);
+  const dLon = deg2rad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+function deg2rad(deg: number): number {
+  return deg * (Math.PI / 180);
 }

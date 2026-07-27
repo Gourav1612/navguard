@@ -38,6 +38,8 @@ export default function DriverDashboardView({ tab }: { tab?: string }) {
   const [lastTelemetryTime, setLastTelemetryTime] = useState<Date | null>(null);
   const [gpsErrorMsg, setGpsErrorMsg] = useState<string | null>(null);
 
+  const [currentLocation, setCurrentLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+
   const watchIdRef = useRef<number | string | null>(null);
   const lastSentRef = useRef<number>(0);
   const lastPositionRef = useRef<{ latitude: number; longitude: number; speed: number; heading: number } | null>(null);
@@ -136,6 +138,7 @@ export default function DriverDashboardView({ tab }: { tab?: string }) {
               heading: location.bearing || 0
             };
             lastPositionRef.current = coords;
+            setCurrentLocation({ latitude: coords.latitude, longitude: coords.longitude });
 
             await postDriverLocation(
               coords.latitude,
@@ -169,6 +172,7 @@ export default function DriverDashboardView({ tab }: { tab?: string }) {
             heading: position.coords.heading || 0
           };
           lastPositionRef.current = coords;
+          setCurrentLocation({ latitude: coords.latitude, longitude: coords.longitude });
 
           await postDriverLocation(
             coords.latitude,
@@ -345,6 +349,7 @@ export default function DriverDashboardView({ tab }: { tab?: string }) {
           gpsStatus={gpsStatus}
           gpsErrorMsg={gpsErrorMsg}
           lastTelemetryTime={lastTelemetryTime}
+          currentLocation={currentLocation}
         />
       );
   }
