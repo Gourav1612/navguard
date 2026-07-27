@@ -1,5 +1,5 @@
 {
-  "version": "1.0.14",
+  "version": "1.0.15",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: fix: copy variables to final local references for lambda execution in LocationForegroundService.java (fixes Java compile error)"
+  "releaseNotes": "Auto-build: fix: restore service to main process to ensure onTaskRemoved triggers and sets the getForegroundService AlarmManager restart"
 }
