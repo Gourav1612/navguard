@@ -1,5 +1,5 @@
 {
-  "version": "1.0.11",
+  "version": "1.0.12",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: fix: run LocationForegroundService in separate process with stopWithTask=false to survive task tray swipe-away (fixes swipe close termination)"
+  "releaseNotes": "Auto-build: fix: restore service to main process to fix sharedPreferences reading, and add sound & vibration alerts to LocationForegroundService notification"
 }
