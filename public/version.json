@@ -1,5 +1,5 @@
 {
-  "version": "1.0.13",
+  "version": "1.0.14",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: fix: use PendingIntent.getForegroundService for AlarmManager restart on Android 8+ (fixes background start restrictions on swipe-close)"
+  "releaseNotes": "Auto-build: fix: copy variables to final local references for lambda execution in LocationForegroundService.java (fixes Java compile error)"
 }
