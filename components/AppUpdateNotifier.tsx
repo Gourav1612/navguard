@@ -84,6 +84,7 @@ export default function AppUpdateNotifier() {
         await BatteryOptimization.openSystemBrowser({ url: apkUrl });
       } catch (err) {
         console.error('Failed to open system browser via plugin:', err);
+        alert(`Direct download is not supported on this version of the app. Please open this link in your phone's Chrome browser to download manually:\n\n${apkUrl}`);
         window.open(apkUrl, '_system');
       }
     } else {
