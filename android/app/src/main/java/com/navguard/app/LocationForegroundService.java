@@ -7,6 +7,8 @@ import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.Context;
+import android.app.AlarmManager;
 import android.location.Location;
 import android.os.IBinder;
 import android.os.Looper;
@@ -182,5 +184,25 @@ public class LocationForegroundService extends Service {
     @Override
     public IBinder onBind(Intent intent) {
         return null; // Not a bound service
+    }
+
+    @Override
+    public void onTaskRemoved(Intent rootIntent) {
+        // Schedule a service restart in 1 second using AlarmManager
+        Intent restartServiceIntent = new Intent(getApplicationContext(), this.getClass());
+        restartServiceIntent.setPackage(getPackageName());
+        PendingIntent restartServicePendingIntent = PendingIntent.getService(
+                getApplicationContext(), 1, restartServiceIntent,
+                PendingIntent.FLAG_ONE_SHOT | PendingIntent.FLAG_IMMUTABLE
+        );
+        AlarmManager alarmService = (AlarmManager) getApplicationContext().getSystemService(Context.ALARM_SERVICE);
+        if (alarmService != null) {
+            alarmService.set(
+                    AlarmManager.RTC_WAKEUP,
+                    System.currentTimeMillis() + 1000,
+                    restartServicePendingIntent
+            );
+        }
+        super.onTaskRemoved(rootIntent);
     }
 }
