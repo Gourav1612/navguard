@@ -1,5 +1,5 @@
 {
-  "version": "1.0.16",
+  "version": "1.0.17",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: fix: change onResume access modifier from protected to public in MainActivity.java to match BridgeActivity definition"
+  "releaseNotes": "Auto-build: fix: add notification permission explainer dialog at runtime on Android 13+ to match the background location flow"
 }
