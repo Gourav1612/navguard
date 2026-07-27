@@ -1,5 +1,5 @@
 {
-  "version": "1.0.10",
+  "version": "1.0.11",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: fix: override onTaskRemoved to auto-restart LocationForegroundService in 1 second using AlarmManager when driver swipes away app from recent apps"
+  "releaseNotes": "Auto-build: fix: run LocationForegroundService in separate process with stopWithTask=false to survive task tray swipe-away (fixes swipe close termination)"
 }
