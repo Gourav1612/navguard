@@ -40,6 +40,10 @@
             android:stopWithTask="false"
             android:exported="false" />
 
+        <receiver
+            android:name=".LocationReceiver"
+            android:exported="false" />
+
     </application>
 
     <uses-permission android:name="android.permission.INTERNET" />

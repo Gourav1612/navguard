@@ -6,30 +6,18 @@ import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.content.Context;
 import android.app.AlarmManager;
-import android.location.Location;
 import android.os.IBinder;
-import android.os.Looper;
+import android.os.Build;
 import android.util.Log;
 
 import androidx.core.app.NotificationCompat;
 
 import com.google.android.gms.location.FusedLocationProviderClient;
-import com.google.android.gms.location.LocationCallback;
 import com.google.android.gms.location.LocationRequest;
-import com.google.android.gms.location.LocationResult;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.location.Priority;
-
-import org.json.JSONObject;
-
-import java.io.OutputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 public class LocationForegroundService extends Service {
     private static final String TAG = "NaviGuardLocService";
@@ -37,14 +25,11 @@ public class LocationForegroundService extends Service {
     public static final String PREFS_NAME = "NaviGuardTracking";
 
     private FusedLocationProviderClient fusedLocationClient;
-    private LocationCallback locationCallback;
-    private ExecutorService executor;
 
     @Override
     public void onCreate() {
         super.onCreate();
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
-        executor = Executors.newSingleThreadExecutor();
         createNotificationChannel();
     }
 
@@ -56,7 +41,7 @@ public class LocationForegroundService extends Service {
             startForeground(1001, buildNotification());
         }
         startLocationUpdates();
-        return START_STICKY; // Android restarts the service if killed
+        return START_STICKY;
     }
 
     private void startLocationUpdates() {
@@ -65,113 +50,20 @@ public class LocationForegroundService extends Service {
                 .setMaxUpdateDelayMillis(7000)
                 .build();
 
-        locationCallback = new LocationCallback() {
-            @Override
-            public void onLocationResult(LocationResult locationResult) {
-                if (locationResult == null) return;
-                for (Location location : locationResult.getLocations()) {
-                    postLocationToServer(location);
-                }
-            }
-        };
+        Intent intent = new Intent(this, LocationReceiver.class);
+        PendingIntent pendingIntent = PendingIntent.getBroadcast(
+                this,
+                0,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT | (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ? PendingIntent.FLAG_MUTABLE : 0)
+        );
 
         try {
-            fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper());
+            fusedLocationClient.requestLocationUpdates(locationRequest, pendingIntent);
         } catch (SecurityException e) {
             Log.e(TAG, "Location permission not granted", e);
             stopSelf();
         }
-    }
-
-    private void postLocationToServer(Location location) {
-        String token = null;
-        String busId = null;
-        String tripId = null;
-        String serverUrl = null;
-
-        // Try reading from process-safe JSON file first
-        try {
-            java.io.File file = new java.io.File(getFilesDir(), "tracking_credentials.json");
-            if (file.exists()) {
-                java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.FileReader(file));
-                StringBuilder sb = new StringBuilder();
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    sb.append(line);
-                }
-                reader.close();
-                JSONObject json = new JSONObject(sb.toString());
-                token = json.optString("auth_token", null);
-                busId = json.optString("bus_id", null);
-                tripId = json.optString("trip_id", null);
-                serverUrl = json.optString("server_url", null);
-            }
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to read credentials file, falling back to SharedPreferences", e);
-        }
-
-        // Fallback to SharedPreferences if file was missing/empty
-        if (token == null || busId == null || serverUrl == null) {
-            SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
-            token = prefs.getString("auth_token", null);
-            busId = prefs.getString("bus_id", null);
-            tripId = prefs.getString("trip_id", null);
-            serverUrl = prefs.getString("server_url", null);
-        }
-
-        if (token == null || busId == null || serverUrl == null) {
-            Log.w(TAG, "Missing tracking credentials, skipping location post");
-            return;
-        }
-
-        final String finalToken = token;
-        final String finalBusId = busId;
-        final String finalTripId = tripId;
-        final String finalServerUrl = serverUrl;
-
-        executor.execute(() -> {
-            HttpURLConnection conn = null;
-            try {
-                JSONObject json = new JSONObject();
-                json.put("bus_id", finalBusId);
-                json.put("latitude", location.getLatitude());
-                json.put("longitude", location.getLongitude());
-                // Convert m/s → km/h; default 0
-                double speedKmh = location.hasSpeed() ? location.getSpeed() * 3.6 : 0;
-                json.put("speed", speedKmh);
-                json.put("heading", location.hasBearing() ? location.getBearing() : 0);
-                if (finalTripId != null && !finalTripId.isEmpty()) json.put("trip_id", finalTripId);
-
-                URL url = new URL(finalServerUrl);
-                conn = (HttpURLConnection) url.openConnection();
-                conn.setRequestMethod("POST");
-                conn.setRequestProperty("Content-Type", "application/json");
-                conn.setRequestProperty("Authorization", "Bearer " + finalToken);
-                conn.setDoOutput(true);
-                conn.setConnectTimeout(10000);
-                conn.setReadTimeout(10000);
-
-                byte[] body = json.toString().getBytes("UTF-8");
-                conn.setFixedLengthStreamingMode(body.length);
-                OutputStream os = conn.getOutputStream();
-                os.write(body);
-                os.flush();
-                os.close();
-
-                int responseCode = conn.getResponseCode();
-                Log.d(TAG, "Location posted, response: " + responseCode);
-
-                // 401 = token expired → stop service (JS layer will restart with fresh token)
-                if (responseCode == 401) {
-                    Log.w(TAG, "Auth token expired. Stopping native location service.");
-                    stopSelf();
-                }
-            } catch (Exception e) {
-                Log.e(TAG, "Failed to post location to server", e);
-            } finally {
-                if (conn != null) conn.disconnect();
-            }
-        });
     }
 
     private Notification buildNotification() {
@@ -210,17 +102,28 @@ public class LocationForegroundService extends Service {
     @Override
     public void onDestroy() {
         super.onDestroy();
-        if (fusedLocationClient != null && locationCallback != null) {
-            fusedLocationClient.removeLocationUpdates(locationCallback);
-        }
-        if (executor != null && !executor.isShutdown()) {
-            executor.shutdown();
+        // Only stop location updates if the credentials file has been deleted (i.e. explicit stop by the driver)
+        java.io.File file = new java.io.File(getFilesDir(), "tracking_credentials.json");
+        if (!file.exists()) {
+            if (fusedLocationClient != null) {
+                Intent intent = new Intent(this, LocationReceiver.class);
+                PendingIntent pendingIntent = PendingIntent.getBroadcast(
+                        this,
+                        0,
+                        intent,
+                        PendingIntent.FLAG_NO_CREATE | (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ? PendingIntent.FLAG_MUTABLE : 0)
+                );
+                if (pendingIntent != null) {
+                    fusedLocationClient.removeLocationUpdates(pendingIntent);
+                    pendingIntent.cancel();
+                }
+            }
         }
     }
 
     @Override
     public IBinder onBind(Intent intent) {
-        return null; // Not a bound service
+        return null;
     }
 
     @Override
