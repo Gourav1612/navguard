@@ -76,6 +76,16 @@ jobs:
           sed -i "s/versionName \"[^\"]*\"/versionName \"$VERSION\"/" android/app/build.gradle
           echo "Android versionCode=$VERSION_CODE versionName=$VERSION"
 
+      # ── 7.5 Generate consistent debug.keystore if not exists ────────────────
+      - name: Generate debug.keystore if missing
+        run: |
+          if [ ! -f android/app/debug.keystore ]; then
+            echo "Generating new shared debug.keystore..."
+            keytool -genkey -v -keystore android/app/debug.keystore -storepass android -alias androiddebugkey -keypass android -dname "CN=Android Debug,O=Android,C=US" -keyalg RSA -keysize 2048 -validity 10000
+          else
+            echo "Using existing debug.keystore."
+          fi
+
       # ── 8. Build debug APK ───────────────────────────────────────────────────
       - name: Make gradlew executable
         run: chmod +x android/gradlew
@@ -98,7 +108,7 @@ jobs:
         run: |
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git config user.name "GitHub Actions Bot"
-          git add public/NaviGuard.apk public/version.json android/app/build.gradle
+          git add public/NaviGuard.apk public/version.json android/app/build.gradle android/app/debug.keystore
           git commit -m "release: NaviGuard v${{ github.event.inputs.version }} APK [skip ci]"
           git push
 
