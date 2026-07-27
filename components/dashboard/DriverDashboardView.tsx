@@ -4,10 +4,19 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { Loader2, Bus, Map, Play, ArrowRight, AlertCircle, AlertTriangle } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { Capacitor, registerPlugin } from '@capacitor/core';
+import { createClient } from '@supabase/supabase-js';
 
 // Import subviews
 import DriverRouteView from './subviews/DriverRouteView';
 import DriverTripView from './subviews/DriverTripView';
+
+const LocationService = registerPlugin<any>('LocationService');
+
+const supabaseClient = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 export default function DriverDashboardView({ tab }: { tab?: string }) {
   const router = useRouter();
@@ -61,6 +70,58 @@ export default function DriverDashboardView({ tab }: { tab?: string }) {
       router.push('/dashboard?tab=trip');
     }
   }, [assignment, router]);
+
+  // Manage native background LocationService globally on the driver portal
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+
+    let tokenRefreshInterval: ReturnType<typeof setInterval> | null = null;
+    const activeTrip = assignment?.active_trip;
+    const bus = assignment?.bus;
+
+    if (activeTrip && bus) {
+      // Start the native service
+      (async () => {
+        try {
+          const { data: { session } } = await supabaseClient.auth.getSession();
+          const token = session?.access_token;
+          if (token) {
+            await LocationService.startTracking({
+              token,
+              busId: bus.id,
+              tripId: activeTrip.trip_id || '',
+              serverUrl: `${window.location.origin}/api/driver/location`,
+            });
+
+            // Refresh the token every 45 min so the native service stays authenticated
+            tokenRefreshInterval = setInterval(async () => {
+              try {
+                const { data: { session: newSession } } = await supabaseClient.auth.getSession();
+                const newToken = newSession?.access_token;
+                if (newToken) {
+                  await LocationService.updateToken({ token: newToken });
+                }
+              } catch (e) {
+                console.error('Failed to refresh native service token:', e);
+              }
+            }, 45 * 60 * 1000); // 45 minutes
+          }
+        } catch (e) {
+          console.error('Failed to start native location service globally:', e);
+        }
+      })();
+    } else if (assignment) {
+      // If we fetched the assignment and there is no active trip, make sure native tracking is stopped
+      LocationService.stopTracking().catch((err: any) => {
+        console.error('Failed to stop native location service globally:', err);
+      });
+    }
+
+    return () => {
+      if (tokenRefreshInterval) clearInterval(tokenRefreshInterval);
+      // NOTE: We do NOT stop tracking on unmount here either, to survive app close/process kill.
+    };
+  }, [assignment]);
 
   // Start Trip mutation
   const startTripMutation = useMutation({
