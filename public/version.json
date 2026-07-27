@@ -1,5 +1,5 @@
 {
-  "version": "1.0.8",
+  "version": "1.0.9",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: ci: declare static env placeholder values to clear VS Code warnings and trigger push automation build"
+  "releaseNotes": "Auto-build: merge: resolve conflict by removing NaviGuard.apk"
 }
