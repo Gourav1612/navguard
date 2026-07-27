@@ -1,5 +1,5 @@
 {
-  "version": "1.0.19",
+  "version": "1.0.20",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: fix: implement Google Play Services PendingIntent + LocationReceiver background tracking to survive swipe-close on Android 14+"
+  "releaseNotes": "Auto-build: fix: restore LocationForegroundService to separate process (:tracking_service) to survive task tray swipe-away, using process-safe JSON files for credentials"
 }
