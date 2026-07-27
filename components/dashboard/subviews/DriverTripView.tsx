@@ -182,7 +182,7 @@ export default function DriverTripPage({
     );
   }
 
-  const stopsList = route?.stops || [];
+  const stopsList = (route?.stops || []).filter((s: any) => s.stop_order !== 0);
   // Find next stop (the first stop that has not been checked off)
   const nextStop = stopsList.find((s: any) => !passedStops.includes(s.id));
 
