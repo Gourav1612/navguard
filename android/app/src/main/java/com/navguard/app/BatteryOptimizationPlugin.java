@@ -70,5 +70,26 @@ public class BatteryOptimizationPlugin extends Plugin {
             }
         }
     }
+
+    /**
+     * Opens a URL directly in the Android system web browser.
+     * This is useful for trigger file downloads (like APKs) which are blocked inside standard WebViews.
+     */
+    @PluginMethod
+    public void openSystemBrowser(PluginCall call) {
+        String url = call.getString("url");
+        if (url == null || url.isEmpty()) {
+            call.reject("Missing parameter: url");
+            return;
+        }
+        try {
+            Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            getContext().startActivity(intent);
+            call.resolve();
+        } catch (Exception e) {
+            call.reject("Could not open system browser: " + e.getMessage());
+        }
+    }
 }
 

@@ -76,10 +76,19 @@ export default function AppUpdateNotifier() {
     checkUpdate();
   }, []);
 
-  const handleUpdate = () => {
+  const handleUpdate = async () => {
     // Open Vercel hosted APK directly in system browser for download/installation
     const apkUrl = `${window.location.origin}/NaviGuard.apk`;
-    window.open(apkUrl, '_system');
+    if (Capacitor.isNativePlatform()) {
+      try {
+        await BatteryOptimization.openSystemBrowser({ url: apkUrl });
+      } catch (err) {
+        console.error('Failed to open system browser via plugin:', err);
+        window.open(apkUrl, '_system');
+      }
+    } else {
+      window.open(apkUrl, '_blank');
+    }
   };
 
   if (!isUpdateAvailable) return null;
