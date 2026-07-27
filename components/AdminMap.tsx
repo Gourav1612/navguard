@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 
@@ -32,6 +32,22 @@ export function AdminMap({ activeTrips = [], busesLocations = [] }: AdminMapProp
   const markersRef = useRef<Record<string, L.Marker>>({});
   // Track route layers (lines/stops) for cleanup
   const routeLayersRef = useRef<L.Layer[]>([]);
+
+  const [filterBusId, setFilterBusId] = useState<string>('all');
+
+  // Centering map on select bus changes
+  useEffect(() => {
+    if (filterBusId !== 'all' && mapRef.current) {
+      const selectedBus = busesLocations.find((b) => b.bus_id === filterBusId);
+      if (selectedBus?.latest_location) {
+        mapRef.current.setView(
+          [selectedBus.latest_location.latitude, selectedBus.latest_location.longitude],
+          15,
+          { animate: true }
+        );
+      }
+    }
+  }, [filterBusId, busesLocations]);
 
   // 1. Initialize Leaflet Map exactly once on mount
   useEffect(() => {
@@ -81,17 +97,26 @@ export function AdminMap({ activeTrips = [], busesLocations = [] }: AdminMapProp
     routeLayersRef.current.forEach((layer) => layer.remove());
     routeLayersRef.current = [];
 
-    // Draw route lines and stops for all active trips
-    activeTrips.forEach((trip) => {
+    // Filter active trips based on selection
+    const filteredTrips = filterBusId === 'all'
+      ? activeTrips
+      : activeTrips.filter((t) => t.bus?.id === filterBusId);
+
+    // Draw route lines and stops for filtered active trips
+    filteredTrips.forEach((trip, tripIdx) => {
       const routeStops = trip.route?.stops || [];
       if (routeStops.length > 0) {
         const sortedStops = [...routeStops].sort((a: any, b: any) => a.stop_order - b.stop_order);
         
+        // Use different colors for different routes if displaying all
+        const colors = ['#4f46e5', '#0ea5e9', '#10b981', '#f59e0b', '#ec4899'];
+        const routeColor = colors[tripIdx % colors.length];
+
         // Draw polyline connecting stops
         const polylineCoords = sortedStops.map((stop: any) => [Number(stop.latitude), Number(stop.longitude)] as L.LatLngExpression);
         if (polylineCoords.length > 1) {
           const routePolyline = L.polyline(polylineCoords, {
-            color: '#4f46e5',
+            color: routeColor,
             weight: 5,
             opacity: 0.65,
             dashArray: '5, 8'
@@ -158,6 +183,18 @@ export function AdminMap({ activeTrips = [], busesLocations = [] }: AdminMapProp
 
     // Render or update active markers
     busesLocations.forEach((bus) => {
+      // If we filtered by a specific bus, hide others
+      const shouldShow = filterBusId === 'all' || filterBusId === bus.bus_id;
+      
+      let marker = markersRef.current[bus.bus_id];
+      if (!shouldShow) {
+        if (marker) {
+          marker.remove();
+          delete markersRef.current[bus.bus_id];
+        }
+        return;
+      }
+
       if (bus.latest_location) {
         const { latitude, longitude, speed, is_stale } = bus.latest_location as any;
         const icon = createBusIcon(bus.bus_name, bus.is_active, is_stale);
@@ -180,7 +217,6 @@ export function AdminMap({ activeTrips = [], busesLocations = [] }: AdminMapProp
           }
         }
         
-        let marker = markersRef.current[bus.bus_id];
         if (marker) {
           marker.setLatLng([latitude, longitude]);
           marker.setIcon(icon);
@@ -247,6 +283,17 @@ export function AdminMap({ activeTrips = [], busesLocations = [] }: AdminMapProp
         (payload: any) => {
           const { bus_id, latitude, longitude, speed } = payload.new;
           
+          // If we filtered by a specific bus, hide updates for others
+          const shouldShow = filterBusId === 'all' || filterBusId === bus_id;
+          if (!shouldShow) {
+            const marker = markersRef.current[bus_id];
+            if (marker) {
+              marker.remove();
+              delete markersRef.current[bus_id];
+            }
+            return;
+          }
+
           // Find matching bus metadata
           const matchingBus = busesLocations.find((b) => b.bus_id === bus_id);
           const busName = matchingBus ? matchingBus.bus_name : 'Active Bus';
@@ -336,7 +383,7 @@ export function AdminMap({ activeTrips = [], busesLocations = [] }: AdminMapProp
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [busesLocations, activeTrips]);
+  }, [busesLocations, activeTrips, filterBusId]);
 
 // Haversine distance calculator helper
 function calculateDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -354,6 +401,21 @@ function calculateDistanceKm(lat1: number, lon1: number, lat2: number, lon2: num
   return (
     <div className="relative z-0 w-full h-[450px] border border-slate-200 rounded-2xl overflow-hidden shadow-inner">
       <div id="admin-map" className="w-full h-full" />
+
+      {/* Bus-Wise Filter Dropdown overlay */}
+      <div className="absolute top-3 right-3 z-[1000] bg-white/95 backdrop-blur border border-slate-200 rounded-xl shadow-lg p-1.5 flex items-center gap-2">
+        <span className="text-[10px] font-bold text-slate-500 uppercase pl-1.5">Fleet Filter:</span>
+        <select
+          value={filterBusId}
+          onChange={(e) => setFilterBusId(e.target.value)}
+          className="text-[10px] font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer font-sans"
+        >
+          <option value="all">All Active Buses</option>
+          {busesLocations.map((b) => (
+            <option key={b.bus_id} value={b.bus_id}>{b.bus_name}</option>
+          ))}
+        </select>
+      </div>
     </div>
   );
 }
