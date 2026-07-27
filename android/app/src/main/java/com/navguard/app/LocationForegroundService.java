@@ -153,7 +153,8 @@ public class LocationForegroundService extends Service {
                 .setSmallIcon(android.R.drawable.ic_menu_mylocation)
                 .setContentIntent(pendingIntent)
                 .setOngoing(true)
-                .setPriority(NotificationCompat.PRIORITY_LOW)
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setDefaults(Notification.DEFAULT_ALL)
                 .build();
     }
 
@@ -161,9 +162,11 @@ public class LocationForegroundService extends Service {
         NotificationChannel channel = new NotificationChannel(
                 CHANNEL_ID,
                 "NaviGuard Location Tracking",
-                NotificationManager.IMPORTANCE_LOW
+                NotificationManager.IMPORTANCE_DEFAULT
         );
         channel.setDescription("Keeps bus location tracking active during a school trip.");
+        channel.enableVibration(true);
+        channel.setVibrationPattern(new long[]{100, 200, 300, 400, 500});
         NotificationManager manager = getSystemService(NotificationManager.class);
         if (manager != null) {
             manager.createNotificationChannel(channel);
