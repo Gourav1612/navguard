@@ -61,7 +61,9 @@ jobs:
 
       # ── 5. Sync Capacitor native code ────────────────────────────────────────
       - name: Sync Capacitor (copy native plugins to android/)
-        run: npx cap sync android
+        run: |
+          rm -f public/NaviGuard.apk
+          npx cap sync android
 
       # ── 5.5 Determine version and release notes dynamically ──────────────────
       - name: Determine version and release notes
