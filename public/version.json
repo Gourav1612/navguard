@@ -1,5 +1,5 @@
 {
-  "version": "1.0.9",
+  "version": "1.0.10",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: merge: resolve conflict by removing NaviGuard.apk"
+  "releaseNotes": "Auto-build: fix: override onTaskRemoved to auto-restart LocationForegroundService in 1 second using AlarmManager when driver swipes away app from recent apps"
 }
