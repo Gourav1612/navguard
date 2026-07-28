@@ -100,6 +100,7 @@ public class MainActivity extends BridgeActivity {
             }
         }
     }
+    }
 
     @Override
     protected void onUserLeaveHint() {
