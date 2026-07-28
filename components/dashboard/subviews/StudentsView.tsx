@@ -73,6 +73,7 @@ export default function AdminStudents() {
     roll_number: z.string().min(1, 'Roll number is required'),
     bus_id: z.string().uuid().optional().nullable().or(z.literal('')),
     stop_id: z.string().uuid().optional().nullable().or(z.literal('')),
+    is_active: z.boolean().optional(),
   }).superRefine((data, ctx) => {
     if (!editingStudent && !data.password) {
       ctx.addIssue({
@@ -91,7 +92,7 @@ export default function AdminStudents() {
     watch,
     formState: { errors },
   } = useForm<StudentFormValues>({
-    resolver: zodResolver(studentSchema),
+    resolver: zodResolver(studentSchema) as any,
     defaultValues: {
       full_name: '',
       email: '',
@@ -302,7 +303,7 @@ export default function AdminStudents() {
     };
 
     if (editingStudent) {
-      const updateValues = { ...payload };
+      const updateValues: any = { ...payload };
       if (!values.password || values.password.trim() === '') {
         delete updateValues.password;
       }

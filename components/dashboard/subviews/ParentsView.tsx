@@ -90,6 +90,7 @@ export default function AdminParents() {
       .optional()
       .or(z.literal('')),
     student_ids: z.array(z.string().uuid()).optional().default([]),
+    is_active: z.boolean().optional(),
   }).superRefine((data, ctx) => {
     if (!editingParent && !data.password) {
       ctx.addIssue({

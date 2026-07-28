@@ -106,6 +106,7 @@ export default function AdminDrivers() {
     license_number: z.string().min(1, 'License number is required'),
     license_expiry: z.string().optional().nullable().or(z.literal('')),
     bus_id: z.string().uuid().optional().nullable().or(z.literal('')),
+    is_active: z.boolean().optional(),
   }).superRefine((data, ctx) => {
     if (!editingDriver && !data.password) {
       ctx.addIssue({
@@ -123,7 +124,7 @@ export default function AdminDrivers() {
     setValue,
     formState: { errors },
   } = useForm<DriverFormValues>({
-    resolver: zodResolver(driverSchema),
+    resolver: zodResolver(driverSchema) as any,
     defaultValues: {
       full_name: '',
       email: '',
