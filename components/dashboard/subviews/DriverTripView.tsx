@@ -408,11 +408,10 @@ export default function DriverTripPage({
             </div>
           </div>
 
-          {/* End Trip Button */}
           <button
             onClick={handleEndTrip}
             disabled={endTripMutation.isPending}
-            className="w-full flex items-center justify-center py-4 bg-gradient-to-r from-red-650 to-red-700 hover:from-red-600 hover:to-red-750 active:scale-98 text-white rounded-2xl font-extrabold text-xs uppercase tracking-wider shadow-lg shadow-red-600/10 transition-all duration-200 cursor-pointer disabled:opacity-50"
+            className="w-full flex items-center justify-center py-4 bg-red-600 text-white rounded-2xl font-extrabold text-xs uppercase tracking-wider shadow-lg shadow-red-600/15 transition-all duration-205 cursor-pointer disabled:opacity-50 hover:bg-red-700 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-red-600/25 active:scale-98"
           >
             {endTripMutation.isPending ? (
               <>
