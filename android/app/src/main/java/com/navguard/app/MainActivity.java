@@ -125,6 +125,9 @@ public class MainActivity extends BridgeActivity {
             java.io.File file = new java.io.File(getFilesDir(), "tracking_credentials.json");
             if (file.exists()) {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    try {
+                        android.widget.Toast.makeText(this, "NaviGuard: Entering PiP Map Widget", android.widget.Toast.LENGTH_SHORT).show();
+                    } catch (Exception t) {}
                     android.app.PictureInPictureParams.Builder builder = new android.app.PictureInPictureParams.Builder();
                     // Set a compact 3:4 aspect ratio for the floating window
                     android.util.Rational aspectRatio = new android.util.Rational(3, 4);
@@ -134,6 +137,23 @@ public class MainActivity extends BridgeActivity {
             }
         } catch (Exception e) {
             android.util.Log.e("MainActivity", "Failed to enter Picture-in-Picture mode", e);
+        }
+    }
+
+    @Override
+    public void onPictureInPictureModeChanged(boolean isInPictureInPictureMode, android.content.res.Configuration newConfig) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig);
+        try {
+            // Dispatch a JS event to the WebView to change UI dynamically
+            getBridge().getWebView().post(() -> {
+                getBridge().getWebView().evaluateJavascript(
+                    "window.dispatchEvent(new CustomEvent('pipModeChanged', { detail: { isPip: " + isInPictureInPictureMode + " } }));",
+                    null
+                );
+            });
+            android.util.Log.d("MainActivity", "Dispatched pipModeChanged JS event: isPip=" + isInPictureInPictureMode);
+        } catch (Exception e) {
+            android.util.Log.e("MainActivity", "Failed to dispatch JS event pipModeChanged", e);
         }
     }
 }

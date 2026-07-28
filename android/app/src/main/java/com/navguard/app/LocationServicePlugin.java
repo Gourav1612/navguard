@@ -73,12 +73,34 @@ public class LocationServicePlugin extends Plugin {
             Log.e("LocationServicePlugin", "Failed to write tracking_credentials.json", e);
         }
 
-        // Start the foreground service
-        Intent serviceIntent = new Intent(getContext(), LocationForegroundService.class);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            getContext().startForegroundService(serviceIntent);
-        } else {
-            getContext().startService(serviceIntent);
+        // Start the foreground service with robust try-catch logging
+        try {
+            Intent serviceIntent = new Intent(getContext(), LocationForegroundService.class);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                getContext().startForegroundService(serviceIntent);
+            } else {
+                getContext().startService(serviceIntent);
+            }
+            Log.d("LocationServicePlugin", "Successfully called startForegroundService");
+        } catch (Exception e) {
+            Log.e("LocationServicePlugin", "Failed to start foreground service", e);
+            try {
+                android.widget.Toast.makeText(getContext(), "Service Launch Failed: " + e.getMessage(), android.widget.Toast.LENGTH_LONG).show();
+            } catch (Exception ex) {}
+        }
+
+        // Enable Auto-PiP on Android 12+ dynamically when tracking starts
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            try {
+                android.app.PictureInPictureParams.Builder builder = new android.app.PictureInPictureParams.Builder();
+                builder.setAutoEnterEnabled(true);
+                android.util.Rational aspectRatio = new android.util.Rational(3, 4);
+                builder.setAspectRatio(aspectRatio);
+                getActivity().setPictureInPictureParams(builder.build());
+                Log.d("LocationServicePlugin", "Enabled Auto-PiP dynamically");
+            } catch (Exception e) {
+                Log.e("LocationServicePlugin", "Failed to set Auto-PiP params", e);
+            }
         }
 
         call.resolve();
@@ -108,6 +130,18 @@ public class LocationServicePlugin extends Plugin {
             }
         } catch (Exception e) {
             Log.e("LocationServicePlugin", "Failed to delete tracking_credentials.json", e);
+        }
+
+        // Disable Auto-PiP on Android 12+ dynamically when tracking stops
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            try {
+                android.app.PictureInPictureParams.Builder builder = new android.app.PictureInPictureParams.Builder();
+                builder.setAutoEnterEnabled(false);
+                getActivity().setPictureInPictureParams(builder.build());
+                Log.d("LocationServicePlugin", "Disabled Auto-PiP dynamically");
+            } catch (Exception e) {
+                Log.e("LocationServicePlugin", "Failed to clear Auto-PiP params", e);
+            }
         }
 
         call.resolve();
