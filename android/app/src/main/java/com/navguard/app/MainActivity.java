@@ -97,8 +97,27 @@ public class MainActivity extends BridgeActivity {
                             })
                             .setCancelable(false)
                             .show();
+            }
+        }
+    }
+
+    @Override
+    protected void onUserLeaveHint() {
+        super.onUserLeaveHint();
+        // Only enter Picture-in-Picture mode if tracking is currently active (credentials file exists)
+        try {
+            java.io.File file = new java.io.File(getFilesDir(), "tracking_credentials.json");
+            if (file.exists()) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    android.app.PictureInPictureParams.Builder builder = new android.app.PictureInPictureParams.Builder();
+                    // Set a compact 3:4 aspect ratio for the floating window
+                    android.util.Rational aspectRatio = new android.util.Rational(3, 4);
+                    builder.setAspectRatio(aspectRatio);
+                    enterPictureInPictureMode(builder.build());
                 }
             }
+        } catch (Exception e) {
+            android.util.Log.e("MainActivity", "Failed to enter Picture-in-Picture mode", e);
         }
     }
 }
