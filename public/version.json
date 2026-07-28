@@ -1,5 +1,5 @@
 {
-  "version": "1.0.26",
+  "version": "1.0.27",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: feat(android): configure Auto-PiP parameters on resume, render LiveMap full screen in PiP mode and in normal mode on DriverTripView"
+  "releaseNotes": "Auto-build: feat(android): dynamically enable setPictureInPictureParams in LocationServicePlugin on startTracking and disable on stopTracking, add Toast debugging"
 }
