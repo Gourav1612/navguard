@@ -101,42 +101,70 @@ public class MainActivity extends BridgeActivity {
         }
     }
 
-        // Configure Auto Picture-in-Picture based on whether tracking is active (Android 12+)
-        try {
-            java.io.File file = new java.io.File(getFilesDir(), "tracking_credentials.json");
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                android.app.PictureInPictureParams.Builder builder = new android.app.PictureInPictureParams.Builder();
-                builder.setAutoEnterEnabled(file.exists());
-                android.util.Rational aspectRatio = new android.util.Rational(3, 4);
-                builder.setAspectRatio(aspectRatio);
-                setPictureInPictureParams(builder.build());
-                android.util.Log.d("MainActivity", "Configured Auto-PiP: " + file.exists());
             }
+        }
+    }
+
+        // Configure Auto Picture-in-Picture unconditionally on resume (Android 12+)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            try {
+                if (isPictureInPictureAllowed()) {
+                    android.app.PictureInPictureParams.Builder builder = new android.app.PictureInPictureParams.Builder();
+                    builder.setAutoEnterEnabled(true);
+                    android.util.Rational aspectRatio = new android.util.Rational(3, 4);
+                    builder.setAspectRatio(aspectRatio);
+                    setPictureInPictureParams(builder.build());
+                    android.util.Log.d("MainActivity", "Configured Auto-PiP unconditionally");
+                }
+            } catch (Exception e) {
+                android.util.Log.e("MainActivity", "Failed to configure Auto-PiP parameters", e);
+            }
+        }
+    }
+
+    private boolean isPictureInPictureAllowed() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+            return false;
+        }
+        try {
+            android.app.AppOpsManager appOps = (android.app.AppOpsManager) getSystemService(android.content.Context.APP_OPS_SERVICE);
+            if (appOps == null) return false;
+            int mode = appOps.checkOpNoThrow(
+                android.app.AppOpsManager.OPSTR_PICTURE_IN_PICTURE,
+                android.os.Process.myUid(),
+                getPackageName()
+            );
+            return mode == android.app.AppOpsManager.MODE_ALLOWED;
         } catch (Exception e) {
-            android.util.Log.e("MainActivity", "Failed to configure Auto-PiP parameters", e);
+            return false;
         }
     }
 
     @Override
     protected void onUserLeaveHint() {
         super.onUserLeaveHint();
-        // Only enter Picture-in-Picture mode if tracking is currently active (credentials file exists)
-        try {
-            java.io.File file = new java.io.File(getFilesDir(), "tracking_credentials.json");
-            if (file.exists()) {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    try {
-                        android.widget.Toast.makeText(this, "NaviGuard: Entering PiP Map Widget", android.widget.Toast.LENGTH_SHORT).show();
-                    } catch (Exception t) {}
-                    android.app.PictureInPictureParams.Builder builder = new android.app.PictureInPictureParams.Builder();
-                    // Set a compact 3:4 aspect ratio for the floating window
-                    android.util.Rational aspectRatio = new android.util.Rational(3, 4);
-                    builder.setAspectRatio(aspectRatio);
-                    enterPictureInPictureMode(builder.build());
-                }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            // Check if PiP permission is granted in Android settings
+            if (!isPictureInPictureAllowed()) {
+                try {
+                    android.widget.Toast.makeText(this, "Please enable Picture-in-Picture permission in App Info settings!", android.widget.Toast.LENGTH_LONG).show();
+                } catch (Exception t) {}
+                android.util.Log.w("MainActivity", "PiP Mode requested but permission is not allowed");
+                return;
             }
-        } catch (Exception e) {
-            android.util.Log.e("MainActivity", "Failed to enter Picture-in-Picture mode", e);
+
+            try {
+                try {
+                    android.widget.Toast.makeText(this, "NaviGuard: Entering PiP Map Widget", android.widget.Toast.LENGTH_SHORT).show();
+                } catch (Exception t) {}
+                android.app.PictureInPictureParams.Builder builder = new android.app.PictureInPictureParams.Builder();
+                // Set a compact 3:4 aspect ratio for the floating window
+                android.util.Rational aspectRatio = new android.util.Rational(3, 4);
+                builder.setAspectRatio(aspectRatio);
+                enterPictureInPictureMode(builder.build());
+            } catch (Exception e) {
+                android.util.Log.e("MainActivity", "Failed to enter Picture-in-Picture mode", e);
+            }
         }
     }
 
