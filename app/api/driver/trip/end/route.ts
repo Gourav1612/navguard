@@ -109,13 +109,9 @@ export async function POST(req: NextRequest) {
           type: 'trip_end'
         });
 
-      // Clear bus location from active map tracking
-      await adminClient
-        .from('bus_locations')
-        .delete()
-        .eq('bus_id', trip.bus_id);
+      // Note: We deliberately preserve the last known bus location on trip end for safety and audit trail reasons (e.g. tracking last location if ended prematurely)
     } catch (cleanupErr) {
-      console.error('Failed to run trip end notification/cleanup:', cleanupErr);
+      console.error('Failed to run trip end notification:', cleanupErr);
     }
 
     return NextResponse.json({

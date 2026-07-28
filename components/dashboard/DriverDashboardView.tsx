@@ -51,8 +51,8 @@ export default function DriverDashboardView({ tab }: { tab?: string }) {
     headingVal?: number
   ) => {
     const bus = assignment?.bus;
+    if (!bus) return;
     const activeTrip = assignment?.active_trip;
-    if (!bus || !activeTrip) return;
 
     const now = Date.now();
     const GPS_INTERVAL_MS = 5000; // Throttle to post every 5 seconds
@@ -65,7 +65,7 @@ export default function DriverDashboardView({ tab }: { tab?: string }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           bus_id: bus.id,
-          trip_id: activeTrip.trip_id,
+          trip_id: activeTrip?.trip_id || null,
           latitude,
           longitude,
           speed: Math.max(0, speedVal || 0) * 3.6, // convert m/s to km/h
@@ -81,11 +81,10 @@ export default function DriverDashboardView({ tab }: { tab?: string }) {
     }
   };
 
-  // Initialize Geolocation Tracking Watcher globally when trip is active
+  // Initialize Geolocation Tracking Watcher globally when bus is assigned
   useEffect(() => {
-    const activeTrip = assignment?.active_trip;
     const bus = assignment?.bus;
-    if (!activeTrip || !bus) return;
+    if (!bus) return;
 
     // Set up interval to post location every 5 seconds regardless of coordinate changes (forces continuous heartbeat)
     const intervalId = setInterval(async () => {
@@ -273,7 +272,7 @@ export default function DriverDashboardView({ tab }: { tab?: string }) {
     const activeTrip = assignment?.active_trip;
     const bus = assignment?.bus;
 
-    if (activeTrip && bus) {
+    if (bus) {
       // Start the native service
       (async () => {
         try {
@@ -283,7 +282,7 @@ export default function DriverDashboardView({ tab }: { tab?: string }) {
             await LocationService.startTracking({
               token,
               busId: bus.id,
-              tripId: activeTrip.trip_id || '',
+              tripId: activeTrip?.trip_id || '',
               serverUrl: `${window.location.origin}/api/driver/location`,
             });
 
@@ -305,7 +304,7 @@ export default function DriverDashboardView({ tab }: { tab?: string }) {
         }
       })();
     } else if (assignment) {
-      // If we fetched the assignment and there is no active trip, make sure native tracking is stopped
+      // If we fetched the assignment and there is no bus assigned, make sure native tracking is stopped
       LocationService.stopTracking().catch((err: any) => {
         console.error('Failed to stop native location service globally:', err);
       });
