@@ -101,10 +101,6 @@ public class MainActivity extends BridgeActivity {
         }
     }
 
-            }
-        }
-    }
-
         // Configure Auto Picture-in-Picture unconditionally on resume (Android 12+)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             try {
