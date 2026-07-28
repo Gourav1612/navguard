@@ -1,5 +1,5 @@
 {
-  "version": "1.0.24",
+  "version": "1.0.25",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: fix(android): use BroadcastReceiver goAsync inside LocationReceiver to prevent background HTTP thread from being frozen by OS"
+  "releaseNotes": "Auto-build: fix(android): resolve MainActivity compile error by adding missing closing brace for onResume"
 }
