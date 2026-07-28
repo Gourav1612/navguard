@@ -1,5 +1,5 @@
 {
-  "version": "1.0.23",
+  "version": "1.0.24",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: fix(android): add WAKE_LOCK permission and acquire partial WakeLock in LocationForegroundService to prevent CPU sleep in background"
+  "releaseNotes": "Auto-build: fix(android): use BroadcastReceiver goAsync inside LocationReceiver to prevent background HTTP thread from being frozen by OS"
 }
