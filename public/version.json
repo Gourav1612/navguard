@@ -1,5 +1,5 @@
 {
-  "version": "1.0.22",
+  "version": "1.0.23",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: fix(android): run LocationForegroundService in the main process to survive WebView suspension in background, enable cleartext HTTP"
+  "releaseNotes": "Auto-build: fix(android): add WAKE_LOCK permission and acquire partial WakeLock in LocationForegroundService to prevent CPU sleep in background"
 }
