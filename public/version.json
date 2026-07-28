@@ -1,5 +1,5 @@
 {
-  "version": "1.0.25",
+  "version": "1.0.26",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: fix(android): resolve MainActivity compile error by adding missing closing brace for onResume"
+  "releaseNotes": "Auto-build: feat(android): configure Auto-PiP parameters on resume, render LiveMap full screen in PiP mode and in normal mode on DriverTripView"
 }
