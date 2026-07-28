@@ -97,80 +97,94 @@ export default function DriverRoutePage() {
     : stops;
 
   return (
-    <div className="space-y-4 max-w-sm mx-auto pt-2">
+    <div className="max-w-md mx-auto lg:max-w-5xl lg:mx-auto pt-2 pb-8 px-4 lg:px-0">
       {/* Title */}
-      <div>
+      <div className="mb-6">
         <h2 className="text-xl font-black text-slate-900 tracking-tight">Assigned Route Alignment</h2>
         <p className="text-slate-500 text-xs font-semibold">
           Review stops sequence and geographic markers for <span className="font-bold text-slate-700">{route.name}</span>.
         </p>
       </div>
 
-      {/* Live Map wrapper */}
-      <div className="h-[380px]">
-        {allStops.length > 0 ? (
-          <LiveMap
-            busId={bus.id}
-            stops={allStops}
-            initialLocation={driverLocation}
-            showBus={false} // don't show real-time bus marker on driver's static route map
-            focusLocation={focusedStopLocation}
-            highlightStopId={allStops.find((s: any) => s.id === focusedStopId)?.name}
-          />
-        ) : (
-          <div className="w-full h-full bg-slate-100 rounded-2xl flex flex-col items-center justify-center text-slate-400 p-6 text-center border">
-            <AlertTriangle className="w-10 h-10 text-slate-300 mb-2" />
-            <p className="text-xs font-semibold">Route alignment has no stops configured.</p>
-          </div>
-        )}
-      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        {/* Left Column: Live Map */}
+        <div className="lg:col-span-7 h-[380px] lg:h-[450px] bg-white border border-slate-200/80 rounded-2xl overflow-hidden shadow-sm">
+          {allStops.length > 0 ? (
+            <LiveMap
+              busId={bus.id}
+              stops={allStops}
+              initialLocation={driverLocation}
+              showBus={false} // don't show real-time bus marker on driver's static route map
+              focusLocation={focusedStopLocation}
+              highlightStopId={allStops.find((s: any) => s.id === focusedStopId)?.name}
+            />
+          ) : (
+            <div className="w-full h-full bg-slate-100 rounded-2xl flex flex-col items-center justify-center text-slate-400 p-6 text-center border">
+              <AlertTriangle className="w-10 h-10 text-slate-300 mb-2" />
+              <p className="text-xs font-semibold">Route alignment has no stops configured.</p>
+            </div>
+          )}
+        </div>
 
-      {/* Route Stops Sequence Info */}
-      <div className="bg-white border border-slate-150 rounded-2xl p-5 shadow-sm space-y-3">
-        {(() => {
-          const listStops = allStops.filter((stop: any) => stop.stop_order !== 0);
-          return (
-            <>
-              <h4 className="font-bold text-slate-800 text-xs uppercase tracking-wider">
-                Transit Sequence Details ({listStops.length} Stops)
-              </h4>
-              <div className="space-y-3 max-h-[160px] overflow-y-auto pr-1">
-                {listStops.map((stop: any, idx: number) => {
-                  const isFocused = stop.id === focusedStopId;
-                  return (
-                    <div
-                      key={stop.id}
-                      onClick={() => {
-                        setFocusedStopId(stop.id);
-                        setFocusedStopLocation({ latitude: stop.latitude, longitude: stop.longitude });
-                      }}
-                      className={`flex items-start gap-3 text-xs font-medium border-b border-slate-50 pb-2.5 last:border-0 last:pb-0 cursor-pointer p-2 rounded-xl transition-all duration-200 ${
-                        isFocused ? 'bg-primary/10 border-l-4 border-l-primary pl-3' : 'hover:bg-slate-50'
-                      }`}
-                    >
-                      <span className={`flex items-center justify-center w-5 h-5 rounded-full font-bold text-[10px] flex-shrink-0 mt-0.5 ${
-                        isFocused ? 'bg-primary text-white font-extrabold' : 'bg-slate-100 text-slate-600'
-                      }`}>
-                        {idx + 1}
-                      </span>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between gap-2">
-                          <p className={`font-bold leading-none truncate ${isFocused ? 'text-primary' : 'text-slate-900'}`}>{stop.name}</p>
-                          {isFocused && (
-                            <span className="text-[8px] font-black text-primary bg-primary/10 px-1.5 py-0.5 rounded uppercase tracking-wider">
-                              Active stop
-                            </span>
-                          )}
+        {/* Right Column: Route Stops Sequence Info */}
+        <div className="lg:col-span-5">
+          <div className="bg-white border border-slate-200/80 rounded-2xl p-5.5 shadow-sm space-y-4">
+            {(() => {
+              const listStops = allStops.filter((stop: any) => stop.stop_order !== 0);
+              return (
+                <>
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-extrabold text-slate-800 text-xs uppercase tracking-wider">
+                      Transit Sequence Details
+                    </h4>
+                    <span className="bg-slate-100 text-slate-600 text-[10px] px-2.5 py-0.5 font-bold rounded-full border border-slate-200">
+                      {listStops.length} Stops
+                    </span>
+                  </div>
+
+                  <div className="space-y-2.5 max-h-[340px] overflow-y-auto pr-1">
+                    {listStops.map((stop: any, idx: number) => {
+                      const isFocused = stop.id === focusedStopId;
+                      return (
+                        <div
+                          key={stop.id}
+                          onClick={() => {
+                            setFocusedStopId(stop.id);
+                            setFocusedStopLocation({ latitude: stop.latitude, longitude: stop.longitude });
+                          }}
+                          className={`flex items-start gap-3 text-xs font-medium cursor-pointer p-3 rounded-xl border transition-all duration-200 ${
+                            isFocused 
+                              ? 'bg-gradient-to-r from-blue-50/70 to-indigo-50/40 border-blue-300 text-primary shadow-sm shadow-blue-500/5' 
+                              : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50/40 hover:border-slate-300'
+                          }`}
+                        >
+                          <span className={`flex items-center justify-center w-5.5 h-5.5 rounded-full font-extrabold text-[10px] flex-shrink-0 mt-0.5 shadow-sm ${
+                            isFocused ? 'bg-primary text-white' : 'bg-slate-100 text-slate-600'
+                          }`}>
+                            {idx + 1}
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-2">
+                              <p className={`font-extrabold leading-none truncate ${isFocused ? 'text-primary' : 'text-slate-900'}`}>{stop.name}</p>
+                              {isFocused && (
+                                <span className="text-[8px] font-black text-primary bg-primary/10 px-1.5 py-0.5 rounded uppercase tracking-wider flex-shrink-0">
+                                  Selected
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[10px] text-slate-400 mt-1.5 truncate max-w-[200px]">{stop.address || 'No address details listed'}</p>
+                          </div>
                         </div>
-                        <p className="text-[10px] text-slate-400 mt-1 truncate max-w-[200px]">{stop.address || 'No address details listed'}</p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </>
-          );
-        })()}
+                      );
+                    })}
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+        </div>
+
       </div>
     </div>
   );
