@@ -25,12 +25,24 @@ public class LocationForegroundService extends Service {
     public static final String PREFS_NAME = "NaviGuardTracking";
 
     private FusedLocationProviderClient fusedLocationClient;
+    private android.os.PowerManager.WakeLock wakeLock;
 
     @Override
     public void onCreate() {
         super.onCreate();
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
         createNotificationChannel();
+
+        try {
+            android.os.PowerManager pm = (android.os.PowerManager) getSystemService(Context.POWER_SERVICE);
+            if (pm != null) {
+                wakeLock = pm.newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "NaviGuard::BackgroundLocationWakeLock");
+                wakeLock.acquire();
+                Log.d(TAG, "Successfully acquired WakeLock for background tracking");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to acquire WakeLock", e);
+        }
     }
 
     @Override
@@ -101,7 +113,16 @@ public class LocationForegroundService extends Service {
 
     @Override
     public void onDestroy() {
-        super.onDestroy();
+        // Release WakeLock if held
+        try {
+            if (wakeLock != null && wakeLock.isHeld()) {
+                wakeLock.release();
+                Log.d(TAG, "Successfully released WakeLock");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to release WakeLock", e);
+        }
+
         // Only stop location updates if the credentials file has been deleted (i.e. explicit stop by the driver)
         java.io.File file = new java.io.File(getFilesDir(), "tracking_credentials.json");
         if (!file.exists()) {
