@@ -100,6 +100,21 @@ public class MainActivity extends BridgeActivity {
             }
         }
     }
+
+        // Configure Auto Picture-in-Picture based on whether tracking is active (Android 12+)
+        try {
+            java.io.File file = new java.io.File(getFilesDir(), "tracking_credentials.json");
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                android.app.PictureInPictureParams.Builder builder = new android.app.PictureInPictureParams.Builder();
+                builder.setAutoEnterEnabled(file.exists());
+                android.util.Rational aspectRatio = new android.util.Rational(3, 4);
+                builder.setAspectRatio(aspectRatio);
+                setPictureInPictureParams(builder.build());
+                android.util.Log.d("MainActivity", "Configured Auto-PiP: " + file.exists());
+            }
+        } catch (Exception e) {
+            android.util.Log.e("MainActivity", "Failed to configure Auto-PiP parameters", e);
+        }
     }
 
     @Override
