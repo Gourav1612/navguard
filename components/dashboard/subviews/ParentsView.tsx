@@ -7,7 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Plus, Edit2, Trash2, X, Loader2, AlertCircle, Mail, Phone, Users, CheckSquare, Square, Search, Eye, EyeOff, Download, FileSpreadsheet } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { CreateParentSchema } from '@/lib/validations';
-import type { z } from 'zod';
+import { z } from 'zod';
 
 type ParentFormValues = z.infer<typeof CreateParentSchema>;
 
@@ -79,6 +79,27 @@ export default function AdminParents() {
     XLSX.writeFile(workbook, 'naviguard_parents_export.xlsx');
   };
 
+  // Dynamic validation schema that makes password optional in edit mode
+  const parentSchema = z.object({
+    full_name: z.string().min(2, 'Name must be at least 2 characters').max(100),
+    email: z.string().email('Enter a valid email address').max(254),
+    phone: z.string().regex(/^\+?[1-9]\d{7,14}$/, 'Enter a valid phone number').optional().nullable().or(z.literal('')),
+    password: z.string()
+      .min(8, 'Password must be at least 8 characters')
+      .regex(/^(?=.*[A-Z])(?=.*[0-9])(?=.*[^A-Za-z0-9])/, 'Password must contain at least one uppercase letter, one number, and one special character')
+      .optional()
+      .or(z.literal('')),
+    student_ids: z.array(z.string().uuid()).optional().default([]),
+  }).superRefine((data, ctx) => {
+    if (!editingParent && !data.password) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Password is required',
+        path: ['password'],
+      });
+    }
+  });
+
   const {
     register,
     handleSubmit,
@@ -86,7 +107,7 @@ export default function AdminParents() {
     setValue,
     formState: { errors },
   } = useForm<ParentFormValues>({
-    resolver: zodResolver(CreateParentSchema) as any,
+    resolver: zodResolver(parentSchema) as any,
     defaultValues: {
       full_name: '',
       email: '',
@@ -187,7 +208,7 @@ export default function AdminParents() {
       full_name: parent.user?.full_name || '',
       email: parent.user?.email || '',
       phone: parent.user?.phone || '',
-      password: 'PlaceholderPassword123!',
+      password: '',
       student_ids: linkedIds,
     });
     setIsModalOpen(true);
@@ -210,8 +231,11 @@ export default function AdminParents() {
   const onSubmit = (values: ParentFormValues) => {
     setErrorMessage(null);
     if (editingParent) {
-      const { password, ...updateValues } = values;
-      updateMutation.mutate({ id: editingParent.id, values: updateValues });
+      const payload: any = { ...values };
+      if (!values.password || values.password.trim() === '') {
+        delete payload.password;
+      }
+      updateMutation.mutate({ id: editingParent.id, values: payload });
     } else {
       createMutation.mutate(values);
     }
@@ -478,29 +502,29 @@ export default function AdminParents() {
                 {errors.email && <p className="text-red-500 text-xs mt-1 font-semibold">{errors.email.message}</p>}
               </div>
 
-              {!editingParent && (
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Assign Password *</label>
-                  <div className="relative">
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      disabled={mutating}
-                      placeholder="Min 8 characters, 1 upper, 1 digit"
-                      className="block w-full pl-3.5 pr-11 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-500 transition"
-                      {...register('password')}
-                    />
-                    <button
-                      type="button"
-                      tabIndex={-1}
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-650 focus:outline-none cursor-pointer"
-                    >
-                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
-                  {errors.password && <p className="text-red-500 text-xs mt-1 font-semibold">{errors.password.message}</p>}
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                  {editingParent ? 'Reset Password (Optional)' : 'Assign Password *'}
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    disabled={mutating}
+                    placeholder={editingParent ? 'Leave blank to keep current' : 'Min 8 characters, 1 upper, 1 digit'}
+                    className="block w-full pl-3.5 pr-11 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-500 transition"
+                    {...register('password')}
+                  />
+                  <button
+                    type="button"
+                    tabIndex={-1}
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-650 focus:outline-none cursor-pointer"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
                 </div>
-              )}
+                {errors.password && <p className="text-red-500 text-xs mt-1 font-semibold">{errors.password.message}</p>}
+              </div>
 
               {/* Student Checklist Selection */}
               <div className="space-y-2 border-t border-slate-100 pt-4">

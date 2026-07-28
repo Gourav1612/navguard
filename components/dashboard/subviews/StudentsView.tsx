@@ -7,7 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Plus, Edit2, Trash2, X, Loader2, AlertCircle, Mail, BookOpen, Hash, Bus, MapPin, Eye, EyeOff, Download, FileSpreadsheet } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { CreateStudentSchema } from '@/lib/validations';
-import type { z } from 'zod';
+import { z } from 'zod';
 import { parseGoogleMapsLink } from '@/lib/utils';
 
 type StudentFormValues = z.infer<typeof CreateStudentSchema>;
@@ -59,6 +59,30 @@ export default function AdminStudents() {
     },
   });
 
+  // Dynamic validation schema that makes password optional in edit mode
+  const studentSchema = z.object({
+    full_name: z.string().min(2, 'Name must be at least 2 characters').max(100),
+    email: z.string().email('Enter a valid email address').max(254),
+    phone: z.string().regex(/^\+?[1-9]\d{7,14}$/, 'Enter a valid phone number').optional().nullable().or(z.literal('')),
+    password: z.string()
+      .min(8, 'Password must be at least 8 characters')
+      .regex(/^(?=.*[A-Z])(?=.*[0-9])(?=.*[^A-Za-z0-9])/, 'Password must contain at least one uppercase letter, one number, and one special character')
+      .optional()
+      .or(z.literal('')),
+    grade: z.string().min(1, 'Grade is required'),
+    roll_number: z.string().min(1, 'Roll number is required'),
+    bus_id: z.string().uuid().optional().nullable().or(z.literal('')),
+    stop_id: z.string().uuid().optional().nullable().or(z.literal('')),
+  }).superRefine((data, ctx) => {
+    if (!editingStudent && !data.password) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Password is required',
+        path: ['password'],
+      });
+    }
+  });
+
   const {
     register,
     handleSubmit,
@@ -67,7 +91,7 @@ export default function AdminStudents() {
     watch,
     formState: { errors },
   } = useForm<StudentFormValues>({
-    resolver: zodResolver(CreateStudentSchema),
+    resolver: zodResolver(studentSchema),
     defaultValues: {
       full_name: '',
       email: '',
@@ -179,7 +203,7 @@ export default function AdminStudents() {
       full_name: student.user?.full_name || '',
       email: student.user?.email || '',
       phone: student.user?.phone || '',
-      password: 'PlaceholderPassword123!',
+      password: '',
       grade: student.grade,
       roll_number: student.roll_number,
       bus_id: student.bus?.id || '',
@@ -278,7 +302,10 @@ export default function AdminStudents() {
     };
 
     if (editingStudent) {
-      const { password, ...updateValues } = payload;
+      const updateValues = { ...payload };
+      if (!values.password || values.password.trim() === '') {
+        delete updateValues.password;
+      }
       updateMutation.mutate({ id: editingStudent.id, values: updateValues });
     } else {
       createMutation.mutate(payload);
@@ -609,29 +636,29 @@ export default function AdminStudents() {
                 {errors.email && <p className="text-red-500 text-xs mt-1 font-semibold">{errors.email.message}</p>}
               </div>
 
-              {!editingStudent && (
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Assign Password *</label>
-                  <div className="relative">
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      disabled={mutating}
-                      placeholder="Min 8 characters, 1 upper, 1 digit"
-                      className="block w-full pl-3.5 pr-11 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                      {...register('password')}
-                    />
-                    <button
-                      type="button"
-                      tabIndex={-1}
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-650 focus:outline-none cursor-pointer"
-                    >
-                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
-                  {errors.password && <p className="text-red-500 text-xs mt-1 font-semibold">{errors.password.message}</p>}
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                  {editingStudent ? 'Reset Password (Optional)' : 'Assign Password *'}
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    disabled={mutating}
+                    placeholder={editingStudent ? 'Leave blank to keep current' : 'Min 8 characters, 1 upper, 1 digit'}
+                    className="block w-full pl-3.5 pr-11 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    {...register('password')}
+                  />
+                  <button
+                    type="button"
+                    tabIndex={-1}
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-650 focus:outline-none cursor-pointer"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
                 </div>
-              )}
+                {errors.password && <p className="text-red-500 text-xs mt-1 font-semibold">{errors.password.message}</p>}
+              </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">

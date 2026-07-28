@@ -8,7 +8,7 @@ import { Plus, Edit2, Trash2, X, Loader2, AlertCircle, ShieldCheck, Mail, Phone,
 import * as XLSX from 'xlsx';
 import { Badge } from '@/components/Badge';
 import { CreateDriverSchema } from '@/lib/validations';
-import type { z } from 'zod';
+import { z } from 'zod';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import dynamic from 'next/dynamic';
 
@@ -93,6 +93,29 @@ export default function AdminDrivers() {
     },
   });
 
+  // Dynamic validation schema that makes password optional in edit mode
+  const driverSchema = z.object({
+    full_name: z.string().min(2, 'Name must be at least 2 characters').max(100),
+    email: z.string().email('Enter a valid email address').max(254),
+    phone: z.string().regex(/^\+?[1-9]\d{7,14}$/, 'Enter a valid phone number').optional().nullable().or(z.literal('')),
+    password: z.string()
+      .min(8, 'Password must be at least 8 characters')
+      .regex(/^(?=.*[A-Z])(?=.*[0-9])(?=.*[^A-Za-z0-9])/, 'Password must contain at least one uppercase letter, one number, and one special character')
+      .optional()
+      .or(z.literal('')),
+    license_number: z.string().min(1, 'License number is required'),
+    license_expiry: z.string().optional().nullable().or(z.literal('')),
+    bus_id: z.string().uuid().optional().nullable().or(z.literal('')),
+  }).superRefine((data, ctx) => {
+    if (!editingDriver && !data.password) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Password is required',
+        path: ['password'],
+      });
+    }
+  });
+
   const {
     register,
     handleSubmit,
@@ -100,7 +123,7 @@ export default function AdminDrivers() {
     setValue,
     formState: { errors },
   } = useForm<DriverFormValues>({
-    resolver: zodResolver(CreateDriverSchema),
+    resolver: zodResolver(driverSchema),
     defaultValues: {
       full_name: '',
       email: '',
@@ -202,7 +225,7 @@ export default function AdminDrivers() {
       full_name: driver.user?.full_name || '',
       email: driver.user?.email || '',
       phone: driver.user?.phone || '',
-      password: 'PlaceholderPassword123!', // ignored by backend unless sent
+      password: '',
       license_number: driver.license_number,
       license_expiry: driver.license_expiry || '',
       bus_id: driver.bus?.id || '',
@@ -219,9 +242,10 @@ export default function AdminDrivers() {
   const onSubmit = (values: DriverFormValues) => {
     setErrorMessage(null);
     if (editingDriver) {
-      // Exclude password on update
-      const { password, ...updateValues } = values;
-      const payload: any = { ...updateValues, is_active: editingDriver.is_active };
+      const payload: any = { ...values, is_active: editingDriver.is_active };
+      if (!values.password || values.password.trim() === '') {
+        delete payload.password;
+      }
       updateMutation.mutate({ id: editingDriver.id, values: payload });
     } else {
       createMutation.mutate(values);
@@ -501,29 +525,29 @@ export default function AdminDrivers() {
                 {errors.email && <p className="text-red-500 text-xs mt-1 font-semibold">{errors.email.message}</p>}
               </div>
 
-              {!editingDriver && (
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Assign Password *</label>
-                  <div className="relative">
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      disabled={mutating}
-                      placeholder="Min 8 characters, 1 upper, 1 digit"
-                      className="block w-full pl-3.5 pr-11 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                      {...register('password')}
-                    />
-                    <button
-                      type="button"
-                      tabIndex={-1}
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-650 focus:outline-none cursor-pointer"
-                    >
-                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
-                  {errors.password && <p className="text-red-500 text-xs mt-1 font-semibold">{errors.password.message}</p>}
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                  {editingDriver ? 'Reset Password (Optional)' : 'Assign Password *'}
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    disabled={mutating}
+                    placeholder={editingDriver ? 'Leave blank to keep current' : 'Min 8 characters, 1 upper, 1 digit'}
+                    className="block w-full pl-3.5 pr-11 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    {...register('password')}
+                  />
+                  <button
+                    type="button"
+                    tabIndex={-1}
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-650 focus:outline-none cursor-pointer"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
                 </div>
-              )}
+                {errors.password && <p className="text-red-500 text-xs mt-1 font-semibold">{errors.password.message}</p>}
+              </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
