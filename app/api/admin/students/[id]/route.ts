@@ -42,7 +42,7 @@ export async function PATCH(
       );
     }
 
-    const { full_name, phone, grade, roll_number, bus_id, stop_id, is_active } = parsed.data;
+    const { full_name, phone, grade, roll_number, bus_id, stop_id, is_active, password } = parsed.data;
 
     // 1. Update public.student_profiles
     const studentUpdates: any = {};
@@ -69,6 +69,27 @@ export async function PATCH(
         .from('user_profiles')
         .update(profileUpdates)
         .eq('id', student.user_id);
+    }
+
+    // 3. Update auth password if provided
+    if (password) {
+      const { error: passwordErr } = await adminClient.auth.admin.updateUserById(
+        student.user_id,
+        {
+          password: password,
+          user_metadata: {
+            login_attempts: 0,
+            login_locked: false,
+          }
+        }
+      );
+
+      if (passwordErr) {
+        return NextResponse.json(
+          { error: `Failed to update student password: ${passwordErr.message}`, code: 'SERVER_ERROR' },
+          { status: 500 }
+        );
+      }
     }
 
     // Fetch updated complete student record

@@ -42,7 +42,7 @@ export async function PATCH(
       );
     }
 
-    const { full_name, phone, license_number, license_expiry, bus_id, is_active } = parsed.data;
+    const { full_name, phone, license_number, license_expiry, bus_id, is_active, password } = parsed.data;
 
     // Check if the bus_id is already assigned to a different driver
     if (bus_id !== undefined && bus_id !== null) {
@@ -87,6 +87,27 @@ export async function PATCH(
         .from('user_profiles')
         .update(profileUpdates)
         .eq('id', driver.user_id);
+    }
+
+    // 3. Update auth password if provided
+    if (password) {
+      const { error: passwordErr } = await adminClient.auth.admin.updateUserById(
+        driver.user_id,
+        {
+          password: password,
+          user_metadata: {
+            login_attempts: 0,
+            login_locked: false,
+          }
+        }
+      );
+
+      if (passwordErr) {
+        return NextResponse.json(
+          { error: `Failed to update driver password: ${passwordErr.message}`, code: 'SERVER_ERROR' },
+          { status: 500 }
+        );
+      }
     }
 
     // Fetch updated complete record

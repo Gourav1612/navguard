@@ -20,6 +20,7 @@ export async function POST() {
       data: {
         mfa_otp: otp,
         mfa_otp_expires: expiry,
+        mfa_otp_attempts: 0,
       },
     });
 

@@ -42,7 +42,7 @@ export async function PATCH(
       );
     }
 
-    const { full_name, phone, student_ids } = parsed.data;
+    const { full_name, phone, student_ids, password } = parsed.data;
 
     // 1. Update user_profiles
     const profileUpdates: any = {};
@@ -54,6 +54,27 @@ export async function PATCH(
         .from('user_profiles')
         .update(profileUpdates)
         .eq('id', parent.user_id);
+    }
+
+    // Update auth password if provided
+    if (password) {
+      const { error: passwordErr } = await adminClient.auth.admin.updateUserById(
+        parent.user_id,
+        {
+          password: password,
+          user_metadata: {
+            login_attempts: 0,
+            login_locked: false,
+          }
+        }
+      );
+
+      if (passwordErr) {
+        return NextResponse.json(
+          { error: `Failed to update parent password: ${passwordErr.message}`, code: 'SERVER_ERROR' },
+          { status: 500 }
+        );
+      }
     }
 
     // 2. Synchronize student links if student_ids is updated
