@@ -37,9 +37,17 @@ public class LocationReceiver extends BroadcastReceiver {
                 // Ensure our notification remains visible
                 showTrackingNotification(context);
 
-                for (Location location : locationResult.getLocations()) {
-                    postLocationToServer(context, location);
-                }
+                final PendingResult pendingResult = goAsync();
+
+                executor.execute(() -> {
+                    try {
+                        for (Location location : locationResult.getLocations()) {
+                            postLocationToServerSync(context, location);
+                        }
+                    } finally {
+                        pendingResult.finish();
+                    }
+                });
             }
         }
     }
@@ -53,7 +61,7 @@ public class LocationReceiver extends BroadcastReceiver {
                     LocationForegroundService.CHANNEL_ID,
                     "NaviGuard Location Tracking",
                     NotificationManager.IMPORTANCE_DEFAULT
-            );
+              );
             channel.setDescription("Keeps bus location tracking active during a school trip.");
             manager.createNotificationChannel(channel);
         }
@@ -77,7 +85,7 @@ public class LocationReceiver extends BroadcastReceiver {
         manager.notify(1001, notification);
     }
 
-    private void postLocationToServer(Context context, Location location) {
+    private void postLocationToServerSync(Context context, Location location) {
         String token = null;
         String busId = null;
         String tripId = null;
@@ -108,46 +116,39 @@ public class LocationReceiver extends BroadcastReceiver {
             return;
         }
 
-        final String finalToken = token;
-        final String finalBusId = busId;
-        final String finalTripId = tripId;
-        final String finalServerUrl = serverUrl;
+        HttpURLConnection conn = null;
+        try {
+            JSONObject json = new JSONObject();
+            json.put("bus_id", busId);
+            json.put("latitude", location.getLatitude());
+            json.put("longitude", location.getLongitude());
+            double speedKmh = location.hasSpeed() ? location.getSpeed() * 3.6 : 0;
+            json.put("speed", speedKmh);
+            json.put("heading", location.hasBearing() ? location.getBearing() : 0);
+            if (tripId != null && !tripId.isEmpty()) json.put("trip_id", tripId);
 
-        executor.execute(() -> {
-            HttpURLConnection conn = null;
-            try {
-                JSONObject json = new JSONObject();
-                json.put("bus_id", finalBusId);
-                json.put("latitude", location.getLatitude());
-                json.put("longitude", location.getLongitude());
-                double speedKmh = location.hasSpeed() ? location.getSpeed() * 3.6 : 0;
-                json.put("speed", speedKmh);
-                json.put("heading", location.hasBearing() ? location.getBearing() : 0);
-                if (finalTripId != null && !finalTripId.isEmpty()) json.put("trip_id", finalTripId);
+            URL url = new URL(serverUrl);
+            conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("POST");
+            conn.setRequestProperty("Content-Type", "application/json");
+            conn.setRequestProperty("Authorization", "Bearer " + token);
+            conn.setDoOutput(true);
+            conn.setConnectTimeout(10000);
+            conn.setReadTimeout(10000);
 
-                URL url = new URL(finalServerUrl);
-                conn = (HttpURLConnection) url.openConnection();
-                conn.setRequestMethod("POST");
-                conn.setRequestProperty("Content-Type", "application/json");
-                conn.setRequestProperty("Authorization", "Bearer " + finalToken);
-                conn.setDoOutput(true);
-                conn.setConnectTimeout(10000);
-                conn.setReadTimeout(10000);
+            byte[] body = json.toString().getBytes("UTF-8");
+            conn.setFixedLengthStreamingMode(body.length);
+            OutputStream os = conn.getOutputStream();
+            os.write(body);
+            os.flush();
+            os.close();
 
-                byte[] body = json.toString().getBytes("UTF-8");
-                conn.setFixedLengthStreamingMode(body.length);
-                OutputStream os = conn.getOutputStream();
-                os.write(body);
-                os.flush();
-                os.close();
-
-                int responseCode = conn.getResponseCode();
-                Log.d(TAG, "Location posted to server. Response: " + responseCode);
-            } catch (Exception e) {
-                Log.e(TAG, "Failed to post location to server", e);
-            } finally {
-                if (conn != null) conn.disconnect();
-            }
-        });
+            int responseCode = conn.getResponseCode();
+            Log.d(TAG, "Location posted to server. Response: " + responseCode);
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to post location to server", e);
+        } finally {
+            if (conn != null) conn.disconnect();
+        }
     }
 }
