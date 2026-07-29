@@ -1,4 +1,4 @@
-name: 🏗️ Build NaviGuard APK
+name: Build NaviGuard APK
 
 on:
   # Trigger build automatically on push to main branch
