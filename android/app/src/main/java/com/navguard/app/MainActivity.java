@@ -19,6 +19,14 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(BatteryOptimizationPlugin.class);
         registerPlugin(LocationServicePlugin.class);
         super.onCreate(savedInstanceState);
+
+        // Disable WebView caching to ensure immediate updates from Vercel
+        try {
+            getBridge().getWebView().getSettings().setCacheMode(android.webkit.WebSettings.LOAD_NO_CACHE);
+            android.util.Log.d("MainActivity", "WebView cache disabled successfully");
+        } catch (Exception e) {
+            android.util.Log.e("MainActivity", "Failed to disable WebView cache", e);
+        }
     }
 
     @Override
