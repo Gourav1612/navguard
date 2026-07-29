@@ -35,8 +35,24 @@ export default function DriverDashboardView({ tab }: { tab?: string }) {
     const handlePip = (e: any) => {
       setIsPipMode(!!e.detail?.isPip);
     };
+    const handleResize = () => {
+      // PiP windows are extremely small (width/height under 360px). Smart phones are larger.
+      const isTiny = window.innerWidth > 0 && window.innerHeight > 0 && window.innerWidth < 360 && window.innerHeight < 390;
+      if (isTiny) {
+        setIsPipMode(true);
+      } else {
+        setIsPipMode(false);
+      }
+    };
+
     window.addEventListener('pipModeChanged', handlePip);
-    return () => window.removeEventListener('pipModeChanged', handlePip);
+    window.addEventListener('resize', handleResize);
+    handleResize(); // Initial check
+
+    return () => {
+      window.removeEventListener('pipModeChanged', handlePip);
+      window.removeEventListener('resize', handleResize);
+    };
   }, []);
 
   // Fetch driver assignment details
