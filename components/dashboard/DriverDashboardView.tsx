@@ -10,6 +10,11 @@ import { createClient } from '@supabase/supabase-js';
 // Import subviews
 import DriverRouteView from './subviews/DriverRouteView';
 import DriverTripView from './subviews/DriverTripView';
+import dynamic from 'next/dynamic';
+
+const LiveMap = dynamic(() => import('@/components/LiveMap').then((m) => m.LiveMap), {
+  ssr: false,
+});
 
 const LocationService = registerPlugin<any>('LocationService');
 const BackgroundGeolocation = registerPlugin<any>('BackgroundGeolocation');
@@ -23,6 +28,16 @@ export default function DriverDashboardView({ tab }: { tab?: string }) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [passedStops, setPassedStops] = useState<string[]>([]);
+  const [isPipMode, setIsPipMode] = useState(false);
+
+  useEffect(() => {
+    const handlePip = (e: any) => {
+      setIsPipMode(!!e.detail?.isPip);
+    };
+    window.addEventListener('pipModeChanged', handlePip);
+    return () => window.removeEventListener('pipModeChanged', handlePip);
+  }, []);
 
   // Fetch driver assignment details
   const { data: assignment, isLoading, error } = useQuery({
@@ -80,6 +95,55 @@ export default function DriverDashboardView({ tab }: { tab?: string }) {
       console.error('Failed to post GPS coords:', err);
     }
   };
+
+  // Load passed stops from audit logs on mount/trip load and listen to changes in real-time
+  useEffect(() => {
+    const activeTrip = assignment?.active_trip;
+    if (!activeTrip) {
+      setPassedStops([]);
+      return;
+    }
+    const fetchPassedStops = async () => {
+      try {
+        const { data } = await supabaseClient
+          .from('audit_logs')
+          .select('record_id')
+          .eq('action', 'STOP_PASSED')
+          .filter('new_values->>trip_id', 'eq', activeTrip.trip_id);
+        if (data) {
+          setPassedStops(data.map((log) => log.record_id));
+        }
+      } catch (err) {
+        console.error('Failed to load passed stops:', err);
+      }
+    };
+    fetchPassedStops();
+
+    // Subscribe to audit log changes dynamically
+    const channel = supabaseClient
+      .channel('driver-audit-logs-realtime')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'audit_logs', filter: `action=eq.STOP_PASSED` },
+        (payload: any) => {
+          const tripId = payload.new?.new_values?.trip_id;
+          if (tripId === activeTrip.trip_id) {
+            setPassedStops((prev) => {
+              const stopId = payload.new.record_id;
+              if (stopId && !prev.includes(stopId)) {
+                return [...prev, stopId];
+              }
+              return prev;
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabaseClient.removeChannel(channel);
+    };
+  }, [assignment?.active_trip]);
 
   // Initialize Geolocation Tracking Watcher globally when bus is assigned
   useEffect(() => {
@@ -349,6 +413,8 @@ export default function DriverDashboardView({ tab }: { tab?: string }) {
           gpsErrorMsg={gpsErrorMsg}
           lastTelemetryTime={lastTelemetryTime}
           currentLocation={currentLocation}
+          passedStops={passedStops}
+          setPassedStops={setPassedStops}
         />
       );
   }
@@ -361,6 +427,94 @@ export default function DriverDashboardView({ tab }: { tab?: string }) {
       route_id: assignment.route.id,
     });
   };
+
+  // Intercept view and render Picture-in-Picture Map View unconditionally if isPipMode is true
+  if (isPipMode && assignment) {
+    const route = assignment.route;
+    const bus = assignment.bus;
+    const active_trip = assignment.active_trip;
+
+    const stops = route?.stops || [];
+    const allStopsList = route?.school
+      ? [
+          {
+            id: 'school',
+            name: `🏫 ${route.school.name || 'School Campus'}`,
+            latitude: Number(route.school.latitude),
+            longitude: Number(route.school.longitude),
+            stop_order: 0,
+            address: 'Source Campus Location',
+          },
+          ...stops.map((s: any) => ({
+            id: s.id,
+            name: s.name,
+            latitude: Number(s.latitude),
+            longitude: Number(s.longitude),
+            stop_order: s.stop_order + 1,
+          })),
+        ]
+      : stops.map((s: any) => ({
+          id: s.id,
+          name: s.name,
+          latitude: Number(s.latitude),
+          longitude: Number(s.longitude),
+          stop_order: s.stop_order,
+        }));
+
+    // Find next stop if there is an active trip
+    const activeStops = allStopsList.filter((s: any) => s.id !== 'school');
+    const nextStop = activeStops.find((s: any) => !passedStops.includes(s.id));
+    
+    // Distance to next stop calculation
+    let distanceStr = '';
+    if (currentLocation && nextStop) {
+      const nextLat = Number(nextStop.latitude);
+      const nextLng = Number(nextStop.longitude);
+      if (!isNaN(nextLat) && !isNaN(nextLng)) {
+        const dist = calculateDistanceKm(
+          currentLocation.latitude,
+          currentLocation.longitude,
+          nextLat,
+          nextLng
+        );
+        if (dist < 1) {
+          distanceStr = `${Math.round(dist * 1000)}m`;
+        } else {
+          distanceStr = `${dist.toFixed(1)} km`;
+        }
+      }
+    }
+
+    return (
+      <div className="fixed inset-0 w-screen h-screen z-[99999] bg-white flex flex-col">
+        {/* Navigation HUD at the top (only shown if a trip is active and has a next stop) */}
+        {active_trip && nextStop && (
+          <div className="absolute top-2 left-2 right-2 z-[10000] bg-slate-900/95 text-white p-2.5 rounded-xl shadow-lg border border-slate-700/50 flex flex-col gap-0.5 pointer-events-none">
+            <span className="text-[8px] font-bold text-emerald-400 uppercase tracking-widest leading-none">Next Stop</span>
+            <span className="font-extrabold text-xs tracking-tight truncate leading-tight mt-0.5">{nextStop.name}</span>
+            {distanceStr && (
+              <span className="text-[9px] font-bold text-slate-300 mt-0.5">{distanceStr} away</span>
+            )}
+          </div>
+        )}
+        
+        {/* Floating return warning when all stops are done */}
+        {active_trip && !nextStop && (
+          <div className="absolute top-2 left-2 right-2 z-[10000] bg-emerald-800/95 text-white p-2.5 rounded-xl shadow-lg border border-emerald-600/50 flex flex-col gap-0.5 pointer-events-none">
+            <span className="text-[8px] font-bold text-white/80 uppercase tracking-widest leading-none">All Stops Completed</span>
+            <span className="font-extrabold text-xs tracking-tight leading-tight mt-0.5">Proceed back to school campus</span>
+          </div>
+        )}
+
+        <LiveMap
+          key="pip-map-global"
+          busId={bus?.id || 'unknown'}
+          initialLocation={currentLocation || null}
+          stops={allStopsList}
+        />
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -483,4 +637,21 @@ export default function DriverDashboardView({ tab }: { tab?: string }) {
       )}
     </div>
   );
+}
+
+// Helper functions for Haversine distance calculation
+function calculateDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371; // Earth's radius in km
+  const dLat = deg2rad(lat2 - lat1);
+  const dLon = deg2rad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+function deg2rad(deg: number): number {
+  return deg * (Math.PI / 180);
 }

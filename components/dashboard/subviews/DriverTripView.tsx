@@ -26,27 +26,21 @@ interface DriverTripPageProps {
   gpsErrorMsg: string | null;
   lastTelemetryTime: Date | null;
   currentLocation?: { latitude: number; longitude: number } | null;
+  passedStops: string[];
+  setPassedStops: React.Dispatch<React.SetStateAction<string[]>>;
 }
 
 export default function DriverTripPage({
   gpsStatus,
   gpsErrorMsg,
   lastTelemetryTime,
-  currentLocation
+  currentLocation,
+  passedStops,
+  setPassedStops,
 }: DriverTripPageProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const [passedStops, setPassedStops] = useState<string[]>([]);
   const watchIdRef = useRef<number | string | null>(null);
-  const [isPipMode, setIsPipMode] = useState(false);
-
-  useEffect(() => {
-    const handlePip = (e: any) => {
-      setIsPipMode(!!e.detail?.isPip);
-    };
-    window.addEventListener('pipModeChanged', handlePip);
-    return () => window.removeEventListener('pipModeChanged', handlePip);
-  }, []);
 
 
   // Fetch driver assignment & check if there's an active trip
@@ -202,23 +196,7 @@ export default function DriverTripPage({
   // Find next stop (the first stop that has not been checked off)
   const nextStop = stopsList.find((s: any) => !passedStops.includes(s.id));
 
-  if (isPipMode) {
-    return (
-      <div className="fixed inset-0 w-screen h-screen z-[99999] bg-white">
-        <LiveMap
-          key="pip-map"
-          busId={bus?.id || 'unknown'}
-          initialLocation={currentLocation || null}
-          stops={stopsList.map((s: any) => ({
-            name: s.name,
-            latitude: Number(s.latitude),
-            longitude: Number(s.longitude),
-            stop_order: s.stop_order
-          }))}
-        />
-      </div>
-    );
-  }
+
 
   // Distance to next stop calculation
   let distanceStr = '';
