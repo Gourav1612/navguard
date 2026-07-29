@@ -1,5 +1,5 @@
 {
-  "version": "1.0.28",
+  "version": "1.0.29",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: fix(android): resolve MainActivity class brackets syntax compile error"
+  "releaseNotes": "Auto-build: feat(android): disable WebView cache to force immediate Vercel sync"
 }
