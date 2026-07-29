@@ -402,32 +402,6 @@ export default function DriverDashboardView({ tab }: { tab?: string }) {
     },
   });
 
-  // Handle Dynamic Tab Routing
-  switch (tab) {
-    case 'route':
-      return <DriverRouteView />;
-    case 'trip':
-      return (
-        <DriverTripView
-          gpsStatus={gpsStatus}
-          gpsErrorMsg={gpsErrorMsg}
-          lastTelemetryTime={lastTelemetryTime}
-          currentLocation={currentLocation}
-          passedStops={passedStops}
-          setPassedStops={setPassedStops}
-        />
-      );
-  }
-
-  const handleStartTrip = () => {
-    if (!assignment?.bus?.id || !assignment?.route?.id) return;
-    setErrorMessage(null);
-    startTripMutation.mutate({
-      bus_id: assignment.bus.id,
-      route_id: assignment.route.id,
-    });
-  };
-
   // Intercept view and render Picture-in-Picture Map View unconditionally if isPipMode is true
   if (isPipMode && assignment) {
     const route = assignment.route;
@@ -515,6 +489,32 @@ export default function DriverDashboardView({ tab }: { tab?: string }) {
       </div>
     );
   }
+
+  // Handle Dynamic Tab Routing
+  switch (tab) {
+    case 'route':
+      return <DriverRouteView />;
+    case 'trip':
+      return (
+        <DriverTripView
+          gpsStatus={gpsStatus}
+          gpsErrorMsg={gpsErrorMsg}
+          lastTelemetryTime={lastTelemetryTime}
+          currentLocation={currentLocation}
+          passedStops={passedStops}
+          setPassedStops={setPassedStops}
+        />
+      );
+  }
+
+  const handleStartTrip = () => {
+    if (!assignment?.bus?.id || !assignment?.route?.id) return;
+    setErrorMessage(null);
+    startTripMutation.mutate({
+      bus_id: assignment.bus.id,
+      route_id: assignment.route.id,
+    });
+  };
 
   if (isLoading) {
     return (
