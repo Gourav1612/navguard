@@ -21,6 +21,15 @@ export function BottomNav({ children }: { children: React.ReactNode }) {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [showDownloadBtn, setShowDownloadBtn] = useState(false);
+  const [isPipMode, setIsPipMode] = useState(false);
+
+  useEffect(() => {
+    const handlePip = (e: any) => {
+      setIsPipMode(!!e.detail?.isPip);
+    };
+    window.addEventListener('pipModeChanged', handlePip);
+    return () => window.removeEventListener('pipModeChanged', handlePip);
+  }, []);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -87,6 +96,10 @@ export function BottomNav({ children }: { children: React.ReactNode }) {
   };
 
   const tabs = roleTabs[user.role] || [];
+
+  if (isPipMode) {
+    return <div className="fixed inset-0 w-screen h-screen bg-white z-[99999]">{children}</div>;
+  }
 
   return (
     <div className="flex flex-col md:flex-row min-h-screen bg-[#f4f2f8] w-full">
