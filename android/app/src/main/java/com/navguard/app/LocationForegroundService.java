@@ -94,14 +94,14 @@ public class LocationForegroundService extends Service {
         if (intent != null && intent.getAction() != null) {
             String action = intent.getAction();
             if ("SHOW_BUBBLE".equals(action)) {
-                startLocationUpdates(); // ensure location is active when bubble shows
+                // Don't re-register location here — service already running
                 showFloatingBubble();
             } else if ("HIDE_BUBBLE".equals(action)) {
                 hideFloatingBubble();
             } else if ("HEARTBEAT_REREGISTER".equals(action)) {
-                // Re-register location updates to fight OEM background throttling
+                // Heartbeat: safely remove old callback then re-register
                 Log.d(TAG, "Heartbeat received — re-registering location updates");
-                startLocationUpdates();
+                reRegisterLocationUpdates();
                 return START_STICKY;
             } else {
                 startLocationUpdates();
@@ -116,7 +116,29 @@ public class LocationForegroundService extends Service {
         return START_STICKY;
     }
 
+    private boolean locationUpdatesStarted = false;
+
     private void startLocationUpdates() {
+        if (locationUpdatesStarted) {
+            Log.d(TAG, "Location updates already registered, skipping duplicate call");
+            scheduleHeartbeat(); // keep heartbeat fresh
+            return;
+        }
+        registerLocationUpdates();
+    }
+
+    /** Called by heartbeat — removes old callback first to safely re-register */
+    private void reRegisterLocationUpdates() {
+        locationUpdatesStarted = false;
+        if (fusedLocationClient != null && locationCallback != null) {
+            try {
+                fusedLocationClient.removeLocationUpdates(locationCallback);
+            } catch (Exception ignored) {}
+        }
+        registerLocationUpdates();
+    }
+
+    private void registerLocationUpdates() {
         LocationRequest locationRequest = new LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 5000)
                 .setMinUpdateIntervalMillis(3000)
                 .setMaxUpdateDelayMillis(8000)
@@ -141,9 +163,12 @@ public class LocationForegroundService extends Service {
 
         try {
             fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, callbackLooper);
+            locationUpdatesStarted = true;
             Log.d(TAG, "Successfully requested location updates via LocationCallback (HandlerThread)");
         } catch (SecurityException e) {
             Log.e(TAG, "Location permission not granted for LocationCallback", e);
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to register location callback", e);
         }
 
         // Fail-safe: Register a PendingIntent targeting the BroadcastReceiver (LocationReceiver)
@@ -160,6 +185,8 @@ public class LocationForegroundService extends Service {
             Log.d(TAG, "Successfully registered BroadcastReceiver PendingIntent fallback");
         } catch (SecurityException e) {
             Log.e(TAG, "Location permission not granted for BroadcastReceiver PendingIntent", e);
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to register BroadcastReceiver PendingIntent", e);
         }
 
         // Schedule heartbeat: re-register location updates every 60s to survive OEM throttling
