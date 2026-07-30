@@ -139,6 +139,39 @@ public class LocationForegroundService extends Service {
                     pendingIntent.cancel();
                 }
             }
+        } else {
+            // INVOLUNTARY DESTROY: OS killed the service. Schedule restart in 5 seconds!
+            Log.w(TAG, "LocationForegroundService destroyed involuntarily. Scheduling restart...");
+            Intent restartIntent = new Intent(getApplicationContext(), this.getClass());
+            restartIntent.setPackage(getPackageName());
+            PendingIntent pendingIntent;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                pendingIntent = PendingIntent.getForegroundService(
+                        getApplicationContext(), 1, restartIntent,
+                        PendingIntent.FLAG_ONE_SHOT | PendingIntent.FLAG_IMMUTABLE
+                );
+            } else {
+                pendingIntent = PendingIntent.getService(
+                        getApplicationContext(), 1, restartIntent,
+                        PendingIntent.FLAG_ONE_SHOT | PendingIntent.FLAG_IMMUTABLE
+                );
+            }
+            AlarmManager alarmService = (AlarmManager) getApplicationContext().getSystemService(Context.ALARM_SERVICE);
+            if (alarmService != null) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    alarmService.setExactAndAllowWhileIdle(
+                            AlarmManager.RTC_WAKEUP,
+                            System.currentTimeMillis() + 5000,
+                            pendingIntent
+                    );
+                } else {
+                    alarmService.setExact(
+                            AlarmManager.RTC_WAKEUP,
+                            System.currentTimeMillis() + 5000,
+                            pendingIntent
+                    );
+                }
+            }
         }
     }
 
