@@ -1,5 +1,5 @@
 {
-  "version": "1.0.52",
+  "version": "1.0.53",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: fix(android): replace main looper with HandlerThread for location callbacks + 60s heartbeat AlarmManager to prevent OEM background throttling after 2min"
+  "releaseNotes": "Auto-build: fix(android): crash fix - guard duplicate startLocationUpdates calls with locationUpdatesStarted flag, separate heartbeat reRegister path"
 }
