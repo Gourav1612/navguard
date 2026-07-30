@@ -1,4 +1,5 @@
 apply plugin: 'com.android.application'
+// Trigger build to package React in-app update and layout performance improvements
 
 android {
     namespace = "com.navguard.app"
