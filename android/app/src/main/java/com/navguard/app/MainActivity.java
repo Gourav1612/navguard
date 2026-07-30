@@ -265,7 +265,7 @@ public class MainActivity extends BridgeActivity {
     }
 
     @Override
-    protected void onStop() {
+    public void onStop() {
         super.onStop();
         // Show floating bubble overlay when app goes to background completely
         try {
