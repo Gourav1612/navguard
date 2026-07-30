@@ -32,6 +32,7 @@ export default function DriverDashboardView({ tab }: { tab?: string }) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [passedStops, setPassedStops] = useState<string[]>([]);
   const [isPipMode, setIsPipMode] = useState(false);
+  const [showOverlayDialog, setShowOverlayDialog] = useState(false);
 
   // In-App update states
   const [updateAvailable, setUpdateAvailable] = useState(false);
@@ -434,12 +435,17 @@ export default function DriverDashboardView({ tab }: { tab?: string }) {
           const { data: { session } } = await supabaseClient.auth.getSession();
           const token = session?.access_token;
           if (token) {
-            await LocationService.startTracking({
+            const result = await LocationService.startTracking({
               token,
               busId: bus.id,
               tripId: activeTrip?.trip_id || '',
               serverUrl: `${window.location.origin}/api/driver/location`,
             });
+
+            // Show in-app overlay permission dialog if not granted
+            if (result?.overlayPermissionNeeded) {
+              setShowOverlayDialog(true);
+            }
 
             // Refresh the token every 45 min so the native service stays authenticated
             tokenRefreshInterval = setInterval(async () => {
@@ -637,6 +643,42 @@ export default function DriverDashboardView({ tab }: { tab?: string }) {
 
   return (
     <div className="space-y-6 max-w-md md:max-w-2xl mx-auto pt-2 animate-in fade-in duration-200">
+
+      {/* Overlay Permission Dialog */}
+      {showOverlayDialog && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/70 backdrop-blur-md p-4 animate-in fade-in duration-300">
+          <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-200 text-center">
+            <div className="w-16 h-16 bg-purple-100 border border-purple-200 rounded-2xl flex items-center justify-center mx-auto">
+              <span className="text-3xl">🫧</span>
+            </div>
+            <div className="space-y-2">
+              <h3 className="text-lg font-black text-slate-900">Floating Bubble Permission</h3>
+              <p className="text-slate-500 text-xs leading-relaxed font-medium">
+                NaviGuard needs <span className="text-purple-700 font-bold">"Display over other apps"</span> permission to show the live tracking bubble when the app is in the background.<br /><br />
+                Without this, the bubble won't appear after minimizing the app.
+              </p>
+            </div>
+            <div className="flex flex-col gap-2.5">
+              <button
+                onClick={async () => {
+                  setShowOverlayDialog(false);
+                  try { await AppUpdatePlugin.openInstallSettings(); } catch (e) {}
+                }}
+                className="w-full py-3.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-xs font-black uppercase tracking-widest rounded-xl shadow-lg shadow-purple-500/25 cursor-pointer"
+              >
+                Allow — Open Settings
+              </button>
+              <button
+                onClick={() => setShowOverlayDialog(false)}
+                className="w-full py-2.5 bg-slate-100 text-slate-500 text-[10px] font-bold uppercase tracking-wider rounded-xl cursor-pointer"
+              >
+                Not Now (Bubble disabled)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Premium In-App Update Available Dialog */}
       {updateAvailable && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-4 animate-in fade-in duration-300">

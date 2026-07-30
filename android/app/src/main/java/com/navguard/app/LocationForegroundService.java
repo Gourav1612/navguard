@@ -480,8 +480,7 @@ public class LocationForegroundService extends Service {
 
             final WindowManager.LayoutParams params = new WindowManager.LayoutParams(
                     size, size, layoutFlag,
-                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
-                            | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
                     PixelFormat.TRANSLUCENT
             );
             params.gravity = Gravity.TOP | Gravity.START;

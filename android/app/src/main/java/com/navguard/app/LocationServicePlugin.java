@@ -84,9 +84,6 @@ public class LocationServicePlugin extends Plugin {
             Log.d("LocationServicePlugin", "Successfully called startForegroundService");
         } catch (Exception e) {
             Log.e("LocationServicePlugin", "Failed to start foreground service", e);
-            try {
-                android.widget.Toast.makeText(getContext(), "Service Launch Failed: " + e.getMessage(), android.widget.Toast.LENGTH_LONG).show();
-            } catch (Exception ex) {}
         }
 
         // Enable Auto-PiP on Android 12+ dynamically when tracking starts
@@ -103,7 +100,16 @@ public class LocationServicePlugin extends Plugin {
             }
         }
 
-        call.resolve();
+        // Check if overlay (SYSTEM_ALERT_WINDOW) permission is granted.
+        // Return status to React so it can show an in-app Allow/Deny dialog.
+        boolean overlayGranted = true;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            overlayGranted = android.provider.Settings.canDrawOverlays(getContext());
+        }
+
+        com.getcapacitor.JSObject result = new com.getcapacitor.JSObject();
+        result.put("overlayPermissionNeeded", !overlayGranted);
+        call.resolve(result);
     }
 
     /**
