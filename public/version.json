@@ -1,5 +1,5 @@
 {
-  "version": "1.0.49",
+  "version": "1.0.50",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: feat(android): redesign floating bubble with edge-snap, auto-peek, long-press dismiss and fix bubble+PiP simultaneous display bug"
+  "releaseNotes": "Auto-build: fix(android): remove isServiceRunning guard from LocationReceiver so both paths post location in parallel - fixes background location drop bug"
 }
