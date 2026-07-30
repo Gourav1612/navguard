@@ -350,24 +350,6 @@ export default function DriverTripPage({
               </p>
             </div>
           )}
-
-          {/* Live Route Map Card */}
-          <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-sm overflow-hidden h-[300px] relative transition-all duration-300 hover:shadow-md">
-            <h4 className="font-extrabold text-slate-800 text-xs uppercase tracking-wider mb-3">Live Route Map</h4>
-            <div className="h-[230px] rounded-xl overflow-hidden border border-slate-100">
-              <LiveMap
-                key="normal-map"
-                busId={bus?.id || 'unknown'}
-                initialLocation={currentLocation || null}
-                stops={stopsList.map((s: any) => ({
-                  name: s.name,
-                  latitude: Number(s.latitude),
-                  longitude: Number(s.longitude),
-                  stop_order: s.stop_order
-                }))}
-              />
-            </div>
-          </div>
         </div>
 
         {/* Right Column: Route Steps Checklist and Action End */}
