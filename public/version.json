@@ -1,5 +1,5 @@
 {
-  "version": "1.0.56",
+  "version": "1.0.57",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: fix(android): fix Driver login crash by executing setPictureInPictureParams on UI thread via runOnUiThread inside LocationServicePlugin"
+  "releaseNotes": "Auto-build: fix(android): add is_driver=true to startTracking and trigger bubble show in onPause & onStop to restore floating bubble display when minimized"
 }
