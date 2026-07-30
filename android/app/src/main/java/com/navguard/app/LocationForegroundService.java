@@ -129,7 +129,7 @@ public class LocationForegroundService extends Service {
             String serverUrl = null;
 
             try {
-                File file = new File(getFilesDir(), "tracking_credentials.json");
+                java.io.File file = new java.io.File(getFilesDir(), "tracking_credentials.json");
                 if (file.exists()) {
                     java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.FileReader(file));
                     StringBuilder sb = new StringBuilder();
