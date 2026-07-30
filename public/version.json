@@ -1,5 +1,5 @@
 {
-  "version": "1.0.30",
+  "version": "1.0.31",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: Update build-apk.yml"
+  "releaseNotes": "Auto-build: feat(android): implement AlarmManager self-healing restart in LocationForegroundService onDestroy to survive OS kills during background tracking"
 }
