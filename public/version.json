@@ -1,5 +1,5 @@
 {
-  "version": "1.0.42",
+  "version": "1.0.43",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: fix: request overlay permission directly on plugin initialization to resolve race conditions"
+  "releaseNotes": "Auto-build: fix(android): resolve race conditions by requesting overlay permissions directly from Capacitor plugin method setDriverStatus"
 }
