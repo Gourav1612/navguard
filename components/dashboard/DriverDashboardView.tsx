@@ -398,7 +398,7 @@ export default function DriverDashboardView({ tab }: { tab?: string }) {
 
   // Start Trip mutation
   const startTripMutation = useMutation({
-    mutationFn: async (payload: { bus_id: string; route_id: string }) => {
+    mutationFn: async (payload: { bus_id: string; route_id: string; latitude: number | null; longitude: number | null }) => {
       const res = await fetch('/api/driver/trip/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -529,6 +529,8 @@ export default function DriverDashboardView({ tab }: { tab?: string }) {
     startTripMutation.mutate({
       bus_id: assignment.bus.id,
       route_id: assignment.route.id,
+      latitude: currentLocation?.latitude || null,
+      longitude: currentLocation?.longitude || null,
     });
   };
 

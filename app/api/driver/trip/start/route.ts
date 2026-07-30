@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { bus_id, route_id } = body;
+    const { bus_id, route_id, latitude, longitude } = body;
 
     if (!bus_id || !route_id) {
       return NextResponse.json(
@@ -76,6 +76,40 @@ export async function POST(req: NextRequest) {
         { error: 'Failed to start trip log record', code: 'SERVER_ERROR', details: tripErr },
         { status: 500 }
       );
+    }
+
+    // 4. Insert initial location record in bus_locations so it updates instantly on Admin dashboard
+    try {
+      let initialLat = latitude !== undefined && latitude !== null ? Number(latitude) : null;
+      let initialLng = longitude !== undefined && longitude !== null ? Number(longitude) : null;
+
+      if (initialLat === null || initialLng === null) {
+        const { data: school } = await adminClient
+          .from('schools')
+          .select('latitude, longitude')
+          .eq('id', driver.school_id)
+          .single();
+        if (school && school.latitude !== null && school.longitude !== null) {
+          initialLat = Number(school.latitude);
+          initialLng = Number(school.longitude);
+        }
+      }
+
+      if (initialLat !== null && initialLng !== null) {
+        await adminClient
+          .from('bus_locations')
+          .insert({
+            bus_id,
+            trip_id: newTrip.id,
+            latitude: initialLat,
+            longitude: initialLng,
+            speed: 0,
+            heading: 0,
+            recorded_at: new Date().toISOString(),
+          });
+      }
+    } catch (locErr) {
+      console.error('Failed to insert initial trip location:', locErr);
     }
 
     // Insert Trip Started notification for Admin
