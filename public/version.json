@@ -1,5 +1,5 @@
 {
-  "version": "1.0.44",
+  "version": "1.0.45",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: feat(android): automatically start location foreground service when driver logs in to ensure overlay bubble functions immediately"
+  "releaseNotes": "Auto-build: fix(android): change File to fully qualified java.io.File to fix location service compilation error"
 }
