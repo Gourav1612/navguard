@@ -256,7 +256,8 @@ public class LocationForegroundService extends Service {
     @Override
     public void onDestroy() {
         isServiceRunning = false;
-        hideFloatingBubble();
+        // NOTE: Do NOT hide the bubble here — if this is an involuntary OS kill
+        // the bubble should stay visible to reassure the driver tracking is alive.
 
         // Release WakeLock if held
         try {
@@ -271,6 +272,8 @@ public class LocationForegroundService extends Service {
         // Only stop location updates if the credentials file has been deleted (i.e. explicit stop by the driver)
         java.io.File file = new java.io.File(getFilesDir(), "tracking_credentials.json");
         if (!file.exists()) {
+            // VOLUNTARY STOP: driver explicitly logged out
+            hideFloatingBubble();
             if (fusedLocationClient != null) {
                 if (locationCallback != null) {
                     try {
@@ -298,20 +301,22 @@ public class LocationForegroundService extends Service {
                 }
             }
         } else {
-            // INVOLUNTARY DESTROY: OS killed the service. Schedule restart in 5 seconds!
+            // INVOLUNTARY DESTROY: OS killed the service (swipe from recents / OEM kill)
+            // Schedule restart in 3 seconds and show bubble to indicate tracking is recovering
             Log.w(TAG, "LocationForegroundService destroyed involuntarily. Scheduling restart...");
             Intent restartIntent = new Intent(getApplicationContext(), this.getClass());
             restartIntent.setPackage(getPackageName());
+            restartIntent.setAction("SHOW_BUBBLE"); // Re-show bubble on restart too
             PendingIntent pendingIntent;
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 pendingIntent = PendingIntent.getForegroundService(
                         getApplicationContext(), 1, restartIntent,
-                        PendingIntent.FLAG_ONE_SHOT | PendingIntent.FLAG_IMMUTABLE
+                        PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
                 );
             } else {
                 pendingIntent = PendingIntent.getService(
                         getApplicationContext(), 1, restartIntent,
-                        PendingIntent.FLAG_ONE_SHOT | PendingIntent.FLAG_IMMUTABLE
+                        PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
                 );
             }
             AlarmManager alarmService = (AlarmManager) getApplicationContext().getSystemService(Context.ALARM_SERVICE);
@@ -319,13 +324,13 @@ public class LocationForegroundService extends Service {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                     alarmService.setExactAndAllowWhileIdle(
                             AlarmManager.RTC_WAKEUP,
-                            System.currentTimeMillis() + 5000,
+                            System.currentTimeMillis() + 3000, // faster 3s restart
                             pendingIntent
                     );
                 } else {
                     alarmService.setExact(
                             AlarmManager.RTC_WAKEUP,
-                            System.currentTimeMillis() + 5000,
+                            System.currentTimeMillis() + 3000,
                             pendingIntent
                     );
                 }
