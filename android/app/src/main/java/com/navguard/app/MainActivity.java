@@ -18,6 +18,7 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(BatteryOptimizationPlugin.class);
         registerPlugin(LocationServicePlugin.class);
+        registerPlugin(AppUpdatePlugin.class);
         super.onCreate(savedInstanceState);
 
         // Disable WebView caching to ensure immediate updates from Vercel

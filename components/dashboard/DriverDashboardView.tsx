@@ -6,6 +6,7 @@ import { Loader2, Bus, Map, Play, ArrowRight, AlertCircle, AlertTriangle } from 
 import { useState, useEffect, useRef } from 'react';
 import { Capacitor, registerPlugin } from '@capacitor/core';
 import { createClient } from '@supabase/supabase-js';
+import { App } from '@capacitor/app';
 
 // Import subviews
 import DriverRouteView from './subviews/DriverRouteView';
@@ -18,6 +19,7 @@ const LiveMap = dynamic(() => import('@/components/LiveMap').then((m) => m.LiveM
 
 const LocationService = registerPlugin<any>('LocationService');
 const BackgroundGeolocation = registerPlugin<any>('BackgroundGeolocation');
+const AppUpdatePlugin = registerPlugin<any>('AppUpdatePlugin');
 
 const supabaseClient = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -30,6 +32,74 @@ export default function DriverDashboardView({ tab }: { tab?: string }) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [passedStops, setPassedStops] = useState<string[]>([]);
   const [isPipMode, setIsPipMode] = useState(false);
+
+  // In-App update states
+  const [updateAvailable, setUpdateAvailable] = useState(false);
+  const [latestVersionText, setLatestVersionText] = useState('');
+  const [downloadProgress, setDownloadProgress] = useState(0);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [showSettingsPrompt, setShowSettingsPrompt] = useState(false);
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+
+    let progressListener: any = null;
+
+    async function checkForUpdates() {
+      try {
+        const info = await App.getInfo();
+        const currentVer = info.version;
+
+        const res = await fetch('/version.json');
+        if (!res.ok) return;
+        const serverData = await res.json();
+        const latestVer = serverData.version;
+
+        if (latestVer && latestVer !== currentVer) {
+          setLatestVersionText(latestVer);
+          setUpdateAvailable(true);
+        }
+
+        progressListener = await AppUpdatePlugin.addListener('downloadProgress', (data: any) => {
+          setDownloadProgress(data.progress);
+        });
+      } catch (e) {
+        console.error('Update check failed:', e);
+      }
+    }
+
+    checkForUpdates();
+
+    return () => {
+      if (progressListener) {
+        progressListener.remove();
+      }
+    };
+  }, []);
+
+  const handlePerformUpdate = async () => {
+    try {
+      const permissionCheck = await AppUpdatePlugin.canRequestPackageInstalls();
+      if (!permissionCheck.allowed) {
+        setShowSettingsPrompt(true);
+        return;
+      }
+
+      setIsDownloading(true);
+      setDownloadProgress(0);
+
+      const apkUrl = 'https://navguard-eight.vercel.app/NaviGuard.apk';
+      await AppUpdatePlugin.downloadAndInstallApk({ url: apkUrl });
+    } catch (err: any) {
+      alert('Update failed: ' + err.message);
+      setIsDownloading(false);
+    }
+  };
+
+  const handleGrantSettingsPermission = async () => {
+    setShowSettingsPrompt(false);
+    await AppUpdatePlugin.openInstallSettings();
+  };
 
   useEffect(() => {
     const handlePip = (e: any) => {
@@ -562,6 +632,64 @@ export default function DriverDashboardView({ tab }: { tab?: string }) {
 
   return (
     <div className="space-y-6 max-w-md md:max-w-2xl mx-auto pt-2 animate-in fade-in duration-200">
+      {/* Premium In-App Update Available Dialog */}
+      {updateAvailable && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-4 animate-in fade-in duration-300">
+          <div className="bg-white border border-slate-200/80 w-full max-w-sm rounded-3xl p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-200 text-center">
+            <div className="w-16 h-16 bg-purple-100 border border-purple-200 text-[#5c3b99] rounded-2xl flex items-center justify-center mx-auto shadow-sm">
+              <Bus className="w-8 h-8 text-[#5c3b99]" />
+            </div>
+            
+            <div className="space-y-1.5">
+              <h3 className="text-lg font-black text-slate-900">New Update Available</h3>
+              <p className="text-slate-500 text-xs font-semibold leading-relaxed">
+                A new version of NaviGuard ({latestVersionText}) is ready. Please update now to ensure stable background tracking.
+              </p>
+            </div>
+
+            {isDownloading ? (
+              <div className="space-y-2">
+                <div className="w-full h-2 bg-slate-100 border border-slate-200 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-gradient-to-r from-indigo-500 to-[#5c3b99] rounded-full transition-all duration-300"
+                    style={{ width: `${downloadProgress * 100}%` }}
+                  />
+                </div>
+                <div className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
+                  Downloading update: {Math.round(downloadProgress * 100)}%
+                </div>
+              </div>
+            ) : showSettingsPrompt ? (
+              <div className="space-y-3">
+                <p className="text-amber-600 bg-amber-50 border border-amber-100 p-3 rounded-xl text-[11px] font-semibold text-left leading-relaxed">
+                  ⚠️ <strong>Permission Required:</strong> To install the update directly, Android requires you to enable "Install unknown apps" for NaviGuard.
+                </p>
+                <button
+                  onClick={handleGrantSettingsPermission}
+                  className="w-full py-3 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-2xl shadow-md transition duration-200 cursor-pointer"
+                >
+                  Enable in Settings
+                </button>
+              </div>
+            ) : (
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setUpdateAvailable(false)}
+                  className="flex-1 py-3 border border-slate-200 hover:bg-slate-50 text-slate-650 text-xs font-extrabold rounded-2xl transition duration-205 cursor-pointer"
+                >
+                  Later
+                </button>
+                <button
+                  onClick={handlePerformUpdate}
+                  className="flex-1 py-3 bg-[#5c3b99] hover:bg-[#432775] text-white text-xs font-extrabold rounded-2xl shadow-md transition duration-205 cursor-pointer"
+                >
+                  Update Now
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
       {/* Greeting Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
