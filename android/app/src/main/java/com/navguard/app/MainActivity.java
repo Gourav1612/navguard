@@ -230,13 +230,21 @@ public class MainActivity extends BridgeActivity {
     }
 
     @Override
+    public void onPause() {
+        super.onPause();
+        triggerBubbleShow();
+    }
+
+    @Override
     public void onStop() {
         super.onStop();
-        // Show floating bubble overlay when app goes to background completely
+        triggerBubbleShow();
+    }
+
+    private void triggerBubbleShow() {
         try {
             // Do NOT attempt overlay action if overlay permission is not granted
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !android.provider.Settings.canDrawOverlays(this)) {
-                android.util.Log.d("MainActivity", "Overlay permission not granted, skipping SHOW_BUBBLE");
                 return;
             }
 
@@ -245,10 +253,11 @@ public class MainActivity extends BridgeActivity {
                     android.content.Context.MODE_PRIVATE
             );
             boolean isDriver = prefs.getBoolean("is_driver", false);
-            if (isDriver && LocationForegroundService.isServiceRunning) {
+            java.io.File credsFile = new java.io.File(getFilesDir(), "tracking_credentials.json");
+
+            if ((isDriver || credsFile.exists()) && LocationForegroundService.isServiceRunning) {
                 android.content.Intent serviceIntent = new android.content.Intent(this, LocationForegroundService.class);
                 serviceIntent.setAction("SHOW_BUBBLE");
-                // Safely send intent to running service without triggering ForegroundServiceStartNotAllowedException
                 try {
                     startService(serviceIntent);
                 } catch (Exception se) {
@@ -256,7 +265,7 @@ public class MainActivity extends BridgeActivity {
                 }
             }
         } catch (Exception e) {
-            android.util.Log.e("MainActivity", "Failed to send SHOW_BUBBLE intent onStop", e);
+            android.util.Log.e("MainActivity", "Failed to send SHOW_BUBBLE intent", e);
         }
     }
 }

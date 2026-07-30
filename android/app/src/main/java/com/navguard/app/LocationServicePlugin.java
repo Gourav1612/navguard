@@ -49,6 +49,7 @@ public class LocationServicePlugin extends Plugin {
                 Context.MODE_PRIVATE
         );
         prefs.edit()
+                .putBoolean("is_driver", true)
                 .putString("auth_token", token)
                 .putString("bus_id", busId)
                 .putString("trip_id", tripId)
