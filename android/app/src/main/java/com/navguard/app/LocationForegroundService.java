@@ -198,22 +198,21 @@ public class LocationForegroundService extends Service {
             Intent heartbeatIntent = new Intent(this, LocationForegroundService.class);
             heartbeatIntent.setAction("HEARTBEAT_REREGISTER");
             heartbeatIntent.setPackage(getPackageName());
-            PendingIntent pi;
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                pi = PendingIntent.getForegroundService(this, HEARTBEAT_REQUEST_CODE, heartbeatIntent,
-                        PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-            } else {
-                pi = PendingIntent.getService(this, HEARTBEAT_REQUEST_CODE, heartbeatIntent,
-                        PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-            }
+            // Use getService to avoid background ForegroundServiceStartNotAllowedException crash
+            PendingIntent pi = PendingIntent.getService(this, HEARTBEAT_REQUEST_CODE, heartbeatIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
             AlarmManager am = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
             if (am != null) {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP,
-                            System.currentTimeMillis() + HEARTBEAT_INTERVAL_MS, pi);
-                } else {
-                    am.setExact(AlarmManager.RTC_WAKEUP,
-                            System.currentTimeMillis() + HEARTBEAT_INTERVAL_MS, pi);
+                try {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                        am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP,
+                                System.currentTimeMillis() + HEARTBEAT_INTERVAL_MS, pi);
+                    } else {
+                        am.set(AlarmManager.RTC_WAKEUP,
+                                System.currentTimeMillis() + HEARTBEAT_INTERVAL_MS, pi);
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "Failed to set heartbeat alarm", e);
                 }
                 Log.d(TAG, "Heartbeat scheduled in " + (HEARTBEAT_INTERVAL_MS / 1000) + "s");
             }
@@ -316,8 +315,7 @@ public class LocationForegroundService extends Service {
                 .setSmallIcon(android.R.drawable.ic_menu_mylocation)
                 .setContentIntent(pendingIntent)
                 .setOngoing(true)
-                .setPriority(NotificationCompat.PRIORITY_HIGH)
-                .setDefaults(Notification.DEFAULT_ALL)
+                .setPriority(NotificationCompat.PRIORITY_LOW)
                 .build();
     }
 
@@ -412,32 +410,29 @@ public class LocationForegroundService extends Service {
             Intent restartIntent = new Intent(getApplicationContext(), this.getClass());
             restartIntent.setPackage(getPackageName());
             restartIntent.setAction("SHOW_BUBBLE"); // Re-show bubble on restart too
-            PendingIntent pendingIntent;
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                pendingIntent = PendingIntent.getForegroundService(
-                        getApplicationContext(), 1, restartIntent,
-                        PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
-                );
-            } else {
-                pendingIntent = PendingIntent.getService(
-                        getApplicationContext(), 1, restartIntent,
-                        PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
-                );
-            }
+            // Use getService to avoid background ForegroundServiceStartNotAllowedException crash
+            PendingIntent pendingIntent = PendingIntent.getService(
+                    getApplicationContext(), 1, restartIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+            );
             AlarmManager alarmService = (AlarmManager) getApplicationContext().getSystemService(Context.ALARM_SERVICE);
             if (alarmService != null) {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    alarmService.setExactAndAllowWhileIdle(
-                            AlarmManager.RTC_WAKEUP,
-                            System.currentTimeMillis() + 3000, // faster 3s restart
-                            pendingIntent
-                    );
-                } else {
-                    alarmService.setExact(
-                            AlarmManager.RTC_WAKEUP,
-                            System.currentTimeMillis() + 3000,
-                            pendingIntent
-                    );
+                try {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                        alarmService.setAndAllowWhileIdle(
+                                AlarmManager.RTC_WAKEUP,
+                                System.currentTimeMillis() + 3000,
+                                pendingIntent
+                        );
+                    } else {
+                        alarmService.set(
+                                AlarmManager.RTC_WAKEUP,
+                                System.currentTimeMillis() + 3000,
+                                pendingIntent
+                        );
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "Failed to schedule restart alarm on destroy", e);
                 }
             }
         }

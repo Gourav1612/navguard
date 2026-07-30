@@ -211,22 +211,15 @@ public class LocationServicePlugin extends Plugin {
         );
         prefs.edit().putBoolean("is_driver", isDriver).apply();
 
-        // Automatically start or stop the foreground tracking service based on driver status
+        // Stop service if isDriver is set to false (logout)
         try {
-            Intent serviceIntent = new Intent(getContext(), LocationForegroundService.class);
-            if (isDriver) {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    getContext().startForegroundService(serviceIntent);
-                } else {
-                    getContext().startService(serviceIntent);
-                }
-                Log.d("LocationServicePlugin", "setDriverStatus: Automatically started LocationForegroundService for driver");
-            } else {
+            if (!isDriver) {
+                Intent serviceIntent = new Intent(getContext(), LocationForegroundService.class);
                 getContext().stopService(serviceIntent);
-                Log.d("LocationServicePlugin", "setDriverStatus: Automatically stopped LocationForegroundService for non-driver");
+                Log.d("LocationServicePlugin", "setDriverStatus: Stopped LocationForegroundService for non-driver");
             }
         } catch (Exception e) {
-            Log.e("LocationServicePlugin", "setDriverStatus: Failed to automatically control LocationForegroundService", e);
+            Log.e("LocationServicePlugin", "setDriverStatus: Failed to stop service", e);
         }
 
         // Dynamically enable/disable Auto-PiP parameters on Android 12+

@@ -53,36 +53,39 @@ public class LocationReceiver extends BroadcastReceiver {
     }
 
     private void showTrackingNotification(Context context) {
-        NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
-        if (manager == null) return;
+        try {
+            NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+            if (manager == null) return;
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel channel = new NotificationChannel(
-                    LocationForegroundService.CHANNEL_ID,
-                    "NaviGuard Location Tracking",
-                    NotificationManager.IMPORTANCE_DEFAULT
-              );
-            channel.setDescription("Keeps bus location tracking active during a school trip.");
-            manager.createNotificationChannel(channel);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                NotificationChannel channel = new NotificationChannel(
+                        LocationForegroundService.CHANNEL_ID,
+                        "NaviGuard Location Tracking",
+                        NotificationManager.IMPORTANCE_DEFAULT
+                  );
+                channel.setDescription("Keeps bus location tracking active during a school trip.");
+                manager.createNotificationChannel(channel);
+            }
+
+            Intent notificationIntent = new Intent(context, MainActivity.class);
+            PendingIntent pendingIntent = PendingIntent.getActivity(
+                    context, 0, notificationIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+            );
+
+            Notification notification = new NotificationCompat.Builder(context, LocationForegroundService.CHANNEL_ID)
+                    .setContentTitle("NaviGuard — Live Tracking")
+                    .setContentText("Bus location is being sent to the admin panel.")
+                    .setSmallIcon(android.R.drawable.ic_menu_mylocation)
+                    .setContentIntent(pendingIntent)
+                    .setOngoing(true)
+                    .setPriority(NotificationCompat.PRIORITY_LOW)
+                    .build();
+
+            manager.notify(1001, notification);
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to show tracking notification in LocationReceiver", e);
         }
-
-        Intent notificationIntent = new Intent(context, MainActivity.class);
-        PendingIntent pendingIntent = PendingIntent.getActivity(
-                context, 0, notificationIntent,
-                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
-        );
-
-        Notification notification = new NotificationCompat.Builder(context, LocationForegroundService.CHANNEL_ID)
-                .setContentTitle("NaviGuard — Live Tracking")
-                .setContentText("Bus location is being sent to the admin panel.")
-                .setSmallIcon(android.R.drawable.ic_menu_mylocation)
-                .setContentIntent(pendingIntent)
-                .setOngoing(true)
-                .setPriority(NotificationCompat.PRIORITY_HIGH)
-                .setDefaults(Notification.DEFAULT_ALL)
-                .build();
-
-        manager.notify(1001, notification);
     }
 
     private void postLocationToServerSync(Context context, Location location) {

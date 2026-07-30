@@ -147,10 +147,10 @@ public class MainActivity extends BridgeActivity {
             if (isDriver && LocationForegroundService.isServiceRunning) {
                 android.content.Intent serviceIntent = new android.content.Intent(this, LocationForegroundService.class);
                 serviceIntent.setAction("HIDE_BUBBLE");
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    startForegroundService(serviceIntent);
-                } else {
+                try {
                     startService(serviceIntent);
+                } catch (Exception se) {
+                    android.util.Log.e("MainActivity", "Failed to startService for HIDE_BUBBLE in onResume", se);
                 }
             }
         } catch (Exception e) {
