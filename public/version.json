@@ -1,5 +1,5 @@
 {
-  "version": "1.0.51",
+  "version": "1.0.52",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: fix(android): on involuntary service kill keep bubble visible and restart with SHOW_BUBBLE in 3s - fixes location drop after swipe from recents"
+  "releaseNotes": "Auto-build: fix(android): replace main looper with HandlerThread for location callbacks + 60s heartbeat AlarmManager to prevent OEM background throttling after 2min"
 }
