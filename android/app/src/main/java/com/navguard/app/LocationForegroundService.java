@@ -437,29 +437,6 @@ public class LocationForegroundService extends Service {
     @Override
     public void onTaskRemoved(Intent rootIntent) {
         showFloatingBubble();
-        // Schedule a service restart in 1 second using AlarmManager
-        Intent restartServiceIntent = new Intent(getApplicationContext(), this.getClass());
-        restartServiceIntent.setPackage(getPackageName());
-        PendingIntent restartServicePendingIntent;
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-            restartServicePendingIntent = PendingIntent.getForegroundService(
-                    getApplicationContext(), 1, restartServiceIntent,
-                    PendingIntent.FLAG_ONE_SHOT | PendingIntent.FLAG_IMMUTABLE
-            );
-        } else {
-            restartServicePendingIntent = PendingIntent.getService(
-                    getApplicationContext(), 1, restartServiceIntent,
-                    PendingIntent.FLAG_ONE_SHOT | PendingIntent.FLAG_IMMUTABLE
-            );
-        }
-        AlarmManager alarmService = (AlarmManager) getApplicationContext().getSystemService(Context.ALARM_SERVICE);
-        if (alarmService != null) {
-            alarmService.set(
-                    AlarmManager.RTC_WAKEUP,
-                    System.currentTimeMillis() + 1000,
-                    restartServicePendingIntent
-            );
-        }
         super.onTaskRemoved(rootIntent);
     }
 }
