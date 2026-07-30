@@ -31,12 +31,6 @@ public class LocationReceiver extends BroadcastReceiver {
     public void onReceive(Context context, Intent intent) {
         if (intent == null) return;
 
-        // Skip BroadcastReceiver processing if the foreground service is active
-        if (LocationForegroundService.isServiceRunning) {
-            Log.d(TAG, "Foreground service is running, skipping redundant BroadcastReceiver post");
-            return;
-        }
-
         if (LocationResult.hasResult(intent)) {
             LocationResult locationResult = LocationResult.extractResult(intent);
             if (locationResult != null) {
@@ -121,6 +115,14 @@ public class LocationReceiver extends BroadcastReceiver {
             Log.w(TAG, "Missing tracking credentials, skipping location post");
             return;
         }
+
+        // Deduplication: skip if the foreground service already posted very recently
+        long now = System.currentTimeMillis();
+        if (now - LocationForegroundService.lastPostedTimeMs < 2500) {
+            Log.d(TAG, "Receiver: skipping duplicate post (service posted recently)");
+            return;
+        }
+        LocationForegroundService.lastPostedTimeMs = now;
 
         HttpURLConnection conn = null;
         try {

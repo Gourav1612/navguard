@@ -43,6 +43,9 @@ public class LocationForegroundService extends Service {
     public static final String PREFS_NAME = "NaviGuardTracking";
 
     public static boolean isServiceRunning = false;
+    // Used for cross-path deduplication (service callback + BroadcastReceiver run in parallel)
+    public static volatile long lastPostedTimeMs = 0;
+    private static final long MIN_POST_INTERVAL_MS = 3000; // 3s minimum between posts
     private WindowManager windowManager;
     private View floatingView;
 
@@ -137,6 +140,14 @@ public class LocationForegroundService extends Service {
     }
 
     private void postLocationToServer(Location location) {
+        // Deduplication: skip if another path just posted within the interval
+        long now = System.currentTimeMillis();
+        if (now - lastPostedTimeMs < MIN_POST_INTERVAL_MS) {
+            Log.d(TAG, "Service: skipping duplicate post (receiver already posted recently)");
+            return;
+        }
+        lastPostedTimeMs = now;
+
         executor.execute(() -> {
             String token = null;
             String busId = null;
@@ -196,7 +207,11 @@ public class LocationForegroundService extends Service {
                 os.close();
 
                 int responseCode = conn.getResponseCode();
-                Log.d(TAG, "Service: location posted to server. Response: " + responseCode);
+                if (responseCode == 401) {
+                    Log.e(TAG, "Service: AUTH FAILED (401) — token may be expired, need refresh");
+                } else {
+                    Log.d(TAG, "Service: location posted to server. Response: " + responseCode);
+                }
             } catch (Exception e) {
                 Log.e(TAG, "Service: failed to post location to server", e);
             } finally {
