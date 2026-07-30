@@ -86,18 +86,20 @@ public class LocationServicePlugin extends Plugin {
             Log.e("LocationServicePlugin", "Failed to start foreground service", e);
         }
 
-        // Enable Auto-PiP on Android 12+ dynamically when tracking starts
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            try {
-                android.app.PictureInPictureParams.Builder builder = new android.app.PictureInPictureParams.Builder();
-                builder.setAutoEnterEnabled(true);
-                android.util.Rational aspectRatio = new android.util.Rational(3, 4);
-                builder.setAspectRatio(aspectRatio);
-                getActivity().setPictureInPictureParams(builder.build());
-                Log.d("LocationServicePlugin", "Enabled Auto-PiP dynamically");
-            } catch (Exception e) {
-                Log.e("LocationServicePlugin", "Failed to set Auto-PiP params", e);
-            }
+        // Enable Auto-PiP on Android 12+ dynamically when tracking starts (must run on UI thread)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && getActivity() != null) {
+            getActivity().runOnUiThread(() -> {
+                try {
+                    android.app.PictureInPictureParams.Builder builder = new android.app.PictureInPictureParams.Builder();
+                    builder.setAutoEnterEnabled(true);
+                    android.util.Rational aspectRatio = new android.util.Rational(3, 4);
+                    builder.setAspectRatio(aspectRatio);
+                    getActivity().setPictureInPictureParams(builder.build());
+                    Log.d("LocationServicePlugin", "Enabled Auto-PiP dynamically");
+                } catch (Exception e) {
+                    Log.e("LocationServicePlugin", "Failed to set Auto-PiP params", e);
+                }
+            });
         }
 
         // Check if overlay (SYSTEM_ALERT_WINDOW) permission is granted.
@@ -138,16 +140,18 @@ public class LocationServicePlugin extends Plugin {
             Log.e("LocationServicePlugin", "Failed to delete tracking_credentials.json", e);
         }
 
-        // Disable Auto-PiP on Android 12+ dynamically when tracking stops
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            try {
-                android.app.PictureInPictureParams.Builder builder = new android.app.PictureInPictureParams.Builder();
-                builder.setAutoEnterEnabled(false);
-                getActivity().setPictureInPictureParams(builder.build());
-                Log.d("LocationServicePlugin", "Disabled Auto-PiP dynamically");
-            } catch (Exception e) {
-                Log.e("LocationServicePlugin", "Failed to clear Auto-PiP params", e);
-            }
+        // Disable Auto-PiP on Android 12+ dynamically when tracking stops (must run on UI thread)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && getActivity() != null) {
+            getActivity().runOnUiThread(() -> {
+                try {
+                    android.app.PictureInPictureParams.Builder builder = new android.app.PictureInPictureParams.Builder();
+                    builder.setAutoEnterEnabled(false);
+                    getActivity().setPictureInPictureParams(builder.build());
+                    Log.d("LocationServicePlugin", "Disabled Auto-PiP dynamically");
+                } catch (Exception e) {
+                    Log.e("LocationServicePlugin", "Failed to clear Auto-PiP params", e);
+                }
+            });
         }
 
         call.resolve();
@@ -222,47 +226,22 @@ public class LocationServicePlugin extends Plugin {
             Log.e("LocationServicePlugin", "setDriverStatus: Failed to stop service", e);
         }
 
-        // Dynamically enable/disable Auto-PiP parameters on Android 12+
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            try {
-                android.app.PictureInPictureParams.Builder builder = new android.app.PictureInPictureParams.Builder();
-                builder.setAutoEnterEnabled(isDriver);
-
-                if (isDriver) {
-                    android.util.Rational aspectRatio = new android.util.Rational(3, 4);
-                    builder.setAspectRatio(aspectRatio);
-                }
-
-                getActivity().setPictureInPictureParams(builder.build());
-                Log.d("LocationServicePlugin", "setDriverStatus: Configured Auto-PiP dynamically to " + isDriver);
-            } catch (Exception e) {
-                Log.e("LocationServicePlugin", "Failed to configure Auto-PiP in setDriverStatus", e);
-            }
-        }
-
-        // Prompt overlay permission directly on UI thread if driver is active and does not have it enabled
-        if (isDriver && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        // Dynamically enable/disable Auto-PiP parameters on Android 12+ (must run on UI thread)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && getActivity() != null) {
             getActivity().runOnUiThread(() -> {
                 try {
-                    if (!android.provider.Settings.canDrawOverlays(getContext())) {
-                        new android.app.AlertDialog.Builder(getActivity())
-                                .setTitle("Display Over Other Apps Required")
-                                .setMessage("To display a floating shortcut bubble and keep tracking active when you swipe the app away, please enable 'Allow display over other apps' on the next settings screen.")
-                                .setPositiveButton("Go to Settings", (dialog, which) -> {
-                                    try {
-                                        Intent intent = new Intent(android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                                                android.net.Uri.parse("package:" + getContext().getPackageName()));
-                                        getActivity().startActivity(intent);
-                                    } catch (Exception e) {
-                                        Log.e("LocationServicePlugin", "Failed to open overlay settings", e);
-                                    }
-                                })
-                                .setNegativeButton("Not Now", null)
-                                .setCancelable(false)
-                                .show();
+                    android.app.PictureInPictureParams.Builder builder = new android.app.PictureInPictureParams.Builder();
+                    builder.setAutoEnterEnabled(isDriver);
+
+                    if (isDriver) {
+                        android.util.Rational aspectRatio = new android.util.Rational(3, 4);
+                        builder.setAspectRatio(aspectRatio);
                     }
+
+                    getActivity().setPictureInPictureParams(builder.build());
+                    Log.d("LocationServicePlugin", "setDriverStatus: Configured Auto-PiP dynamically to " + isDriver);
                 } catch (Exception e) {
-                    Log.e("LocationServicePlugin", "Failed to show overlay permission dialog", e);
+                    Log.e("LocationServicePlugin", "Failed to configure Auto-PiP in setDriverStatus", e);
                 }
             });
         }
