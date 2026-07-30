@@ -116,8 +116,23 @@ public class LocationForegroundService extends Service {
             fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, android.os.Looper.getMainLooper());
             Log.d(TAG, "Successfully requested location updates via LocationCallback");
         } catch (SecurityException e) {
-            Log.e(TAG, "Location permission not granted", e);
-            stopSelf();
+            Log.e(TAG, "Location permission not granted for LocationCallback", e);
+        }
+
+        // Fail-safe: Register a PendingIntent targeting the BroadcastReceiver (LocationReceiver)
+        // This persists when the app is swiped away from recent tasks or the service process is killed.
+        try {
+            Intent intent = new Intent(this, LocationReceiver.class);
+            PendingIntent pendingIntent = PendingIntent.getBroadcast(
+                    this,
+                    0,
+                    intent,
+                    PendingIntent.FLAG_UPDATE_CURRENT | (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ? PendingIntent.FLAG_MUTABLE : 0)
+            );
+            fusedLocationClient.requestLocationUpdates(locationRequest, pendingIntent);
+            Log.d(TAG, "Successfully registered BroadcastReceiver PendingIntent fallback");
+        } catch (SecurityException e) {
+            Log.e(TAG, "Location permission not granted for BroadcastReceiver PendingIntent", e);
         }
     }
 
@@ -241,12 +256,30 @@ public class LocationForegroundService extends Service {
         // Only stop location updates if the credentials file has been deleted (i.e. explicit stop by the driver)
         java.io.File file = new java.io.File(getFilesDir(), "tracking_credentials.json");
         if (!file.exists()) {
-            if (fusedLocationClient != null && locationCallback != null) {
+            if (fusedLocationClient != null) {
+                if (locationCallback != null) {
+                    try {
+                        fusedLocationClient.removeLocationUpdates(locationCallback);
+                        Log.d(TAG, "Successfully removed location updates callback on destroy");
+                    } catch (Exception e) {
+                        Log.e(TAG, "Failed to remove location updates callback", e);
+                    }
+                }
                 try {
-                    fusedLocationClient.removeLocationUpdates(locationCallback);
-                    Log.d(TAG, "Successfully removed location updates callback on destroy");
+                    Intent intent = new Intent(this, LocationReceiver.class);
+                    PendingIntent pendingIntent = PendingIntent.getBroadcast(
+                            this,
+                            0,
+                            intent,
+                            PendingIntent.FLAG_NO_CREATE | (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ? PendingIntent.FLAG_MUTABLE : 0)
+                    );
+                    if (pendingIntent != null) {
+                        fusedLocationClient.removeLocationUpdates(pendingIntent);
+                        pendingIntent.cancel();
+                        Log.d(TAG, "Successfully removed LocationReceiver PendingIntent updates on destroy");
+                    }
                 } catch (Exception e) {
-                    Log.e(TAG, "Failed to remove location updates callback", e);
+                    Log.e(TAG, "Failed to remove BroadcastReceiver PendingIntent updates", e);
                 }
             }
         } else {

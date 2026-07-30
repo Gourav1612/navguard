@@ -31,6 +31,12 @@ public class LocationReceiver extends BroadcastReceiver {
     public void onReceive(Context context, Intent intent) {
         if (intent == null) return;
 
+        // Skip BroadcastReceiver processing if the foreground service is active
+        if (LocationForegroundService.isServiceRunning) {
+            Log.d(TAG, "Foreground service is running, skipping redundant BroadcastReceiver post");
+            return;
+        }
+
         if (LocationResult.hasResult(intent)) {
             LocationResult locationResult = LocationResult.extractResult(intent);
             if (locationResult != null) {
