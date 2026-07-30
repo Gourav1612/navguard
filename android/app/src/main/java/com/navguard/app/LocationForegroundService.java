@@ -20,6 +20,15 @@ import android.widget.ImageView;
 import android.graphics.PixelFormat;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.Color;
+import android.location.Location;
+import com.google.android.gms.location.LocationCallback;
+import com.google.android.gms.location.LocationResult;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import org.json.JSONObject;
 
 import androidx.core.app.NotificationCompat;
 
@@ -39,6 +48,8 @@ public class LocationForegroundService extends Service {
 
     private FusedLocationProviderClient fusedLocationClient;
     private android.os.PowerManager.WakeLock wakeLock;
+    private LocationCallback locationCallback;
+    private final ExecutorService executor = Executors.newSingleThreadExecutor();
 
     @Override
     public void onCreate() {
@@ -90,20 +101,93 @@ public class LocationForegroundService extends Service {
                 .setMaxUpdateDelayMillis(7000)
                 .build();
 
-        Intent intent = new Intent(this, LocationReceiver.class);
-        PendingIntent pendingIntent = PendingIntent.getBroadcast(
-                this,
-                0,
-                intent,
-                PendingIntent.FLAG_UPDATE_CURRENT | (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ? PendingIntent.FLAG_MUTABLE : 0)
-        );
+        locationCallback = new LocationCallback() {
+            @Override
+            public void onLocationResult(LocationResult locationResult) {
+                if (locationResult == null) return;
+                for (Location location : locationResult.getLocations()) {
+                    Log.d(TAG, "LocationCallback: received location - " + location.getLatitude() + ", " + location.getLongitude());
+                    postLocationToServer(location);
+                }
+            }
+        };
 
         try {
-            fusedLocationClient.requestLocationUpdates(locationRequest, pendingIntent);
+            fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, android.os.Looper.getMainLooper());
+            Log.d(TAG, "Successfully requested location updates via LocationCallback");
         } catch (SecurityException e) {
             Log.e(TAG, "Location permission not granted", e);
             stopSelf();
         }
+    }
+
+    private void postLocationToServer(Location location) {
+        executor.execute(() -> {
+            String token = null;
+            String busId = null;
+            String tripId = null;
+            String serverUrl = null;
+
+            try {
+                File file = new File(getFilesDir(), "tracking_credentials.json");
+                if (file.exists()) {
+                    java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.FileReader(file));
+                    StringBuilder sb = new StringBuilder();
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        sb.append(line);
+                    }
+                    reader.close();
+                    JSONObject json = new JSONObject(sb.toString());
+                    token = json.optString("auth_token", null);
+                    busId = json.optString("bus_id", null);
+                    tripId = json.optString("trip_id", null);
+                    serverUrl = json.optString("server_url", null);
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Failed to read credentials file in service", e);
+            }
+
+            if (token == null || busId == null || serverUrl == null) {
+                Log.w(TAG, "Missing tracking credentials in service, skipping location post");
+                return;
+            }
+
+            HttpURLConnection conn = null;
+            try {
+                JSONObject json = new JSONObject();
+                json.put("bus_id", busId);
+                json.put("latitude", location.getLatitude());
+                json.put("longitude", location.getLongitude());
+                double speedKmh = location.hasSpeed() ? location.getSpeed() * 3.6 : 0;
+                json.put("speed", speedKmh);
+                json.put("heading", location.hasBearing() ? location.getBearing() : 0);
+                if (tripId != null && !tripId.isEmpty()) json.put("trip_id", tripId);
+
+                URL url = new URL(serverUrl);
+                conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("POST");
+                conn.setRequestProperty("Content-Type", "application/json");
+                conn.setRequestProperty("Authorization", "Bearer " + token);
+                conn.setDoOutput(true);
+                conn.setConnectTimeout(10000);
+                conn.setReadTimeout(10000);
+
+                byte[] body = json.toString().getBytes("UTF-8");
+                conn.setFixedLengthStreamingMode(body.length);
+                OutputStream os = conn.getOutputStream();
+                os.write(body);
+                os.flush();
+                os.close();
+
+                int responseCode = conn.getResponseCode();
+                Log.d(TAG, "Service: location posted to server. Response: " + responseCode);
+            } catch (Exception e) {
+                Log.e(TAG, "Service: failed to post location to server", e);
+            } finally {
+                if (conn != null) conn.disconnect();
+            }
+        });
     }
 
     private Notification buildNotification() {
@@ -157,17 +241,12 @@ public class LocationForegroundService extends Service {
         // Only stop location updates if the credentials file has been deleted (i.e. explicit stop by the driver)
         java.io.File file = new java.io.File(getFilesDir(), "tracking_credentials.json");
         if (!file.exists()) {
-            if (fusedLocationClient != null) {
-                Intent intent = new Intent(this, LocationReceiver.class);
-                PendingIntent pendingIntent = PendingIntent.getBroadcast(
-                        this,
-                        0,
-                        intent,
-                        PendingIntent.FLAG_NO_CREATE | (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ? PendingIntent.FLAG_MUTABLE : 0)
-                );
-                if (pendingIntent != null) {
-                    fusedLocationClient.removeLocationUpdates(pendingIntent);
-                    pendingIntent.cancel();
+            if (fusedLocationClient != null && locationCallback != null) {
+                try {
+                    fusedLocationClient.removeLocationUpdates(locationCallback);
+                    Log.d(TAG, "Successfully removed location updates callback on destroy");
+                } catch (Exception e) {
+                    Log.e(TAG, "Failed to remove location updates callback", e);
                 }
             }
         } else {
