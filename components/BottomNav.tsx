@@ -5,7 +5,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Home, Map, ClipboardList, Bell, User, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { registerPlugin } from '@capacitor/core';
+import { registerPlugin, Capacitor } from '@capacitor/core';
 
 const LocationService = registerPlugin<any>('LocationService');
 
@@ -51,10 +51,8 @@ export function BottomNav({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const isNative = (window as any).Capacitor?.isNativePlatform?.() || false;
-      setShowDownloadBtn(!isNative);
-    }
+    const isNative = Capacitor.isNativePlatform();
+    setShowDownloadBtn(!isNative);
   }, []);
 
   useEffect(() => {

@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
-import { registerPlugin } from '@capacitor/core';
+import { registerPlugin, Capacitor } from '@capacitor/core';
 
 const LocationService = registerPlugin<any>('LocationService');
 
@@ -46,10 +46,8 @@ export function Sidebar() {
   const [showDownloadBtn, setShowDownloadBtn] = useState(false);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const isNative = (window as any).Capacitor?.isNativePlatform?.() || false;
-      setShowDownloadBtn(!isNative);
-    }
+    const isNative = Capacitor.isNativePlatform();
+    setShowDownloadBtn(!isNative);
   }, []);
 
   useEffect(() => {

@@ -1,5 +1,5 @@
 {
-  "version": "1.0.37",
+  "version": "1.0.38",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: chore: bump version to 1.0.36 to trigger self-update test for v1.0.35 clients"
+  "releaseNotes": "Auto-build: Finalize in-app update checks with native platform fixes"
 }
