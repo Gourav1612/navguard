@@ -1,5 +1,5 @@
 {
-  "version": "1.0.34",
+  "version": "1.0.35",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: feat: link native PiP eligibility to user login role state instead of tracking credentials file"
+  "releaseNotes": "Auto-build: fix(android): write downloaded APK to getExternalCacheDir and configure FileProvider external-cache-path to allow package installer access"
 }
