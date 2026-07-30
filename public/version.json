@@ -1,5 +1,5 @@
 {
-  "version": "1.0.31",
+  "version": "1.0.32",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: feat(android): implement AlarmManager self-healing restart in LocationForegroundService onDestroy to survive OS kills during background tracking"
+  "releaseNotes": "Auto-build: feat(android): restrict PiP mode to active tracking drivers only, disable for parent/admin"
 }
