@@ -191,4 +191,38 @@ public class LocationServicePlugin extends Plugin {
 
         call.resolve();
     }
+
+    /**
+     * Set driver login/dashboard status so PiP triggers are conditionally configured.
+     */
+    @PluginMethod
+    public void setDriverStatus(PluginCall call) {
+        boolean isDriver = call.getBoolean("isDriver", false);
+
+        SharedPreferences prefs = getContext().getSharedPreferences(
+                LocationForegroundService.PREFS_NAME,
+                Context.MODE_PRIVATE
+        );
+        prefs.edit().putBoolean("is_driver", isDriver).apply();
+
+        // Dynamically enable/disable Auto-PiP parameters on Android 12+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            try {
+                android.app.PictureInPictureParams.Builder builder = new android.app.PictureInPictureParams.Builder();
+                builder.setAutoEnterEnabled(isDriver);
+
+                if (isDriver) {
+                    android.util.Rational aspectRatio = new android.util.Rational(3, 4);
+                    builder.setAspectRatio(aspectRatio);
+                }
+
+                getActivity().setPictureInPictureParams(builder.build());
+                Log.d("LocationServicePlugin", "setDriverStatus: Configured Auto-PiP dynamically to " + isDriver);
+            } catch (Exception e) {
+                Log.e("LocationServicePlugin", "Failed to configure Auto-PiP in setDriverStatus", e);
+            }
+        }
+
+        call.resolve();
+    }
 }

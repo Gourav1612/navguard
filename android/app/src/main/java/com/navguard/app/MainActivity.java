@@ -114,19 +114,22 @@ public class MainActivity extends BridgeActivity {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             try {
                 if (isPictureInPictureAllowed()) {
-                    java.io.File file = new java.io.File(getFilesDir(), "tracking_credentials.json");
-                    boolean trackingActive = file.exists();
+                    android.content.SharedPreferences prefs = getSharedPreferences(
+                            LocationForegroundService.PREFS_NAME,
+                            android.content.Context.MODE_PRIVATE
+                    );
+                    boolean isDriver = prefs.getBoolean("is_driver", false);
 
                     android.app.PictureInPictureParams.Builder builder = new android.app.PictureInPictureParams.Builder();
-                    builder.setAutoEnterEnabled(trackingActive);
+                    builder.setAutoEnterEnabled(isDriver);
                     
-                    if (trackingActive) {
+                    if (isDriver) {
                         android.util.Rational aspectRatio = new android.util.Rational(3, 4);
                         builder.setAspectRatio(aspectRatio);
                     }
                     
                     setPictureInPictureParams(builder.build());
-                    android.util.Log.d("MainActivity", "Configured Auto-PiP: trackingActive=" + trackingActive);
+                    android.util.Log.d("MainActivity", "Configured Auto-PiP: isDriver=" + isDriver);
                 }
             } catch (Exception e) {
                 android.util.Log.e("MainActivity", "Failed to configure Auto-PiP parameters", e);
@@ -156,10 +159,14 @@ public class MainActivity extends BridgeActivity {
     protected void onUserLeaveHint() {
         super.onUserLeaveHint();
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            // Gating PiP on whether tracking is active (credentials file exists on disk)
-            java.io.File file = new java.io.File(getFilesDir(), "tracking_credentials.json");
-            if (!file.exists()) {
-                android.util.Log.d("MainActivity", "Not in tracking mode, skipping PiP request");
+            // Gating PiP on whether user is logged in as a driver
+            android.content.SharedPreferences prefs = getSharedPreferences(
+                    LocationForegroundService.PREFS_NAME,
+                    android.content.Context.MODE_PRIVATE
+            );
+            boolean isDriver = prefs.getBoolean("is_driver", false);
+            if (!isDriver) {
+                android.util.Log.d("MainActivity", "Not a driver, skipping PiP request");
                 return;
             }
 

@@ -5,6 +5,9 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Home, Map, ClipboardList, Bell, User, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { registerPlugin } from '@capacitor/core';
+
+const LocationService = registerPlugin<any>('LocationService');
 
 interface UserProfile {
   full_name: string;
@@ -69,6 +72,13 @@ export function BottomNav({ children }: { children: React.ReactNode }) {
         if (res.ok) {
           const data = await res.json();
           setUser(data);
+          
+          // Set driver status on native client
+          try {
+            await LocationService.setDriverStatus({ isDriver: data.role === 'driver' });
+          } catch (nativeErr) {
+            console.error('Failed to notify native of driver status:', nativeErr);
+          }
         }
       } catch (err) {
         console.error('Failed to fetch user:', err);
@@ -79,6 +89,11 @@ export function BottomNav({ children }: { children: React.ReactNode }) {
 
   const handleLogout = async () => {
     try {
+      // Disable driver status on native side before logout
+      try {
+        await LocationService.setDriverStatus({ isDriver: false });
+      } catch (nativeErr) {}
+
       const res = await fetch('/api/auth/logout', { method: 'POST' });
       if (res.ok) {
         router.refresh();
