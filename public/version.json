@@ -1,5 +1,5 @@
 {
-  "version": "1.0.41",
+  "version": "1.0.42",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: fix(android): change onStop access modifier to public in MainActivity to resolve build privileges clash"
+  "releaseNotes": "Auto-build: fix: request overlay permission directly on plugin initialization to resolve race conditions"
 }

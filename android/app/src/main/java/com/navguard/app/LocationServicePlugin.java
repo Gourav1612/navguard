@@ -223,6 +223,33 @@ public class LocationServicePlugin extends Plugin {
             }
         }
 
+        // Prompt overlay permission directly on UI thread if driver is active and does not have it enabled
+        if (isDriver && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            getActivity().runOnUiThread(() -> {
+                try {
+                    if (!android.provider.Settings.canDrawOverlays(getContext())) {
+                        new android.app.AlertDialog.Builder(getActivity())
+                                .setTitle("Display Over Other Apps Required")
+                                .setMessage("To display a floating shortcut bubble and keep tracking active when you swipe the app away, please enable 'Allow display over other apps' on the next settings screen.")
+                                .setPositiveButton("Go to Settings", (dialog, which) -> {
+                                    try {
+                                        Intent intent = new Intent(android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                                android.net.Uri.parse("package:" + getContext().getPackageName()));
+                                        getActivity().startActivity(intent);
+                                    } catch (Exception e) {
+                                        Log.e("LocationServicePlugin", "Failed to open overlay settings", e);
+                                    }
+                                })
+                                .setNegativeButton("Not Now", null)
+                                .setCancelable(false)
+                                .show();
+                    }
+                } catch (Exception e) {
+                    Log.e("LocationServicePlugin", "Failed to show overlay permission dialog", e);
+                }
+            });
+        }
+
         call.resolve();
     }
 }

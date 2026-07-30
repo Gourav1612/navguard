@@ -156,38 +156,6 @@ public class MainActivity extends BridgeActivity {
         } catch (Exception e) {
             android.util.Log.e("MainActivity", "Failed to send HIDE_BUBBLE intent", e);
         }
-
-        // Request Overlay Permission on Android 6+ (API 23+) for the floating bubble
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            android.content.SharedPreferences prefs = getSharedPreferences(
-                    LocationForegroundService.PREFS_NAME,
-                    android.content.Context.MODE_PRIVATE
-            );
-            boolean isDriver = prefs.getBoolean("is_driver", false);
-            
-            if (isDriver && !android.provider.Settings.canDrawOverlays(this)) {
-                if (!overlayPromptShownThisSession) {
-                    new android.app.AlertDialog.Builder(this)
-                            .setTitle("Display Over Other Apps Required")
-                            .setMessage("To display a floating shortcut bubble and keep tracking active when you swipe the app away, please enable 'Allow display over other apps' on the next settings screen.")
-                            .setPositiveButton("Go to Settings", (dialog, which) -> {
-                                overlayPromptShownThisSession = true;
-                                try {
-                                    android.content.Intent intent = new android.content.Intent(android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                                            android.net.Uri.parse("package:" + getPackageName()));
-                                    startActivity(intent);
-                                } catch (Exception e) {
-                                    android.util.Log.e("MainActivity", "Failed to open overlay settings", e);
-                                }
-                            })
-                            .setNegativeButton("Not Now", (dialog, which) -> {
-                                overlayPromptShownThisSession = true;
-                            })
-                            .setCancelable(false)
-                            .show();
-                }
-            }
-        }
     }
 
     private boolean isPictureInPictureAllowed() {
