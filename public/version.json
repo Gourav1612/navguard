@@ -1,5 +1,5 @@
 {
-  "version": "1.0.50",
+  "version": "1.0.51",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: fix(android): remove isServiceRunning guard from LocationReceiver so both paths post location in parallel - fixes background location drop bug"
+  "releaseNotes": "Auto-build: fix(android): on involuntary service kill keep bubble visible and restart with SHOW_BUBBLE in 3s - fixes location drop after swipe from recents"
 }
