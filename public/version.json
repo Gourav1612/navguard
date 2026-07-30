@@ -1,5 +1,5 @@
 {
-  "version": "1.0.53",
+  "version": "1.0.54",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: fix(android): crash fix - guard duplicate startLocationUpdates calls with locationUpdatesStarted flag, separate heartbeat reRegister path"
+  "releaseNotes": "Auto-build: fix(android): crash-proof bubble - remove FLAG_LAYOUT_NO_LIMITS, add in-app overlay Allow/Deny dialog instead of crash, check permission in startTracking"
 }
