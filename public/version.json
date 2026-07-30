@@ -1,5 +1,5 @@
 {
-  "version": "1.0.47",
+  "version": "1.0.48",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: feat(web): integrate native AppUpdatePlugin inside AppUpdateNotifier component to enable seamless in-app downloads and install prompt with loading progress bar"
+  "releaseNotes": "Auto-build: chore(android): trigger automated build workflow to compile new React changes and animations into the APK package"
 }
