@@ -1,5 +1,5 @@
 {
-  "version": "1.0.43",
+  "version": "1.0.44",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: fix(android): resolve race conditions by requesting overlay permissions directly from Capacitor plugin method setDriverStatus"
+  "releaseNotes": "Auto-build: feat(android): automatically start location foreground service when driver logs in to ensure overlay bubble functions immediately"
 }
