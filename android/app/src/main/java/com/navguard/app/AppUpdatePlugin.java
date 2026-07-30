@@ -77,7 +77,10 @@ public class AppUpdatePlugin extends Plugin {
                 int fileLength = conn.getContentLength();
                 InputStream is = conn.getInputStream();
                 
-                File cacheDir = getContext().getCacheDir();
+                File cacheDir = getContext().getExternalCacheDir();
+                if (cacheDir == null) {
+                    cacheDir = getContext().getCacheDir();
+                }
                 File apkFile = new File(cacheDir, "update.apk");
                 
                 if (apkFile.exists()) {
