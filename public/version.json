@@ -1,5 +1,5 @@
 {
-  "version": "1.0.33",
+  "version": "1.0.34",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: feat: implement self-hosted in-app update system with AppUpdatePlugin and progress modal"
+  "releaseNotes": "Auto-build: feat: link native PiP eligibility to user login role state instead of tracking credentials file"
 }
