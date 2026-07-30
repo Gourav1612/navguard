@@ -11,6 +11,15 @@ import android.app.AlarmManager;
 import android.os.IBinder;
 import android.os.Build;
 import android.util.Log;
+import android.view.WindowManager;
+import android.provider.Settings;
+import android.view.Gravity;
+import android.view.View;
+import android.view.MotionEvent;
+import android.widget.ImageView;
+import android.graphics.PixelFormat;
+import android.graphics.drawable.GradientDrawable;
+import android.graphics.Color;
 
 import androidx.core.app.NotificationCompat;
 
@@ -24,12 +33,17 @@ public class LocationForegroundService extends Service {
     public static final String CHANNEL_ID = "naviguard_location_channel";
     public static final String PREFS_NAME = "NaviGuardTracking";
 
+    public static boolean isServiceRunning = false;
+    private WindowManager windowManager;
+    private View floatingView;
+
     private FusedLocationProviderClient fusedLocationClient;
     private android.os.PowerManager.WakeLock wakeLock;
 
     @Override
     public void onCreate() {
         super.onCreate();
+        isServiceRunning = true;
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
         createNotificationChannel();
 
@@ -53,6 +67,20 @@ public class LocationForegroundService extends Service {
             startForeground(1001, buildNotification());
         }
         startLocationUpdates();
+
+        // Handle Floating Bubble overlay actions
+        if (intent != null && intent.getAction() != null) {
+            String action = intent.getAction();
+            if ("SHOW_BUBBLE".equals(action)) {
+                showFloatingBubble();
+            } else if ("HIDE_BUBBLE".equals(action)) {
+                hideFloatingBubble();
+            }
+        } else {
+            // Intent is null (e.g. sticky OS recovery restart) - trigger bubble showing
+            showFloatingBubble();
+        }
+
         return START_STICKY;
     }
 
@@ -113,6 +141,9 @@ public class LocationForegroundService extends Service {
 
     @Override
     public void onDestroy() {
+        isServiceRunning = false;
+        hideFloatingBubble();
+
         // Release WakeLock if held
         try {
             if (wakeLock != null && wakeLock.isHeld()) {
@@ -175,6 +206,117 @@ public class LocationForegroundService extends Service {
         }
     }
 
+    private void showFloatingBubble() {
+        if (floatingView != null) return; // Already showing
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
+            Log.w(TAG, "Cannot show overlay: overlay permission not granted");
+            return; // No permission
+        }
+
+        try {
+            windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
+            if (windowManager == null) return;
+
+            // Create circular imageView programmatically
+            ImageView imageView = new ImageView(this);
+            imageView.setImageResource(android.R.drawable.ic_menu_mylocation);
+            
+            // Set circle background
+            GradientDrawable circle = new GradientDrawable();
+            circle.setShape(GradientDrawable.OVAL);
+            circle.setColor(Color.parseColor("#5c3b99")); // Purple theme
+            circle.setStroke(4, Color.WHITE);
+            imageView.setBackground(circle);
+            
+            // Convert dp to px for size
+            int size = (int) (56 * getResources().getDisplayMetrics().density);
+            int padding = (int) (14 * getResources().getDisplayMetrics().density);
+            imageView.setPadding(padding, padding, padding, padding);
+
+            floatingView = imageView;
+
+            int layoutFlag;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                layoutFlag = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY;
+            } else {
+                layoutFlag = WindowManager.LayoutParams.TYPE_PHONE;
+            }
+
+            final WindowManager.LayoutParams params = new WindowManager.LayoutParams(
+                    size,
+                    size,
+                    layoutFlag,
+                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+                    PixelFormat.TRANSLUCENT
+            );
+
+            // Gravity near the right middle edge of screen (standard stashed window spot)
+            params.gravity = Gravity.TOP | Gravity.START;
+            params.x = getResources().getDisplayMetrics().widthPixels - size - 20;
+            params.y = getResources().getDisplayMetrics().heightPixels / 2 - size / 2;
+
+            floatingView.setOnTouchListener(new View.OnTouchListener() {
+                private int lastAction;
+                private int initialX;
+                private int initialY;
+                private float initialTouchX;
+                private float initialTouchY;
+
+                @Override
+                public boolean onTouch(View v, MotionEvent event) {
+                    switch (event.getAction()) {
+                        case MotionEvent.ACTION_DOWN:
+                            initialX = params.x;
+                            initialY = params.y;
+                            initialTouchX = event.getRawX();
+                            initialTouchY = event.getRawY();
+                            lastAction = event.getAction();
+                            return true;
+                        case MotionEvent.ACTION_UP:
+                            if (lastAction == MotionEvent.ACTION_DOWN) {
+                                // Tap triggers app restoration
+                                Intent launchIntent = new Intent(LocationForegroundService.this, MainActivity.class);
+                                launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                                startActivity(launchIntent);
+                            }
+                            lastAction = event.getAction();
+                            return true;
+                        case MotionEvent.ACTION_MOVE:
+                            params.x = initialX + (int) (event.getRawX() - initialTouchX);
+                            params.y = initialY + (int) (event.getRawY() - initialTouchY);
+                            // Prevent dragging completely off screen bounds
+                            if (params.x < 0) params.x = 0;
+                            if (params.y < 0) params.y = 0;
+                            windowManager.updateViewLayout(floatingView, params);
+                            lastAction = event.getAction();
+                            return true;
+                    }
+                    return false;
+                }
+            });
+
+            windowManager.addView(floatingView, params);
+            Log.d(TAG, "Floating tracking bubble added successfully");
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to show floating tracking bubble", e);
+        }
+    }
+
+    private void hideFloatingBubble() {
+        if (floatingView != null) {
+            try {
+                if (windowManager != null) {
+                    windowManager.removeView(floatingView);
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Failed to remove floating tracking bubble", e);
+            } finally {
+                floatingView = null;
+                windowManager = null;
+            }
+        }
+    }
+
     @Override
     public IBinder onBind(Intent intent) {
         return null;
@@ -182,6 +324,7 @@ public class LocationForegroundService extends Service {
 
     @Override
     public void onTaskRemoved(Intent rootIntent) {
+        showFloatingBubble();
         // Schedule a service restart in 1 second using AlarmManager
         Intent restartServiceIntent = new Intent(getApplicationContext(), this.getClass());
         restartServiceIntent.setPackage(getPackageName());

@@ -1,5 +1,5 @@
 {
-  "version": "1.0.39",
+  "version": "1.0.40",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: chore: bump version to 1.0.38 and fix native platform check in BottomNav and Sidebar"
+  "releaseNotes": "Auto-build: feat: floating overlay shortcut bubble widget for background tracking protection"
 }
