@@ -1,5 +1,5 @@
 {
-  "version": "1.0.55",
+  "version": "1.0.56",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: fix(android): eliminate ForegroundServiceStartNotAllowedException crash on app minimize by checking canDrawOverlays and using safe startService in MainActivity.onStop"
+  "releaseNotes": "Auto-build: fix(android): fix Driver login crash by executing setPictureInPictureParams on UI thread via runOnUiThread inside LocationServicePlugin"
 }
