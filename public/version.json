@@ -1,5 +1,5 @@
 {
-  "version": "1.0.45",
+  "version": "1.0.46",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: fix(android): change File to fully qualified java.io.File to fix location service compilation error"
+  "releaseNotes": "Auto-build: feat(android): implement dual-channel background location tracking with LocationReceiver (exported=true) and LocationCallback to prevent location fetch termination on task removal"
 }
