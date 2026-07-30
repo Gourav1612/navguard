@@ -201,9 +201,6 @@ public class MainActivity extends BridgeActivity {
             }
 
             try {
-                try {
-                    android.widget.Toast.makeText(this, "NaviGuard: Entering PiP Map Widget", android.widget.Toast.LENGTH_SHORT).show();
-                } catch (Exception t) {}
                 android.app.PictureInPictureParams.Builder builder = new android.app.PictureInPictureParams.Builder();
                 // Set a compact 3:4 aspect ratio for the floating window
                 android.util.Rational aspectRatio = new android.util.Rational(3, 4);

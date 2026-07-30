@@ -27,17 +27,21 @@ export function BottomNav({ children }: { children: React.ReactNode }) {
   const [isPipMode, setIsPipMode] = useState(false);
 
   useEffect(() => {
+    let timeoutId: any = null;
+
     const handlePip = (e: any) => {
-      setIsPipMode(!!e.detail?.isPip);
+      const targetPip = !!e.detail?.isPip;
+      if (timeoutId) clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        setIsPipMode(targetPip);
+      }, 150);
     };
     const handleResize = () => {
-      // PiP windows are extremely small (width/height under 360px). Smart phones are larger.
       const isTiny = window.innerWidth > 0 && window.innerHeight > 0 && window.innerWidth < 360 && window.innerHeight < 390;
-      if (isTiny) {
-        setIsPipMode(true);
-      } else {
-        setIsPipMode(false);
-      }
+      if (timeoutId) clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        setIsPipMode(isTiny);
+      }, 150);
     };
 
     window.addEventListener('pipModeChanged', handlePip);
@@ -45,6 +49,7 @@ export function BottomNav({ children }: { children: React.ReactNode }) {
     handleResize(); // Initial check
 
     return () => {
+      if (timeoutId) clearTimeout(timeoutId);
       window.removeEventListener('pipModeChanged', handlePip);
       window.removeEventListener('resize', handleResize);
     };
