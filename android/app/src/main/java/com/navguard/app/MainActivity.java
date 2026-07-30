@@ -109,16 +109,23 @@ public class MainActivity extends BridgeActivity {
         }
     }
 
-        // Configure Auto Picture-in-Picture unconditionally on resume (Android 12+)
+        // Configure Auto Picture-in-Picture conditionally on resume (Android 12+)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             try {
                 if (isPictureInPictureAllowed()) {
+                    java.io.File file = new java.io.File(getFilesDir(), "tracking_credentials.json");
+                    boolean trackingActive = file.exists();
+
                     android.app.PictureInPictureParams.Builder builder = new android.app.PictureInPictureParams.Builder();
-                    builder.setAutoEnterEnabled(true);
-                    android.util.Rational aspectRatio = new android.util.Rational(3, 4);
-                    builder.setAspectRatio(aspectRatio);
+                    builder.setAutoEnterEnabled(trackingActive);
+                    
+                    if (trackingActive) {
+                        android.util.Rational aspectRatio = new android.util.Rational(3, 4);
+                        builder.setAspectRatio(aspectRatio);
+                    }
+                    
                     setPictureInPictureParams(builder.build());
-                    android.util.Log.d("MainActivity", "Configured Auto-PiP unconditionally");
+                    android.util.Log.d("MainActivity", "Configured Auto-PiP: trackingActive=" + trackingActive);
                 }
             } catch (Exception e) {
                 android.util.Log.e("MainActivity", "Failed to configure Auto-PiP parameters", e);
@@ -148,6 +155,13 @@ public class MainActivity extends BridgeActivity {
     protected void onUserLeaveHint() {
         super.onUserLeaveHint();
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            // Gating PiP on whether tracking is active (credentials file exists on disk)
+            java.io.File file = new java.io.File(getFilesDir(), "tracking_credentials.json");
+            if (!file.exists()) {
+                android.util.Log.d("MainActivity", "Not in tracking mode, skipping PiP request");
+                return;
+            }
+
             // Check if PiP permission is granted in Android settings
             if (!isPictureInPictureAllowed()) {
                 try {
