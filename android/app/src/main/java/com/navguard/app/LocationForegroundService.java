@@ -87,10 +87,10 @@ public class LocationForegroundService extends Service {
             } else if ("HIDE_BUBBLE".equals(action)) {
                 hideFloatingBubble();
             }
-        } else {
-            // Intent is null (e.g. sticky OS recovery restart) - trigger bubble showing
-            showFloatingBubble();
         }
+        // NOTE: do NOT auto-show bubble on null intent (initial start / sticky restart)
+        // Bubble is only shown when SHOW_BUBBLE is explicitly requested
+        // (triggered from onStop/onTaskRemoved)
 
         return START_STICKY;
     }
@@ -322,85 +322,182 @@ public class LocationForegroundService extends Service {
         if (floatingView != null) return; // Already showing
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
             Log.w(TAG, "Cannot show overlay: overlay permission not granted");
-            return; // No permission
+            return;
         }
 
         try {
             windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
             if (windowManager == null) return;
 
-            // Create circular imageView programmatically
+            final int screenW = getResources().getDisplayMetrics().widthPixels;
+            final int screenH = getResources().getDisplayMetrics().heightPixels;
+            final float density = getResources().getDisplayMetrics().density;
+            final int size = (int) (52 * density);
+            final int padding = (int) (12 * density);
+            // How far the bubble hides behind the edge in peek/arrow mode
+            final int peekOffset = (int) (36 * density);
+            final long PEEK_DELAY_MS = 3000; // auto-collapse after 3s of inactivity
+
+            // Build the bubble view
             ImageView imageView = new ImageView(this);
             imageView.setImageResource(android.R.drawable.ic_menu_mylocation);
-            
-            // Set circle background
             GradientDrawable circle = new GradientDrawable();
             circle.setShape(GradientDrawable.OVAL);
-            circle.setColor(Color.parseColor("#5c3b99")); // Purple theme
-            circle.setStroke(4, Color.WHITE);
+            circle.setColor(Color.parseColor("#5c3b99"));
+            circle.setStroke(3, Color.WHITE);
             imageView.setBackground(circle);
-            
-            // Convert dp to px for size
-            int size = (int) (56 * getResources().getDisplayMetrics().density);
-            int padding = (int) (14 * getResources().getDisplayMetrics().density);
             imageView.setPadding(padding, padding, padding, padding);
-
             floatingView = imageView;
 
-            int layoutFlag;
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                layoutFlag = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY;
-            } else {
-                layoutFlag = WindowManager.LayoutParams.TYPE_PHONE;
-            }
+            int layoutFlag = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+                    ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+                    : WindowManager.LayoutParams.TYPE_PHONE;
 
             final WindowManager.LayoutParams params = new WindowManager.LayoutParams(
-                    size,
-                    size,
-                    layoutFlag,
-                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+                    size, size, layoutFlag,
+                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                            | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
                     PixelFormat.TRANSLUCENT
             );
-
-            // Gravity near the right middle edge of screen (standard stashed window spot)
             params.gravity = Gravity.TOP | Gravity.START;
-            params.x = getResources().getDisplayMetrics().widthPixels - size - 20;
-            params.y = getResources().getDisplayMetrics().heightPixels / 2 - size / 2;
+            // Start on right edge, vertically centered
+            params.x = screenW - size - (int)(8 * density);
+            params.y = screenH / 2 - size / 2;
+
+            // Track which edge (0 = left, 1 = right)
+            final int[] snapEdge = {1};
+            final boolean[] isPeeked = {false};
+
+            final android.os.Handler handler = new android.os.Handler(android.os.Looper.getMainLooper());
+            final Runnable peekRunnable = new Runnable() {
+                @Override
+                public void run() {
+                    if (floatingView == null || windowManager == null) return;
+                    try {
+                        isPeeked[0] = true;
+                        // Slide bubble partially off screen (peek / arrow mode)
+                        if (snapEdge[0] == 1) {
+                            params.x = screenW - size + peekOffset;
+                        } else {
+                            params.x = -peekOffset;
+                        }
+                        windowManager.updateViewLayout(floatingView, params);
+                    } catch (Exception ignored) {}
+                }
+            };
+
+            final Runnable[] expandRunnable = {null};
+            expandRunnable[0] = () -> {
+                if (floatingView == null || windowManager == null) return;
+                try {
+                    isPeeked[0] = false;
+                    // Bring back fully into view
+                    if (snapEdge[0] == 1) {
+                        params.x = screenW - size - (int)(8 * density);
+                    } else {
+                        params.x = (int)(8 * density);
+                    }
+                    windowManager.updateViewLayout(floatingView, params);
+                    // Schedule next auto-peek
+                    handler.removeCallbacks(peekRunnable);
+                    handler.postDelayed(peekRunnable, PEEK_DELAY_MS);
+                } catch (Exception ignored) {}
+            };
+
+            // Schedule first auto-peek
+            handler.postDelayed(peekRunnable, PEEK_DELAY_MS);
 
             floatingView.setOnTouchListener(new View.OnTouchListener() {
                 private int lastAction;
-                private int initialX;
-                private int initialY;
-                private float initialTouchX;
-                private float initialTouchY;
+                private int initialX, initialY;
+                private float initialTouchX, initialTouchY;
+                private long downTime;
+                private final long LONG_PRESS_MS = 700;
+                private boolean longPressFired = false;
+
+                private final Runnable longPressRunnable = () -> {
+                    longPressFired = true;
+                    handler.removeCallbacks(peekRunnable);
+                    hideFloatingBubble();
+                    Log.d(TAG, "Bubble dismissed by long-press");
+                };
 
                 @Override
                 public boolean onTouch(View v, MotionEvent event) {
                     switch (event.getAction()) {
                         case MotionEvent.ACTION_DOWN:
+                            longPressFired = false;
                             initialX = params.x;
                             initialY = params.y;
                             initialTouchX = event.getRawX();
                             initialTouchY = event.getRawY();
+                            downTime = System.currentTimeMillis();
                             lastAction = event.getAction();
+                            // Expand if peeked
+                            if (isPeeked[0]) {
+                                handler.post(expandRunnable[0]);
+                            } else {
+                                handler.removeCallbacks(peekRunnable);
+                            }
+                            // Schedule long-press
+                            handler.postDelayed(longPressRunnable, LONG_PRESS_MS);
                             return true;
+
                         case MotionEvent.ACTION_UP:
-                            if (lastAction == MotionEvent.ACTION_DOWN) {
-                                // Tap triggers app restoration
-                                Intent launchIntent = new Intent(LocationForegroundService.this, MainActivity.class);
-                                launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                                startActivity(launchIntent);
+                            handler.removeCallbacks(longPressRunnable);
+                            if (!longPressFired) {
+                                long elapsed = System.currentTimeMillis() - downTime;
+                                float dx = Math.abs(event.getRawX() - initialTouchX);
+                                float dy = Math.abs(event.getRawY() - initialTouchY);
+                                if (elapsed < LONG_PRESS_MS && dx < (int)(8 * density) && dy < (int)(8 * density)) {
+                                    // It's a tap — launch app
+                                    Intent launchIntent = new Intent(LocationForegroundService.this, MainActivity.class);
+                                    launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                                    startActivity(launchIntent);
+                                } else if (!longPressFired) {
+                                    // Released after drag — snap to nearest edge
+                                    int midScreen = screenW / 2;
+                                    if (params.x + size / 2 < midScreen) {
+                                        snapEdge[0] = 0;
+                                        params.x = (int)(8 * density);
+                                    } else {
+                                        snapEdge[0] = 1;
+                                        params.x = screenW - size - (int)(8 * density);
+                                    }
+                                    // Clamp Y within screen
+                                    if (params.y < 0) params.y = (int)(16 * density);
+                                    if (params.y > screenH - size) params.y = screenH - size - (int)(16 * density);
+                                    try {
+                                        windowManager.updateViewLayout(floatingView, params);
+                                    } catch (Exception ignored) {}
+                                    // Re-schedule auto-peek
+                                    handler.removeCallbacks(peekRunnable);
+                                    handler.postDelayed(peekRunnable, PEEK_DELAY_MS);
+                                }
                             }
                             lastAction = event.getAction();
                             return true;
+
                         case MotionEvent.ACTION_MOVE:
-                            params.x = initialX + (int) (event.getRawX() - initialTouchX);
-                            params.y = initialY + (int) (event.getRawY() - initialTouchY);
-                            // Prevent dragging completely off screen bounds
-                            if (params.x < 0) params.x = 0;
-                            if (params.y < 0) params.y = 0;
-                            windowManager.updateViewLayout(floatingView, params);
-                            lastAction = event.getAction();
+                            handler.removeCallbacks(longPressRunnable);
+                            float newX = event.getRawX() - initialTouchX;
+                            float newY = event.getRawY() - initialTouchY;
+                            if (Math.abs(newX) > (int)(4 * density) || Math.abs(newY) > (int)(4 * density)) {
+                                params.x = initialX + (int) newX;
+                                params.y = initialY + (int) newY;
+                                if (params.x < -(size / 2)) params.x = -(size / 2);
+                                if (params.x > screenW - size / 2) params.x = screenW - size / 2;
+                                if (params.y < 0) params.y = 0;
+                                if (params.y > screenH - size) params.y = screenH - size;
+                                try {
+                                    windowManager.updateViewLayout(floatingView, params);
+                                } catch (Exception ignored) {}
+                                lastAction = event.getAction();
+                            }
+                            return true;
+
+                        case MotionEvent.ACTION_CANCEL:
+                            handler.removeCallbacks(longPressRunnable);
                             return true;
                     }
                     return false;
