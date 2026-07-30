@@ -329,6 +329,32 @@ export function LiveMap({
     }
   }, [focusLocation]);
 
+  // Dynamically update bus marker when initialLocation changes in real-time
+  useEffect(() => {
+    if (showBus && mapRef.current && initialLocation?.latitude && initialLocation?.longitude) {
+      const latLng: L.LatLngExpression = [initialLocation.latitude, initialLocation.longitude];
+      if (markerRef.current) {
+        markerRef.current.setLatLng(latLng);
+      } else {
+        const busIcon = L.divIcon({
+          className: '',
+          html: `
+            <div class="relative flex items-center justify-center w-10 h-10 bg-amber-400 border-2 border-amber-600 rounded-full shadow-2xl animate-bounce">
+              <span class="text-lg">🚌</span>
+              <span class="absolute -top-1 -right-1 flex h-3.5 w-3.5">
+                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                <span class="relative inline-flex rounded-full h-3.5 w-3.5 bg-green-500"></span>
+              </span>
+            </div>
+          `,
+          iconSize: [40, 40],
+          iconAnchor: [20, 20],
+        });
+        markerRef.current = L.marker(latLng, { icon: busIcon }).addTo(mapRef.current);
+      }
+    }
+  }, [initialLocation, showBus]);
+
   return (
     <div className="relative z-0 w-full h-full min-h-[300px] border border-slate-200 rounded-xl overflow-hidden shadow-inner">
       <div id={mapContainerId} className="w-full h-full" />

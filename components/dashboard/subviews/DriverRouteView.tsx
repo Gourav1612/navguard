@@ -30,20 +30,24 @@ export default function DriverRoutePage() {
     },
   });
 
-  // Attempt to fetch driver's own single GPS position once on load for marker display
+  // Fetch driver's live GPS position in real-time for marker display
   useEffect(() => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          setDriverLocation({
-            latitude: pos.coords.latitude,
-            longitude: pos.coords.longitude,
-          });
-        },
-        (err) => console.log('Driver location permission not set or deferred.', err),
-        { enableHighAccuracy: true }
-      );
-    }
+    if (!navigator.geolocation) return;
+
+    const watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        setDriverLocation({
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
+        });
+      },
+      (err) => console.log('Driver geolocation watch error on Route Map:', err),
+      { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+    );
+
+    return () => {
+      navigator.geolocation.clearWatch(watchId);
+    };
   }, []);
 
   if (isLoading) {
@@ -115,7 +119,7 @@ export default function DriverRoutePage() {
               busId={bus.id}
               stops={allStops}
               initialLocation={driverLocation}
-              showBus={false} // don't show real-time bus marker on driver's static route map
+              showBus={true} // show real-time bus marker on driver's route map
               focusLocation={focusedStopLocation}
               highlightStopId={allStops.find((s: any) => s.id === focusedStopId)?.name}
             />
