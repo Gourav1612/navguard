@@ -1,5 +1,5 @@
 {
-  "version": "1.0.32",
+  "version": "1.0.33",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: feat(android): restrict PiP mode to active tracking drivers only, disable for parent/admin"
+  "releaseNotes": "Auto-build: feat: implement self-hosted in-app update system with AppUpdatePlugin and progress modal"
 }
