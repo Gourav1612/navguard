@@ -1,5 +1,5 @@
 {
-  "version": "1.0.46",
+  "version": "1.0.47",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: feat(android): implement dual-channel background location tracking with LocationReceiver (exported=true) and LocationCallback to prevent location fetch termination on task removal"
+  "releaseNotes": "Auto-build: feat(web): integrate native AppUpdatePlugin inside AppUpdateNotifier component to enable seamless in-app downloads and install prompt with loading progress bar"
 }
