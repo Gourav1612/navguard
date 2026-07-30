@@ -52,7 +52,12 @@ public class LocationForegroundService extends Service {
     private FusedLocationProviderClient fusedLocationClient;
     private android.os.PowerManager.WakeLock wakeLock;
     private LocationCallback locationCallback;
+    // Dedicated background thread for location callbacks — never throttled by Android main looper
+    private android.os.HandlerThread locationHandlerThread;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
+    // Heartbeat: re-registers location updates every 60s to survive OEM throttling
+    private static final int HEARTBEAT_REQUEST_CODE = 9001;
+    private static final long HEARTBEAT_INTERVAL_MS = 60000;
 
     @Override
     public void onCreate() {
@@ -61,11 +66,15 @@ public class LocationForegroundService extends Service {
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
         createNotificationChannel();
 
+        // Start dedicated HandlerThread for location callbacks (isolated from main looper throttling)
+        locationHandlerThread = new android.os.HandlerThread("NaviGuardLocationThread");
+        locationHandlerThread.start();
+
         try {
             android.os.PowerManager pm = (android.os.PowerManager) getSystemService(Context.POWER_SERVICE);
             if (pm != null) {
                 wakeLock = pm.newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "NaviGuard::BackgroundLocationWakeLock");
-                wakeLock.acquire();
+                wakeLock.acquire(12 * 60 * 60 * 1000L); // 12 hour max — prevents indefinite hold
                 Log.d(TAG, "Successfully acquired WakeLock for background tracking");
             }
         } catch (Exception e) {
@@ -80,16 +89,25 @@ public class LocationForegroundService extends Service {
         } else {
             startForeground(1001, buildNotification());
         }
-        startLocationUpdates();
 
-        // Handle Floating Bubble overlay actions
+        // Handle Floating Bubble overlay actions and heartbeat
         if (intent != null && intent.getAction() != null) {
             String action = intent.getAction();
             if ("SHOW_BUBBLE".equals(action)) {
+                startLocationUpdates(); // ensure location is active when bubble shows
                 showFloatingBubble();
             } else if ("HIDE_BUBBLE".equals(action)) {
                 hideFloatingBubble();
+            } else if ("HEARTBEAT_REREGISTER".equals(action)) {
+                // Re-register location updates to fight OEM background throttling
+                Log.d(TAG, "Heartbeat received — re-registering location updates");
+                startLocationUpdates();
+                return START_STICKY;
+            } else {
+                startLocationUpdates();
             }
+        } else {
+            startLocationUpdates();
         }
         // NOTE: do NOT auto-show bubble on null intent (initial start / sticky restart)
         // Bubble is only shown when SHOW_BUBBLE is explicitly requested
@@ -101,8 +119,14 @@ public class LocationForegroundService extends Service {
     private void startLocationUpdates() {
         LocationRequest locationRequest = new LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 5000)
                 .setMinUpdateIntervalMillis(3000)
-                .setMaxUpdateDelayMillis(7000)
+                .setMaxUpdateDelayMillis(8000)
+                .setWaitForAccurateLocation(false)
                 .build();
+
+        // Use dedicated HandlerThread looper — main looper is throttled by Android in background
+        android.os.Looper callbackLooper = (locationHandlerThread != null && locationHandlerThread.isAlive())
+                ? locationHandlerThread.getLooper()
+                : android.os.Looper.getMainLooper();
 
         locationCallback = new LocationCallback() {
             @Override
@@ -116,8 +140,8 @@ public class LocationForegroundService extends Service {
         };
 
         try {
-            fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, android.os.Looper.getMainLooper());
-            Log.d(TAG, "Successfully requested location updates via LocationCallback");
+            fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, callbackLooper);
+            Log.d(TAG, "Successfully requested location updates via LocationCallback (HandlerThread)");
         } catch (SecurityException e) {
             Log.e(TAG, "Location permission not granted for LocationCallback", e);
         }
@@ -136,6 +160,38 @@ public class LocationForegroundService extends Service {
             Log.d(TAG, "Successfully registered BroadcastReceiver PendingIntent fallback");
         } catch (SecurityException e) {
             Log.e(TAG, "Location permission not granted for BroadcastReceiver PendingIntent", e);
+        }
+
+        // Schedule heartbeat: re-register location updates every 60s to survive OEM throttling
+        scheduleHeartbeat();
+    }
+
+    private void scheduleHeartbeat() {
+        try {
+            Intent heartbeatIntent = new Intent(this, LocationForegroundService.class);
+            heartbeatIntent.setAction("HEARTBEAT_REREGISTER");
+            heartbeatIntent.setPackage(getPackageName());
+            PendingIntent pi;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                pi = PendingIntent.getForegroundService(this, HEARTBEAT_REQUEST_CODE, heartbeatIntent,
+                        PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+            } else {
+                pi = PendingIntent.getService(this, HEARTBEAT_REQUEST_CODE, heartbeatIntent,
+                        PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+            }
+            AlarmManager am = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
+            if (am != null) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP,
+                            System.currentTimeMillis() + HEARTBEAT_INTERVAL_MS, pi);
+                } else {
+                    am.setExact(AlarmManager.RTC_WAKEUP,
+                            System.currentTimeMillis() + HEARTBEAT_INTERVAL_MS, pi);
+                }
+                Log.d(TAG, "Heartbeat scheduled in " + (HEARTBEAT_INTERVAL_MS / 1000) + "s");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to schedule heartbeat", e);
         }
     }
 
@@ -274,6 +330,28 @@ public class LocationForegroundService extends Service {
         if (!file.exists()) {
             // VOLUNTARY STOP: driver explicitly logged out
             hideFloatingBubble();
+            // Stop heartbeat alarms
+            try {
+                Intent hbIntent = new Intent(this, LocationForegroundService.class);
+                hbIntent.setAction("HEARTBEAT_REREGISTER");
+                PendingIntent hbPi;
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    hbPi = PendingIntent.getForegroundService(this, HEARTBEAT_REQUEST_CODE, hbIntent,
+                            PendingIntent.FLAG_NO_CREATE | PendingIntent.FLAG_IMMUTABLE);
+                } else {
+                    hbPi = PendingIntent.getService(this, HEARTBEAT_REQUEST_CODE, hbIntent,
+                            PendingIntent.FLAG_NO_CREATE | PendingIntent.FLAG_IMMUTABLE);
+                }
+                if (hbPi != null) {
+                    AlarmManager am = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
+                    if (am != null) am.cancel(hbPi);
+                }
+            } catch (Exception ignored) {}
+            // Stop HandlerThread
+            if (locationHandlerThread != null) {
+                locationHandlerThread.quitSafely();
+                locationHandlerThread = null;
+            }
             if (fusedLocationClient != null) {
                 if (locationCallback != null) {
                     try {
