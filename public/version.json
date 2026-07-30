@@ -1,5 +1,5 @@
 {
-  "version": "1.0.54",
+  "version": "1.0.55",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: fix(android): crash-proof bubble - remove FLAG_LAYOUT_NO_LIMITS, add in-app overlay Allow/Deny dialog instead of crash, check permission in startTracking"
+  "releaseNotes": "Auto-build: fix(android): eliminate ForegroundServiceStartNotAllowedException crash on app minimize by checking canDrawOverlays and using safe startService in MainActivity.onStop"
 }
