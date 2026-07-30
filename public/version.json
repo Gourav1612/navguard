@@ -1,5 +1,5 @@
 {
-  "version": "1.0.35",
+  "version": "1.0.36",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: fix(android): write downloaded APK to getExternalCacheDir and configure FileProvider external-cache-path to allow package installer access"
+  "releaseNotes": "Auto-build: Bump version for self-update verification"
 }
