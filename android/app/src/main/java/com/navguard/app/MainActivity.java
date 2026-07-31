@@ -240,13 +240,28 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onPause() {
         super.onPause();
-        triggerBubbleShow();
+        checkAndTriggerBubble();
     }
 
     @Override
     public void onStop() {
         super.onStop();
-        triggerBubbleShow();
+        checkAndTriggerBubble();
+    }
+
+    private void checkAndTriggerBubble() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && isInPictureInPictureMode()) {
+            return; // In PiP mode — PiP handles background presentation
+        }
+        android.content.SharedPreferences prefs = getSharedPreferences(
+                LocationForegroundService.PREFS_NAME,
+                android.content.Context.MODE_PRIVATE
+        );
+        boolean isTripActive = prefs.getBoolean("is_trip_active", false);
+        if (!isTripActive) {
+            // No active trip transit — show floating bubble on minimize
+            triggerBubbleShow();
+        }
     }
 
     private void triggerBubbleShow() {

@@ -1,5 +1,5 @@
 apply plugin: 'com.android.application'
-// Trigger build v1.0.59 for PiP exit & recents swipe floating bubble trigger fix
+// Trigger build v1.0.61 for seamless trip-gated PiP & floating bubble presentation fix
 
 android {
     namespace = "com.navguard.app"
