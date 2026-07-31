@@ -1,5 +1,5 @@
 {
-  "version": "1.0.59",
+  "version": "1.0.60",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: fix(android): trigger bubble show on PiP mode exit, sticky recovery null intent, and remove isServiceRunning check in MainActivity.java"
+  "releaseNotes": "Auto-build: fix(android): gate PiP mode strictly on active trip transit, ensure showFloatingBubble runs on main UI thread, restore floating bubble on minimize when no active trip"
 }
