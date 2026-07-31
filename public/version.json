@@ -1,5 +1,5 @@
 {
-  "version": "1.0.57",
+  "version": "1.0.58",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: fix(android): add is_driver=true to startTracking and trigger bubble show in onPause & onStop to restore floating bubble display when minimized"
+  "releaseNotes": "Auto-build: chore(android): trigger v1.0.58 APK build for floating bubble restore fix"
 }
