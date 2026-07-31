@@ -1,5 +1,5 @@
 {
-  "version": "1.0.58",
+  "version": "1.0.59",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: chore(android): trigger v1.0.58 APK build for floating bubble restore fix"
+  "releaseNotes": "Auto-build: fix(android): trigger bubble show on PiP mode exit, sticky recovery null intent, and remove isServiceRunning check in MainActivity.java"
 }
