@@ -1,5 +1,5 @@
 {
-  "version": "1.0.60",
+  "version": "1.0.61",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: fix(android): gate PiP mode strictly on active trip transit, ensure showFloatingBubble runs on main UI thread, restore floating bubble on minimize when no active trip"
+  "releaseNotes": "Auto-build: fix(android): resolve PiP and bubble conflict by separating trip-gated PiP presentation and bubble triggers"
 }
