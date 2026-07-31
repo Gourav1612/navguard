@@ -1,5 +1,5 @@
 apply plugin: 'com.android.application'
-// Trigger build to package React in-app update and layout performance improvements
+// Trigger build v1.0.58 for floating bubble display restore fix
 
 android {
     namespace = "com.navguard.app"
