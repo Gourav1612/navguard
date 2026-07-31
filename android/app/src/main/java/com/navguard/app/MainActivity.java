@@ -120,17 +120,19 @@ public class MainActivity extends BridgeActivity {
                             android.content.Context.MODE_PRIVATE
                     );
                     boolean isDriver = prefs.getBoolean("is_driver", false);
+                    boolean isTripActive = prefs.getBoolean("is_trip_active", false);
 
                     android.app.PictureInPictureParams.Builder builder = new android.app.PictureInPictureParams.Builder();
-                    builder.setAutoEnterEnabled(isDriver);
+                    boolean enableAutoPip = isDriver && isTripActive;
+                    builder.setAutoEnterEnabled(enableAutoPip);
                     
-                    if (isDriver) {
+                    if (enableAutoPip) {
                         android.util.Rational aspectRatio = new android.util.Rational(3, 4);
                         builder.setAspectRatio(aspectRatio);
                     }
                     
                     setPictureInPictureParams(builder.build());
-                    android.util.Log.d("MainActivity", "Configured Auto-PiP: isDriver=" + isDriver);
+                    android.util.Log.d("MainActivity", "Configured Auto-PiP: enableAutoPip=" + enableAutoPip);
                 }
             } catch (Exception e) {
                 android.util.Log.e("MainActivity", "Failed to configure Auto-PiP parameters", e);
@@ -186,8 +188,9 @@ public class MainActivity extends BridgeActivity {
                     android.content.Context.MODE_PRIVATE
             );
             boolean isDriver = prefs.getBoolean("is_driver", false);
-            if (!isDriver) {
-                android.util.Log.d("MainActivity", "Not a driver, skipping PiP request");
+            boolean isTripActive = prefs.getBoolean("is_trip_active", false);
+            if (!isDriver || !isTripActive) {
+                android.util.Log.d("MainActivity", "No active trip in transit, skipping PiP mode");
                 return;
             }
 

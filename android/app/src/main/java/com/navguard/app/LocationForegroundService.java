@@ -436,15 +436,16 @@ public class LocationForegroundService extends Service {
     }
 
     private void showFloatingBubble() {
-        if (floatingView != null) return; // Already showing
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
-            Log.w(TAG, "Cannot show overlay: overlay permission not granted");
-            return;
-        }
+        new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+            if (floatingView != null) return; // Already showing
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
+                Log.w(TAG, "Cannot show overlay: overlay permission not granted");
+                return;
+            }
 
-        try {
-            windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
-            if (windowManager == null) return;
+            try {
+                windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
+                if (windowManager == null) return;
 
             final int screenW = getResources().getDisplayMetrics().widthPixels;
             final int screenH = getResources().getDisplayMetrics().heightPixels;
@@ -625,6 +626,7 @@ public class LocationForegroundService extends Service {
         } catch (Exception e) {
             Log.e(TAG, "Failed to show floating tracking bubble", e);
         }
+        });
     }
 
     private void hideFloatingBubble() {

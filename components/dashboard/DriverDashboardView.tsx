@@ -435,12 +435,17 @@ export default function DriverDashboardView({ tab }: { tab?: string }) {
           const { data: { session } } = await supabaseClient.auth.getSession();
           const token = session?.access_token;
           if (token) {
+            const isTripInTransit = !!activeTrip;
             const result = await LocationService.startTracking({
               token,
               busId: bus.id,
               tripId: activeTrip?.trip_id || '',
+              isTripActive: isTripInTransit,
               serverUrl: `${window.location.origin}/api/driver/location`,
             });
+
+            // Also explicitly notify native plugin of trip transit state
+            LocationService.setTripStatus({ isTripActive: isTripInTransit }).catch(() => {});
 
             // Show in-app overlay permission dialog if not granted
             if (result?.overlayPermissionNeeded) {
