@@ -94,12 +94,10 @@ public class LocationForegroundService extends Service {
         if (intent != null && intent.getAction() != null) {
             String action = intent.getAction();
             if ("SHOW_BUBBLE".equals(action)) {
-                // Don't re-register location here — service already running
                 showFloatingBubble();
             } else if ("HIDE_BUBBLE".equals(action)) {
                 hideFloatingBubble();
             } else if ("HEARTBEAT_REREGISTER".equals(action)) {
-                // Heartbeat: safely remove old callback then re-register
                 Log.d(TAG, "Heartbeat received — re-registering location updates");
                 reRegisterLocationUpdates();
                 return START_STICKY;
@@ -107,11 +105,10 @@ public class LocationForegroundService extends Service {
                 startLocationUpdates();
             }
         } else {
+            // Intent is null (e.g. sticky OS recovery restart after swipe from recent apps!)
             startLocationUpdates();
+            showFloatingBubble();
         }
-        // NOTE: do NOT auto-show bubble on null intent (initial start / sticky restart)
-        // Bubble is only shown when SHOW_BUBBLE is explicitly requested
-        // (triggered from onStop/onTaskRemoved)
 
         return START_STICKY;
     }

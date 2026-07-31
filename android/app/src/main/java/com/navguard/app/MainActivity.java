@@ -224,6 +224,11 @@ public class MainActivity extends BridgeActivity {
                 );
             });
             android.util.Log.d("MainActivity", "Dispatched pipModeChanged JS event: isPip=" + isInPictureInPictureMode);
+            
+            // If user closed or exited PiP window, trigger floating bubble show
+            if (!isInPictureInPictureMode) {
+                triggerBubbleShow();
+            }
         } catch (Exception e) {
             android.util.Log.e("MainActivity", "Failed to dispatch JS event pipModeChanged", e);
         }
@@ -255,13 +260,13 @@ public class MainActivity extends BridgeActivity {
             boolean isDriver = prefs.getBoolean("is_driver", false);
             java.io.File credsFile = new java.io.File(getFilesDir(), "tracking_credentials.json");
 
-            if ((isDriver || credsFile.exists()) && LocationForegroundService.isServiceRunning) {
+            if (isDriver || credsFile.exists()) {
                 android.content.Intent serviceIntent = new android.content.Intent(this, LocationForegroundService.class);
                 serviceIntent.setAction("SHOW_BUBBLE");
                 try {
                     startService(serviceIntent);
                 } catch (Exception se) {
-                    android.util.Log.e("MainActivity", "Failed to startService for SHOW_BUBBLE", se);
+                    android.util.Log.e("MainActivity", "Failed to send SHOW_BUBBLE intent", se);
                 }
             }
         } catch (Exception e) {
