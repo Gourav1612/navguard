@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireRole } from '@/lib/auth-guard';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { createSupabaseServerClient, createAdminClient } from '@/lib/supabase/server';
 
 export async function POST(request: Request) {
   const auth = await requireRole(['admin'], { skipMfa: true });
@@ -82,6 +82,7 @@ export async function POST(request: Request) {
         password_change_otp: null,
         password_change_otp_expires: null,
         password_change_otp_attempts: 0,
+        password_updated_at: Date.now(),
       },
     });
 
@@ -92,9 +93,17 @@ export async function POST(request: Request) {
       );
     }
 
+    // Force global logout on all devices for this user
+    try {
+      const adminClient = createAdminClient();
+      await adminClient.auth.admin.signOut(user.id, 'global');
+    } catch (signOutErr) {
+      console.error('Global sign out after admin password change:', signOutErr);
+    }
+
     return NextResponse.json({
       success: true,
-      message: 'Admin password updated successfully!',
+      message: 'Admin password updated successfully! Logged out from all active devices.',
     });
   } catch (err: any) {
     return NextResponse.json(

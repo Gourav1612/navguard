@@ -72,6 +72,7 @@ export async function POST(request: Request) {
         login_locked: false,
         password_reset_token: null,
         password_reset_token_expires: null,
+        password_updated_at: Date.now(),
       },
     });
 
@@ -82,9 +83,16 @@ export async function POST(request: Request) {
       );
     }
 
+    // Force global logout on all devices for this user
+    try {
+      await adminClient.auth.admin.signOut(profile.id, 'global');
+    } catch (signOutErr) {
+      console.error('Global sign out after password reset:', signOutErr);
+    }
+
     return NextResponse.json({
       success: true,
-      message: 'Account unlocked and password updated successfully! You can now sign in.',
+      message: 'Account unlocked and password updated successfully! All active device sessions logged out. You can now sign in.',
     });
   } catch (err: any) {
     return NextResponse.json(
