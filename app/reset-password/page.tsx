@@ -31,9 +31,9 @@ function ResetPasswordContent() {
 
   useEffect(() => {
     if (!token || !email) {
-      setError('Invalid or expired password reset link. Please check your email or try logging in again.');
+      router.push('/login');
     }
-  }, [token, email]);
+  }, [token, email, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

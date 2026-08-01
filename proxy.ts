@@ -52,6 +52,15 @@ export async function proxy(request: NextRequest) {
 
   // Redirect to login if unauthenticated
   if (!user) {
+    // Allow /reset-password ONLY if it contains valid token & email query parameters generated via email
+    if (pathname === '/reset-password') {
+      const hasToken = request.nextUrl.searchParams.has('token') && (request.nextUrl.searchParams.get('token')?.trim() || '').length > 0;
+      const hasEmail = request.nextUrl.searchParams.has('email') && (request.nextUrl.searchParams.get('email')?.trim() || '').length > 0;
+      if (hasToken && hasEmail) {
+        return response;
+      }
+    }
+
     if (pathname !== '/login') {
       return NextResponse.redirect(new URL('/login', request.url));
     }
