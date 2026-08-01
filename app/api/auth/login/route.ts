@@ -36,13 +36,6 @@ export async function POST(req: NextRequest) {
       const { data: { user }, error: userError } = await adminClient.auth.admin.getUserById(profileObj.id);
       if (user) {
         fetchedUser = user;
-        const isLocked = user.user_metadata?.login_locked === true;
-        if (isLocked) {
-          return NextResponse.json(
-            { error: 'Your account is locked due to too many failed login attempts. Please contact Admin.', code: 'FORBIDDEN' },
-            { status: 403 }
-          );
-        }
       }
     }
 
