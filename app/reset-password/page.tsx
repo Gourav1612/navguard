@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Loader2, Lock, Eye, EyeOff, ShieldCheck, AlertCircle, CheckCircle2, ArrowLeft } from 'lucide-react';
+import { Loader2, Lock, Eye, EyeOff, ShieldCheck, AlertCircle, CheckCircle2, ArrowLeft, Clock, FileX } from 'lucide-react';
 import dynamic from 'next/dynamic';
 
 const LoginMapAnimation = dynamic(() => import('@/components/LoginMapAnimation'), {
@@ -21,6 +21,9 @@ function ResetPasswordContent() {
   const token = searchParams.get('token') || '';
   const email = searchParams.get('email') || '';
 
+  const [checkingToken, setCheckingToken] = useState(true);
+  const [tokenStatus, setTokenStatus] = useState<'valid' | 'expired' | 'invalid'>('valid');
+
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -29,11 +32,33 @@ function ResetPasswordContent() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
+  // Validate token on mount
   useEffect(() => {
-    if (!token || !email) {
-      router.push('/login');
+    async function validateToken() {
+      if (!token || !email) {
+        setTokenStatus('invalid');
+        setCheckingToken(false);
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/auth/reset-password/validate?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`);
+        const data = await res.json();
+
+        if (data.valid) {
+          setTokenStatus('valid');
+        } else {
+          setTokenStatus(data.reason === 'expired_token' ? 'expired' : 'invalid');
+        }
+      } catch (e) {
+        setTokenStatus('invalid');
+      } finally {
+        setCheckingToken(false);
+      }
     }
-  }, [token, email, router]);
+
+    validateToken();
+  }, [token, email]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,10 +99,10 @@ function ResetPasswordContent() {
         throw new Error(data.error || 'Failed to reset password');
       }
 
-      setSuccess('Account unlocked & password updated successfully! Redirecting to login...');
+      setSuccess('Password updated successfully! Redirecting to login page...');
       setTimeout(() => {
         router.push('/login');
-      }, 2500);
+      }, 2000);
     } catch (err: any) {
       setError(err.message || 'Verification failed. Please try again.');
     } finally {
@@ -95,106 +120,144 @@ function ResetPasswordContent() {
       </div>
 
       <div className="w-full max-w-md bg-[#130a27]/90 border border-[#2b1754] rounded-3xl p-6 sm:p-10 shadow-2xl space-y-6 z-10 relative backdrop-blur-md animate-in fade-in duration-300">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <img src="/logo.png" alt="NaviGuard Logo" className="w-9 h-9 object-contain bg-purple-500/10 border border-purple-500/20 rounded-2xl p-1" />
-            <span className="font-extrabold text-sm tracking-wider text-purple-100">NaviGuard</span>
+        
+        {/* Loading Spinner State */}
+        {checkingToken ? (
+          <div className="flex flex-col items-center justify-center py-12 space-y-3">
+            <Loader2 className="w-8 h-8 text-purple-400 animate-spin" />
+            <p className="text-xs font-bold text-purple-300">Verifying security token...</p>
           </div>
-          <button
-            type="button"
-            onClick={() => router.push('/login')}
-            className="inline-flex items-center gap-1 text-xs font-bold text-purple-400 hover:text-purple-200 transition"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" /> Back to Login
-          </button>
-        </div>
+        ) : tokenStatus !== 'valid' ? (
+          /* Link Expired / Invalid Token Screen */
+          <div className="text-center space-y-6 py-4 animate-in zoom-in-95 duration-200">
+            <div className="w-16 h-16 bg-red-500/10 border border-red-500/30 rounded-3xl flex items-center justify-center mx-auto text-red-400">
+              {tokenStatus === 'expired' ? <Clock className="w-8 h-8 text-red-400" /> : <FileX className="w-8 h-8 text-red-400" />}
+            </div>
 
-        <div className="space-y-1.5 pt-2">
-          <h2 className="text-2xl font-black text-white tracking-tight flex items-center gap-2">
-            <ShieldCheck className="w-6 h-6 text-purple-400" /> Reset Password
-          </h2>
-          <p className="text-xs text-purple-300/80 font-medium">
-            Reset password and unlock account for <strong>{email || 'your account'}</strong>.
-          </p>
-        </div>
+            <div className="space-y-2">
+              <h2 className="text-xl font-black text-white">
+                {tokenStatus === 'expired' ? 'Link Expired (10 Min Passed)' : 'Page Not Found / Invalid Link'}
+              </h2>
+              <p className="text-xs text-slate-300 leading-relaxed max-w-xs mx-auto font-medium">
+                {tokenStatus === 'expired'
+                  ? 'This password reset link has expired after 10 minutes or has already been used. Please log in again to trigger a fresh link.'
+                  : 'This password reset link is invalid or has already been used.'}
+              </p>
+            </div>
 
-        {error && (
-          <div className="flex items-start gap-2.5 p-4 bg-red-950/60 border border-red-800/80 rounded-2xl text-red-200 text-xs font-semibold animate-in shake duration-150">
-            <AlertCircle className="w-4.5 h-4.5 text-red-400 flex-shrink-0 mt-0.5" />
-            <span>{error}</span>
+            <button
+              type="button"
+              onClick={() => router.push('/login')}
+              className="w-full py-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:opacity-95 text-white font-black text-xs uppercase tracking-widest rounded-2xl transition flex items-center justify-center gap-2 shadow-lg shadow-purple-500/20 cursor-pointer"
+            >
+              <ArrowLeft className="w-4 h-4" /> Return to Login Screen
+            </button>
           </div>
-        )}
-
-        {success && (
-          <div className="flex items-start gap-2.5 p-4 bg-emerald-950/60 border border-emerald-800/80 rounded-2xl text-emerald-200 text-xs font-semibold animate-in fade-in duration-150">
-            <CheckCircle2 className="w-4.5 h-4.5 text-emerald-400 flex-shrink-0 mt-0.5" />
-            <span>{success}</span>
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-5 pt-2">
-          <div className="space-y-2">
-            <label className="text-[10px] font-black uppercase tracking-widest text-purple-300 block pl-1">
-              New Password
-            </label>
-            <div className="relative rounded-2xl">
-              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                <Lock className="h-4.5 w-4.5 text-purple-400" />
+        ) : (
+          /* Valid Token Reset Form */
+          <>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <img src="/logo.png" alt="NaviGuard Logo" className="w-9 h-9 object-contain bg-purple-500/10 border border-purple-500/20 rounded-2xl p-1" />
+                <span className="font-extrabold text-sm tracking-wider text-purple-100">NaviGuard</span>
               </div>
-              <input
-                type={showPassword ? 'text' : 'password'}
-                required
-                minLength={6}
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="At least 6 characters"
-                className="block w-full pl-11 pr-10 py-3.5 bg-[#1c0f38] border border-[#371f69] focus:border-purple-400 rounded-2xl text-sm text-white focus:outline-none transition"
-              />
               <button
                 type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute inset-y-0 right-0 pr-4 flex items-center text-purple-400 hover:text-purple-200"
+                onClick={() => router.push('/login')}
+                className="inline-flex items-center gap-1 text-xs font-bold text-purple-400 hover:text-purple-200 transition"
               >
-                {showPassword ? <EyeOff className="h-4.5 w-4.5" /> : <Eye className="h-4.5 w-4.5" />}
+                <ArrowLeft className="w-3.5 h-3.5" /> Back to Login
               </button>
             </div>
-          </div>
 
-          <div className="space-y-2">
-            <label className="text-[10px] font-black uppercase tracking-widest text-purple-300 block pl-1">
-              Confirm New Password
-            </label>
-            <div className="relative rounded-2xl">
-              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                <Lock className="h-4.5 w-4.5 text-purple-400" />
-              </div>
-              <input
-                type={showPassword ? 'text' : 'password'}
-                required
-                minLength={6}
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Re-type new password"
-                className="block w-full pl-11 pr-10 py-3.5 bg-[#1c0f38] border border-[#371f69] focus:border-purple-400 rounded-2xl text-sm text-white focus:outline-none transition"
-              />
+            <div className="space-y-1.5 pt-2">
+              <h2 className="text-2xl font-black text-white tracking-tight flex items-center gap-2">
+                <ShieldCheck className="w-6 h-6 text-purple-400" /> Reset Password
+              </h2>
+              <p className="text-xs text-purple-300/80 font-medium">
+                Set a new password for <strong>{email || 'your account'}</strong>.
+              </p>
             </div>
-          </div>
 
-          <button
-            type="submit"
-            disabled={loading || !token || newPassword.length < 6 || newPassword !== confirmPassword}
-            className="w-full py-4 bg-gradient-to-r from-purple-600 via-purple-700 to-indigo-600 hover:opacity-95 text-white font-black text-xs uppercase tracking-widest rounded-2xl transition flex items-center justify-center gap-2 shadow-lg shadow-purple-500/20 cursor-pointer disabled:opacity-50"
-          >
-            {loading ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Updating Password...
-              </>
-            ) : (
-              'Update Password & Unlock Account'
+            {error && (
+              <div className="flex items-start gap-2.5 p-4 bg-red-955/60 border border-red-800/80 rounded-2xl text-red-200 text-xs font-semibold animate-in shake duration-150">
+                <AlertCircle className="w-4.5 h-4.5 text-red-400 flex-shrink-0 mt-0.5" />
+                <span>{error}</span>
+              </div>
             )}
-          </button>
-        </form>
+
+            {success && (
+              <div className="flex items-start gap-2.5 p-4 bg-emerald-955/60 border border-emerald-800/80 rounded-2xl text-emerald-200 text-xs font-semibold animate-in fade-in duration-150">
+                <CheckCircle2 className="w-4.5 h-4.5 text-emerald-400 flex-shrink-0 mt-0.5" />
+                <span>{success}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit} className="space-y-5 pt-2">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-purple-300 block pl-1">
+                  New Password
+                </label>
+                <div className="relative rounded-2xl">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <Lock className="h-4.5 w-4.5 text-purple-400" />
+                  </div>
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    minLength={6}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="At least 6 characters"
+                    className="block w-full pl-11 pr-10 py-3.5 bg-[#1c0f38] border border-[#371f69] focus:border-purple-400 rounded-2xl text-sm text-white focus:outline-none transition"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute inset-y-0 right-0 pr-4 flex items-center text-purple-400 hover:text-purple-200"
+                  >
+                    {showPassword ? <EyeOff className="h-4.5 w-4.5" /> : <Eye className="h-4.5 w-4.5" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-purple-300 block pl-1">
+                  Confirm New Password
+                </label>
+                <div className="relative rounded-2xl">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <Lock className="h-4.5 w-4.5 text-purple-400" />
+                  </div>
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    minLength={6}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Re-type new password"
+                    className="block w-full pl-11 pr-10 py-3.5 bg-[#1c0f38] border border-[#371f69] focus:border-purple-400 rounded-2xl text-sm text-white focus:outline-none transition"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading || !token || newPassword.length < 6 || newPassword !== confirmPassword}
+                className="w-full py-4 bg-gradient-to-r from-purple-600 via-purple-700 to-indigo-600 hover:opacity-95 text-white font-black text-xs uppercase tracking-widest rounded-2xl transition flex items-center justify-center gap-2 shadow-lg shadow-purple-500/20 cursor-pointer disabled:opacity-50"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Updating Password...
+                  </>
+                ) : (
+                  'Update Password'
+                )}
+              </button>
+            </form>
+          </>
+        )}
       </div>
     </div>
   );
