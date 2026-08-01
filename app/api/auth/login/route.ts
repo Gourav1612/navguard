@@ -52,63 +52,69 @@ export async function POST(req: NextRequest) {
         const currentAttempts = Number(fetchedUser.user_metadata?.login_attempts || 0);
         const newAttempts = currentAttempts + 1;
         const reachedLimit = newAttempts >= 5;
-        const resetToken = reachedLimit ? crypto.randomUUID() : null;
+        const lastSentAt = Number(fetchedUser.user_metadata?.password_reset_token_sent_at || 0);
+        // Rate-limiting: Only dispatch a new email if 2 minutes have passed since last dispatch
+        const canSendEmail = Date.now() - lastSentAt > 2 * 60 * 1000;
+        const resetToken = reachedLimit ? (canSendEmail || !fetchedUser.user_metadata?.password_reset_token ? crypto.randomUUID() : fetchedUser.user_metadata.password_reset_token) : null;
         const resetTokenExpires = reachedLimit ? Date.now() + 15 * 60 * 1000 : null;
 
-        // Update failed attempts counter and reset token in Supabase auth user_metadata
+        // Update failed attempts counter, reset token, and rate-limit timestamp
         await adminClient.auth.admin.updateUserById(profileObj.id, {
           user_metadata: {
             ...fetchedUser.user_metadata,
             login_attempts: newAttempts,
             password_reset_token: resetToken,
             password_reset_token_expires: resetTokenExpires,
+            password_reset_token_sent_at: reachedLimit && canSendEmail ? Date.now() : lastSentAt,
           }
         });
 
         if (reachedLimit) {
-          // Dispatch reset password link via email
-          try {
-            const origin = req.headers.get('origin') || 'https://navguard-eight.vercel.app';
-            const resetUrl = `${origin}/reset-password?token=${resetToken}&email=${encodeURIComponent(email)}`;
-            const html = `
-              <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 32px 24px; max-width: 500px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 16px; background-color: #ffffff;">
-                <div style="text-align: center; margin-bottom: 24px;">
-                  <div style="width: 56px; height: 56px; background-color: #f3e8ff; border-radius: 16px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 12px;">
-                    <span style="font-size: 28px;">🔑</span>
+          if (canSendEmail) {
+            // Dispatch reset password link via email
+            try {
+              const origin = req.headers.get('origin') || 'https://navguard-eight.vercel.app';
+              const resetUrl = `${origin}/reset-password?token=${resetToken}&email=${encodeURIComponent(email)}`;
+              const html = `
+                <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 32px 24px; max-width: 500px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 16px; background-color: #ffffff;">
+                  <div style="text-align: center; margin-bottom: 24px;">
+                    <div style="width: 56px; height: 56px; background-color: #f3e8ff; border-radius: 16px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 12px;">
+                      <span style="font-size: 28px;">🔑</span>
+                    </div>
+                    <h2 style="color: #581c87; margin: 0 0 6px 0; font-weight: 800; font-size: 20px;">Password Reset Request</h2>
+                    <p style="color: #64748b; font-size: 13px; margin: 0;">NaviGuard Account Security</p>
                   </div>
-                  <h2 style="color: #581c87; margin: 0 0 6px 0; font-weight: 800; font-size: 20px;">Password Reset Request</h2>
-                  <p style="color: #64748b; font-size: 13px; margin: 0;">NaviGuard Account Security</p>
+
+                  <p style="color: #334155; font-size: 14px; line-height: 1.6; margin-bottom: 16px;">
+                    Hello ${profileObj.full_name || 'NaviGuard User'}, <strong>5 consecutive failed login attempts</strong> were recorded for your account (${email}).
+                  </p>
+                  <p style="color: #334155; font-size: 14px; line-height: 1.6; margin-bottom: 24px;">
+                    To set a new password for your account, click the secure button below:
+                  </p>
+
+                  <div style="text-align: center; margin: 28px 0;">
+                    <a href="${resetUrl}" target="_blank" style="background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%); color: #ffffff; padding: 14px 28px; text-decoration: none; font-weight: 800; border-radius: 12px; display: inline-block; font-size: 14px; box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);">Reset Account Password</a>
+                  </div>
+
+                  <p style="color: #64748b; font-size: 12px; line-height: 1.5; margin-bottom: 24px;">
+                    ⏱️ This link is valid for <strong>15 minutes</strong>. If you did not attempt to log in, please ignore this email.
+                  </p>
+
+                  <div style="border-t: 1px solid #f1f5f9; pt-16px; margin-top: 24px; text-align: center;">
+                    <p style="color: #94a3b8; font-size: 11px; margin: 0;">NaviGuard Automated Security System</p>
+                  </div>
                 </div>
+              `;
 
-                <p style="color: #334155; font-size: 14px; line-height: 1.6; margin-bottom: 16px;">
-                  Hello ${profileObj.full_name || 'NaviGuard User'}, <strong>5 consecutive failed login attempts</strong> were recorded for your account (${email}).
-                </p>
-                <p style="color: #334155; font-size: 14px; line-height: 1.6; margin-bottom: 24px;">
-                  To set a new password for your account, click the secure button below:
-                </p>
-
-                <div style="text-align: center; margin: 28px 0;">
-                  <a href="${resetUrl}" target="_blank" style="background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%); color: #ffffff; padding: 14px 28px; text-decoration: none; font-weight: 800; border-radius: 12px; display: inline-block; font-size: 14px; box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);">Reset Account Password</a>
-                </div>
-
-                <p style="color: #64748b; font-size: 12px; line-height: 1.5; margin-bottom: 24px;">
-                  ⏱️ This link is valid for <strong>15 minutes</strong>. If you did not attempt to log in, please ignore this email.
-                </p>
-
-                <div style="border-t: 1px solid #f1f5f9; pt-16px; margin-top: 24px; text-align: center;">
-                  <p style="color: #94a3b8; font-size: 11px; margin: 0;">NaviGuard Automated Security System</p>
-                </div>
-              </div>
-            `;
-
-            await sendVerificationEmail({
-              to: email,
-              subject: '🔑 NaviGuard — Password Reset Link (5 Failed Login Attempts)',
-              otp: resetToken!,
-              html,
-            });
-          } catch (mailErr) {
-            console.error('Failed to send reset link email:', mailErr);
+              await sendVerificationEmail({
+                to: email,
+                subject: '🔑 NaviGuard — Password Reset Link (5 Failed Login Attempts)',
+                otp: resetToken!,
+                html,
+              });
+            } catch (mailErr) {
+              console.error('Failed to send reset link email:', mailErr);
+            }
           }
 
           return NextResponse.json(
