@@ -51,7 +51,7 @@ export async function POST(request: Request) {
 
     if (Date.now() > Number(expiresAt)) {
       return NextResponse.json(
-        { error: 'Password reset link has expired (valid for 15 min). Please try logging in again to trigger a new link.' },
+        { error: 'Password reset link has expired (valid for 10 min). Please try logging in again to trigger a new link.' },
         { status: 400 }
       );
     }

@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
         // Rate-limiting: Only dispatch a new email if 2 minutes have passed since last dispatch
         const canSendEmail = Date.now() - lastSentAt > 2 * 60 * 1000;
         const resetToken = reachedLimit ? (canSendEmail || !fetchedUser.user_metadata?.password_reset_token ? crypto.randomUUID() : fetchedUser.user_metadata.password_reset_token) : null;
-        const resetTokenExpires = reachedLimit ? Date.now() + 15 * 60 * 1000 : null;
+        const resetTokenExpires = reachedLimit ? Date.now() + 10 * 60 * 1000 : null;
 
         // Update failed attempts counter, reset token, and rate-limit timestamp
         await adminClient.auth.admin.updateUserById(profileObj.id, {
@@ -97,7 +97,7 @@ export async function POST(req: NextRequest) {
                   </div>
 
                   <p style="color: #64748b; font-size: 12px; line-height: 1.5; margin-bottom: 24px;">
-                    ⏱️ This link is valid for <strong>15 minutes</strong>. If you did not attempt to log in, please ignore this email.
+                    ⏱️ This link is valid for <strong>10 minutes</strong>. If you did not attempt to log in, please ignore this email.
                   </p>
 
                   <div style="border-t: 1px solid #f1f5f9; pt-16px; margin-top: 24px; text-align: center;">
