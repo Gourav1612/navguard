@@ -170,7 +170,8 @@ public class TripStatusReceiver extends BroadcastReceiver {
                         // Auto-launch activity into PiP mode when trip starts
                         try {
                             Intent startIntent = new Intent(context, MainActivity.class);
-                            startIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                            startIntent.setAction("com.navguard.app.ACTION_ENTER_PIP");
+                            startIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
                             context.startActivity(startIntent);
                         } catch (Exception ignored) {}
                     }

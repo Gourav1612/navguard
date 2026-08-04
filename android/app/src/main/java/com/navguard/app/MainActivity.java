@@ -298,6 +298,50 @@ public class MainActivity extends BridgeActivity {
     }
 
     @Override
+    protected void onNewIntent(android.content.Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        android.util.Log.d("MainActivity", "onNewIntent received: " + intent.getAction());
+        checkAndEnterPipIfTripActive();
+    }
+
+    private void checkAndEnterPipIfTripActive() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            android.content.SharedPreferences prefs = getSharedPreferences(
+                    LocationForegroundService.PREFS_NAME,
+                    android.content.Context.MODE_PRIVATE
+            );
+            boolean isTripActive = prefs.getBoolean("is_trip_active", false);
+
+            if (isTripActive && isPictureInPictureAllowed()) {
+                android.util.Log.d("MainActivity", "checkAndEnterPipIfTripActive: Active trip running! Forcing PiP mode immediately...");
+                try {
+                    android.app.PictureInPictureParams.Builder pipBuilder = new android.app.PictureInPictureParams.Builder();
+                    android.util.Rational aspectRatio = new android.util.Rational(3, 4);
+                    pipBuilder.setAspectRatio(aspectRatio);
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        pipBuilder.setAutoEnterEnabled(true);
+                    }
+                    setPictureInPictureParams(pipBuilder.build());
+
+                    new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                        try {
+                            if (!isInPictureInPictureMode()) {
+                                boolean entered = enterPictureInPictureMode(pipBuilder.build());
+                                android.util.Log.d("MainActivity", "enterPictureInPictureMode result: " + entered);
+                            }
+                        } catch (Exception e) {
+                            android.util.Log.e("MainActivity", "Failed entering PiP in checkAndEnterPipIfTripActive", e);
+                        }
+                    }, 50);
+                } catch (Exception e) {
+                    android.util.Log.e("MainActivity", "Failed setting PiP params in checkAndEnterPipIfTripActive", e);
+                }
+            }
+        }
+    }
+
+    @Override
     public void onPictureInPictureModeChanged(boolean isInPictureInPictureMode, android.content.res.Configuration newConfig) {
         super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig);
         try {
@@ -318,7 +362,7 @@ public class MainActivity extends BridgeActivity {
                 boolean isTripActive = prefs.getBoolean("is_trip_active", false);
 
                 if (isTripActive) {
-                    // Anti-Tamper Lockdown: Active trip in transit! Re-enforce PiP immediately
+                    // Anti-Tamper Lockdown: Active trip in transit! Relaunch PiP immediately
                     android.util.Log.w("MainActivity", "Anti-Tamper Lockdown: Active trip running! Relaunching PiP mode...");
                     new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
                         try {
@@ -326,7 +370,7 @@ public class MainActivity extends BridgeActivity {
                             relaunchIntent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK | android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP);
                             startActivity(relaunchIntent);
                         } catch (Exception ignored) {}
-                    }, 300);
+                    }, 50);
                 } else {
                     // Normal standby mode — show floating bubble
                     triggerBubbleShow();
