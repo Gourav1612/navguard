@@ -87,7 +87,6 @@ export async function GET() {
               .from('bus_locations')
               .select('latitude, longitude, speed, recorded_at')
               .eq('bus_id', busObj.id)
-              .eq('trip_id', activeTripId)
               .order('recorded_at', { ascending: false })
               .limit(1)
               .maybeSingle();
