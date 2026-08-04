@@ -1,5 +1,5 @@
 {
-  "version": "1.0.64",
+  "version": "1.0.65",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: feat(android): in-app overlay permission dialog on first start + floating bubble arrow peek after 10s inactivity with semi-transparent arrow tab shape"
+  "releaseNotes": "Auto-build: fix(pip): enable Auto-PiP unconditionally on driver login & add Android 13+ guided Restricted Settings prompt with direct App Info link"
 }
