@@ -451,18 +451,18 @@ export default function DriverDashboardView({ tab }: { tab?: string }) {
           const { data: { session } } = await supabaseClient.auth.getSession();
           const token = session?.access_token;
           if (token) {
-            const isTripInTransit = true; // Always enable driver tracking & Auto-PiP when driver is logged in
+            const isTripInTransit = !!activeTrip; // PiP only active when Admin has initiated a live trip
             const result = await LocationService.startTracking({
               token,
               busId: bus.id,
               tripId: activeTrip?.trip_id || '',
-              isTripActive: true,
+              isTripActive: isTripInTransit,
               serverUrl: `${window.location.origin}/api/driver/location`,
             });
 
-            // Also explicitly notify native plugin of driver state
+            // Sync driver and trip transit state to native plugin
             LocationService.setDriverStatus({ isDriver: true }).catch(() => {});
-            LocationService.setTripStatus({ isTripActive: true }).catch(() => {});
+            LocationService.setTripStatus({ isTripActive: isTripInTransit }).catch(() => {});
 
             // Show in-app overlay permission dialog if not granted
             if (result?.overlayPermissionNeeded) {
