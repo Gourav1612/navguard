@@ -1,5 +1,5 @@
 {
-  "version": "1.0.68",
+  "version": "1.0.69",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: fix(build): fix missing closing brace in MainActivity.java battery optimization check resolving illegal start of expression compiler error"
+  "releaseNotes": "Auto-build: feat(pip): gate PiP strictly on Admin trip start - PiP stays OFF during normal driver standby and ONLY triggers when Admin clicks Start Live Trip"
 }
