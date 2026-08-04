@@ -94,18 +94,16 @@ public class LocationServicePlugin extends Plugin {
         TripStatusReceiver.scheduleNextPoll(getContext());
         Log.d("LocationServicePlugin", "Started trip status polling");
 
-        // Enable Auto-PiP on Android 12+ dynamically ONLY when an active trip is running
+        // Enable Auto-PiP on Android 12+ dynamically whenever driver tracking is active
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && getActivity() != null) {
             getActivity().runOnUiThread(() -> {
                 try {
                     android.app.PictureInPictureParams.Builder builder = new android.app.PictureInPictureParams.Builder();
-                    builder.setAutoEnterEnabled(isTripActive);
-                    if (isTripActive) {
-                        android.util.Rational aspectRatio = new android.util.Rational(3, 4);
-                        builder.setAspectRatio(aspectRatio);
-                    }
+                    builder.setAutoEnterEnabled(true);
+                    android.util.Rational aspectRatio = new android.util.Rational(3, 4);
+                    builder.setAspectRatio(aspectRatio);
                     getActivity().setPictureInPictureParams(builder.build());
-                    Log.d("LocationServicePlugin", "Configured Auto-PiP in startTracking: isTripActive=" + isTripActive);
+                    Log.d("LocationServicePlugin", "Configured Auto-PiP in startTracking: setAutoEnterEnabled(true)");
                 } catch (Exception e) {
                     Log.e("LocationServicePlugin", "Failed to set Auto-PiP params", e);
                 }
@@ -247,16 +245,15 @@ public class LocationServicePlugin extends Plugin {
             getActivity().runOnUiThread(() -> {
                 try {
                     android.app.PictureInPictureParams.Builder builder = new android.app.PictureInPictureParams.Builder();
-                    boolean enableAutoPip = isDriver && isTripActive;
-                    builder.setAutoEnterEnabled(enableAutoPip);
+                    builder.setAutoEnterEnabled(isDriver);
 
-                    if (enableAutoPip) {
+                    if (isDriver) {
                         android.util.Rational aspectRatio = new android.util.Rational(3, 4);
                         builder.setAspectRatio(aspectRatio);
                     }
 
                     getActivity().setPictureInPictureParams(builder.build());
-                    Log.d("LocationServicePlugin", "setDriverStatus: Configured Auto-PiP dynamically to " + enableAutoPip);
+                    Log.d("LocationServicePlugin", "setDriverStatus: Configured Auto-PiP dynamically to " + isDriver);
                 } catch (Exception e) {
                     Log.e("LocationServicePlugin", "Failed to configure Auto-PiP in setDriverStatus", e);
                 }
@@ -282,13 +279,11 @@ public class LocationServicePlugin extends Plugin {
             getActivity().runOnUiThread(() -> {
                 try {
                     android.app.PictureInPictureParams.Builder builder = new android.app.PictureInPictureParams.Builder();
-                    builder.setAutoEnterEnabled(isTripActive);
-                    if (isTripActive) {
-                        android.util.Rational aspectRatio = new android.util.Rational(3, 4);
-                        builder.setAspectRatio(aspectRatio);
-                    }
+                    builder.setAutoEnterEnabled(true);
+                    android.util.Rational aspectRatio = new android.util.Rational(3, 4);
+                    builder.setAspectRatio(aspectRatio);
                     getActivity().setPictureInPictureParams(builder.build());
-                    Log.d("LocationServicePlugin", "setTripStatus: Configured Auto-PiP to " + isTripActive);
+                    Log.d("LocationServicePlugin", "setTripStatus: Configured Auto-PiP to true");
                 } catch (Exception e) {
                     Log.e("LocationServicePlugin", "Failed to configure Auto-PiP in setTripStatus", e);
                 }

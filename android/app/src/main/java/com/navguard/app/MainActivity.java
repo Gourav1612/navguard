@@ -170,17 +170,20 @@ public class MainActivity extends BridgeActivity {
                             LocationForegroundService.PREFS_NAME,
                             android.content.Context.MODE_PRIVATE
                     );
-                    // Enable Auto-PiP ONLY if Admin has an active trip running
-                    boolean isTripActive = prefs.getBoolean("is_trip_active", false);
+                    boolean isDriver = prefs.getBoolean("is_driver", false);
+                    java.io.File credsFile = new java.io.File(getFilesDir(), "tracking_credentials.json");
+                    boolean hasCreds = credsFile.exists();
+
+                    boolean enableAutoPip = isDriver || hasCreds;
 
                     android.app.PictureInPictureParams.Builder builder = new android.app.PictureInPictureParams.Builder();
-                    builder.setAutoEnterEnabled(isTripActive);
-                    if (isTripActive) {
+                    builder.setAutoEnterEnabled(enableAutoPip);
+                    if (enableAutoPip) {
                         android.util.Rational aspectRatio = new android.util.Rational(3, 4);
                         builder.setAspectRatio(aspectRatio);
                     }
                     setPictureInPictureParams(builder.build());
-                    android.util.Log.d("MainActivity", "Configured Auto-PiP onResume: isTripActive=" + isTripActive);
+                    android.util.Log.d("MainActivity", "Configured Auto-PiP onResume: enableAutoPip=" + enableAutoPip);
                 }
             } catch (Exception e) {
                 android.util.Log.e("MainActivity", "Failed to configure Auto-PiP parameters onResume", e);
@@ -265,10 +268,11 @@ public class MainActivity extends BridgeActivity {
                     LocationForegroundService.PREFS_NAME,
                     android.content.Context.MODE_PRIVATE
             );
-            boolean isTripActive = prefs.getBoolean("is_trip_active", false);
+            boolean isDriver = prefs.getBoolean("is_driver", false);
+            java.io.File credsFile = new java.io.File(getFilesDir(), "tracking_credentials.json");
 
-            if (!isTripActive) {
-                android.util.Log.d("MainActivity", "No active trip in transit, skipping PiP mode");
+            if (!isDriver && !credsFile.exists()) {
+                android.util.Log.d("MainActivity", "No active driver session, skipping PiP mode");
                 return;
             }
 
