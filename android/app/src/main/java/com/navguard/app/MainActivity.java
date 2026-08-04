@@ -115,24 +115,19 @@ public class MainActivity extends BridgeActivity {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             try {
                 if (isPictureInPictureAllowed()) {
-                    android.content.SharedPreferences prefs = getSharedPreferences(
-                            LocationForegroundService.PREFS_NAME,
-                            android.content.Context.MODE_PRIVATE
-                    );
-                    boolean isDriver = prefs.getBoolean("is_driver", false);
-                    boolean isTripActive = prefs.getBoolean("is_trip_active", false);
+                    // Driver is active if tracking_credentials.json exists
+                    java.io.File credsFile = new java.io.File(getFilesDir(), "tracking_credentials.json");
+                    boolean isDriver = credsFile.exists();
 
                     android.app.PictureInPictureParams.Builder builder = new android.app.PictureInPictureParams.Builder();
-                    boolean enableAutoPip = isDriver && isTripActive;
-                    builder.setAutoEnterEnabled(enableAutoPip);
-                    
-                    if (enableAutoPip) {
+                    // Always enable Auto-PiP for active drivers (regardless of trip status)
+                    builder.setAutoEnterEnabled(isDriver);
+                    if (isDriver) {
                         android.util.Rational aspectRatio = new android.util.Rational(3, 4);
                         builder.setAspectRatio(aspectRatio);
                     }
-                    
                     setPictureInPictureParams(builder.build());
-                    android.util.Log.d("MainActivity", "Configured Auto-PiP: enableAutoPip=" + enableAutoPip);
+                    android.util.Log.d("MainActivity", "Configured Auto-PiP: isDriver=" + isDriver);
                 }
             } catch (Exception e) {
                 android.util.Log.e("MainActivity", "Failed to configure Auto-PiP parameters", e);
@@ -182,15 +177,10 @@ public class MainActivity extends BridgeActivity {
     protected void onUserLeaveHint() {
         super.onUserLeaveHint();
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            // Gating PiP on whether user is logged in as a driver
-            android.content.SharedPreferences prefs = getSharedPreferences(
-                    LocationForegroundService.PREFS_NAME,
-                    android.content.Context.MODE_PRIVATE
-            );
-            boolean isDriver = prefs.getBoolean("is_driver", false);
-            boolean isTripActive = prefs.getBoolean("is_trip_active", false);
-            if (!isDriver || !isTripActive) {
-                android.util.Log.d("MainActivity", "No active trip in transit, skipping PiP mode");
+            // Trigger PiP for ANY active driver (credentials file presence = driver is logged in)
+            java.io.File credsFile = new java.io.File(getFilesDir(), "tracking_credentials.json");
+            if (!credsFile.exists()) {
+                android.util.Log.d("MainActivity", "No active driver session, skipping PiP mode");
                 return;
             }
 
@@ -253,13 +243,9 @@ public class MainActivity extends BridgeActivity {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && isInPictureInPictureMode()) {
             return; // In PiP mode — PiP handles background presentation
         }
-        android.content.SharedPreferences prefs = getSharedPreferences(
-                LocationForegroundService.PREFS_NAME,
-                android.content.Context.MODE_PRIVATE
-        );
-        boolean isTripActive = prefs.getBoolean("is_trip_active", false);
-        if (!isTripActive) {
-            // No active trip transit — show floating bubble on minimize
+        // Show bubble whenever driver is actively tracked (credentials file exists)
+        java.io.File credsFile = new java.io.File(getFilesDir(), "tracking_credentials.json");
+        if (credsFile.exists()) {
             triggerBubbleShow();
         }
     }

@@ -500,7 +500,7 @@ export default function DriverDashboardView({ tab }: { tab?: string }) {
   });
 
   // Intercept view and render Picture-in-Picture Map View unconditionally if isPipMode is true
-  if (isPipMode && assignment) {
+  if (isPipMode && assignment?.bus) {
     const route = assignment.route;
     const bus = assignment.bus;
     const active_trip = assignment.active_trip;
@@ -558,7 +558,7 @@ export default function DriverDashboardView({ tab }: { tab?: string }) {
 
     return (
       <div className="fixed inset-0 w-screen h-screen z-[99999] bg-white flex flex-col">
-        {/* Navigation HUD at the top (only shown if a trip is active and has a next stop) */}
+        {/* Navigation HUD — shown when trip active and next stop exists */}
         {active_trip && nextStop && (
           <div className="absolute top-2 left-2 right-2 z-[10000] bg-slate-900/95 text-white p-2.5 rounded-xl shadow-lg border border-slate-700/50 flex flex-col gap-0.5 pointer-events-none">
             <span className="text-[8px] font-bold text-emerald-400 uppercase tracking-widest leading-none">Next Stop</span>
@@ -569,11 +569,19 @@ export default function DriverDashboardView({ tab }: { tab?: string }) {
           </div>
         )}
         
-        {/* Floating return warning when all stops are done */}
+        {/* All stops completed banner */}
         {active_trip && !nextStop && (
           <div className="absolute top-2 left-2 right-2 z-[10000] bg-emerald-800/95 text-white p-2.5 rounded-xl shadow-lg border border-emerald-600/50 flex flex-col gap-0.5 pointer-events-none">
             <span className="text-[8px] font-bold text-white/80 uppercase tracking-widest leading-none">All Stops Completed</span>
             <span className="font-extrabold text-xs tracking-tight leading-tight mt-0.5">Proceed back to school campus</span>
+          </div>
+        )}
+
+        {/* Waiting for trip banner — shown when logged in but no active trip yet */}
+        {!active_trip && (
+          <div className="absolute top-2 left-2 right-2 z-[10000] bg-slate-800/90 text-white p-2.5 rounded-xl shadow-lg border border-slate-600/50 flex flex-col gap-0.5 pointer-events-none">
+            <span className="text-[8px] font-bold text-amber-400 uppercase tracking-widest leading-none">Standby Mode</span>
+            <span className="font-extrabold text-xs tracking-tight leading-tight mt-0.5">Awaiting admin trip start…</span>
           </div>
         )}
 
