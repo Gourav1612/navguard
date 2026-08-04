@@ -92,14 +92,17 @@ export async function POST(req: NextRequest) {
         .update({ is_trip_active: true } as any)
         .eq('id', bus_id);
 
-      // Insert notification (non-critical)
+      // Insert announcement for parents & notifications for driver
       if (schoolId) {
         try {
-          await adminClient.from('notifications').insert({
+          await adminClient.from('announcements').insert({
             school_id: schoolId,
-            title: '🚌 Trip Started by Admin',
-            message: `Admin has initiated live transit trip for ${busLabel}.`,
-            type: 'general',
+            title: action === 'start' ? '🚌 Bus Trip Started' : '🏁 Bus Trip Completed',
+            body: action === 'start'
+              ? `Bus ${busLabel} trip has been initiated by Admin. Live GPS tracking is now active for your child's route.`
+              : `Bus ${busLabel} trip has been completed by Admin.`,
+            target_role: 'parent',
+            created_at: new Date().toISOString(),
           });
         } catch (_) {}
       }
@@ -129,11 +132,12 @@ export async function POST(req: NextRequest) {
 
       if (schoolId) {
         try {
-          await adminClient.from('notifications').insert({
+          await adminClient.from('announcements').insert({
             school_id: schoolId,
-            title: '🏁 Trip Ended by Admin',
-            message: `Admin has completed live transit trip for ${busLabel}.`,
-            type: 'general',
+            title: '🏁 Bus Trip Completed',
+            body: `Bus ${busLabel} trip has been completed by Admin.`,
+            target_role: 'parent',
+            created_at: new Date().toISOString(),
           });
         } catch (_) {}
       }

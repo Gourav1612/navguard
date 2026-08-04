@@ -243,6 +243,10 @@ export default function AdminDashboardView({ tab: initialTab }: { tab?: string }
         },
         (payload: any) => {
           const newNotif = payload.new;
+          // Ignore self-triggered trip start/end notifications for Admin
+          if (newNotif.title?.includes('Admin') || newNotif.title?.includes('Trip Started') || newNotif.title?.includes('Trip Ended')) {
+            return;
+          }
           setToastNotification({
             id: newNotif.id,
             title: newNotif.title,
