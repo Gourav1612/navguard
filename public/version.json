@@ -1,5 +1,5 @@
 {
-  "version": "1.0.67",
+  "version": "1.0.68",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: feat(lockdown): implement Anti-Tamper PiP Lockdown - driver cannot close PiP while trip is active, auto-relaunches in 300ms, and auto-closes when admin ends trip"
+  "releaseNotes": "Auto-build: fix(build): fix missing closing brace in MainActivity.java battery optimization check resolving illegal start of expression compiler error"
 }
