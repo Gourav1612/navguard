@@ -259,11 +259,14 @@ public class MainActivity extends BridgeActivity {
 
             try {
                 android.app.PictureInPictureParams.Builder builder = new android.app.PictureInPictureParams.Builder();
-                // Set a compact 3:4 aspect ratio for the floating window
                 android.util.Rational aspectRatio = new android.util.Rational(3, 4);
                 builder.setAspectRatio(aspectRatio);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    builder.setAutoEnterEnabled(true);
+                }
+                setPictureInPictureParams(builder.build());
                 enterPictureInPictureMode(builder.build());
-                android.util.Log.d("MainActivity", "Successfully entered Picture-in-Picture mode!");
+                android.util.Log.d("MainActivity", "Successfully configured & entered Picture-in-Picture mode!");
             } catch (Exception e) {
                 android.util.Log.e("MainActivity", "Failed to enter Picture-in-Picture mode", e);
             }

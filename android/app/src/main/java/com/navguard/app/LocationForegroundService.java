@@ -84,10 +84,19 @@ public class LocationForegroundService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-            startForeground(1001, buildNotification(), android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION);
-        } else {
-            startForeground(1001, buildNotification());
+        try {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                startForeground(1001, buildNotification(), android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION);
+            } else {
+                startForeground(1001, buildNotification());
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Failed startForeground with location type, trying fallback", e);
+            try {
+                startForeground(1001, buildNotification());
+            } catch (Exception ex) {
+                Log.e(TAG, "Failed startForeground fallback", ex);
+            }
         }
 
         // Ensure location updates are active
@@ -498,7 +507,9 @@ public class LocationForegroundService extends Service {
 
                 final WindowManager.LayoutParams params = new WindowManager.LayoutParams(
                         bubbleSize, bubbleSize, layoutFlag,
-                        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+                        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                                | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
+                                | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
                         PixelFormat.TRANSLUCENT
                 );
                 params.gravity = Gravity.TOP | Gravity.START;
