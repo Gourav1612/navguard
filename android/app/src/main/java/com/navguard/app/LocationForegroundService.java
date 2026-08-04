@@ -90,6 +90,9 @@ public class LocationForegroundService extends Service {
             startForeground(1001, buildNotification());
         }
 
+        // Ensure location updates are active
+        startLocationUpdates();
+
         // Handle Floating Bubble overlay actions and heartbeat
         if (intent != null && intent.getAction() != null) {
             String action = intent.getAction();
@@ -100,13 +103,9 @@ public class LocationForegroundService extends Service {
             } else if ("HEARTBEAT_REREGISTER".equals(action)) {
                 Log.d(TAG, "Heartbeat received — re-registering location updates");
                 reRegisterLocationUpdates();
-                return START_STICKY;
-            } else {
-                startLocationUpdates();
             }
         } else {
             // Intent is null (e.g. sticky OS recovery restart after swipe from recent apps!)
-            startLocationUpdates();
             showFloatingBubble();
         }
 

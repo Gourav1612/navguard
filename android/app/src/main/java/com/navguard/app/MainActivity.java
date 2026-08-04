@@ -196,9 +196,13 @@ public class MainActivity extends BridgeActivity {
                 android.content.Intent serviceIntent = new android.content.Intent(this, LocationForegroundService.class);
                 serviceIntent.setAction("HIDE_BUBBLE");
                 try {
-                    startService(serviceIntent);
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        startForegroundService(serviceIntent);
+                    } else {
+                        startService(serviceIntent);
+                    }
                 } catch (Exception se) {
-                    android.util.Log.e("MainActivity", "Failed to startService for HIDE_BUBBLE in onResume", se);
+                    android.util.Log.e("MainActivity", "Failed to send HIDE_BUBBLE intent in onResume", se);
                 }
             }
         } catch (Exception e) {
@@ -210,17 +214,21 @@ public class MainActivity extends BridgeActivity {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
             return false;
         }
+        if (!getPackageManager().hasSystemFeature(android.content.pm.PackageManager.FEATURE_PICTURE_IN_PICTURE)) {
+            return false;
+        }
         try {
             android.app.AppOpsManager appOps = (android.app.AppOpsManager) getSystemService(android.content.Context.APP_OPS_SERVICE);
-            if (appOps == null) return false;
+            if (appOps == null) return true;
             int mode = appOps.checkOpNoThrow(
                 android.app.AppOpsManager.OPSTR_PICTURE_IN_PICTURE,
                 android.os.Process.myUid(),
                 getPackageName()
             );
-            return mode == android.app.AppOpsManager.MODE_ALLOWED;
+            // Allow both MODE_ALLOWED (0) and MODE_DEFAULT (3)
+            return mode != android.app.AppOpsManager.MODE_IGNORED && mode != android.app.AppOpsManager.MODE_ERRORED;
         } catch (Exception e) {
-            return false;
+            return true;
         }
     }
 
@@ -228,9 +236,14 @@ public class MainActivity extends BridgeActivity {
     protected void onUserLeaveHint() {
         super.onUserLeaveHint();
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            // Trigger PiP for ANY active driver (credentials file presence = driver is logged in)
+            android.content.SharedPreferences prefs = getSharedPreferences(
+                    LocationForegroundService.PREFS_NAME,
+                    android.content.Context.MODE_PRIVATE
+            );
+            boolean isDriver = prefs.getBoolean("is_driver", false);
             java.io.File credsFile = new java.io.File(getFilesDir(), "tracking_credentials.json");
-            if (!credsFile.exists()) {
+
+            if (!isDriver && !credsFile.exists()) {
                 android.util.Log.d("MainActivity", "No active driver session, skipping PiP mode");
                 return;
             }
@@ -250,6 +263,7 @@ public class MainActivity extends BridgeActivity {
                 android.util.Rational aspectRatio = new android.util.Rational(3, 4);
                 builder.setAspectRatio(aspectRatio);
                 enterPictureInPictureMode(builder.build());
+                android.util.Log.d("MainActivity", "Successfully entered Picture-in-Picture mode!");
             } catch (Exception e) {
                 android.util.Log.e("MainActivity", "Failed to enter Picture-in-Picture mode", e);
             }
@@ -294,9 +308,14 @@ public class MainActivity extends BridgeActivity {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && isInPictureInPictureMode()) {
             return; // In PiP mode — PiP handles background presentation
         }
-        // Show bubble whenever driver is actively tracked (credentials file exists)
+        android.content.SharedPreferences prefs = getSharedPreferences(
+                LocationForegroundService.PREFS_NAME,
+                android.content.Context.MODE_PRIVATE
+        );
+        boolean isDriver = prefs.getBoolean("is_driver", false);
         java.io.File credsFile = new java.io.File(getFilesDir(), "tracking_credentials.json");
-        if (credsFile.exists()) {
+
+        if (isDriver || credsFile.exists()) {
             triggerBubbleShow();
         }
     }
@@ -319,7 +338,12 @@ public class MainActivity extends BridgeActivity {
                 android.content.Intent serviceIntent = new android.content.Intent(this, LocationForegroundService.class);
                 serviceIntent.setAction("SHOW_BUBBLE");
                 try {
-                    startService(serviceIntent);
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        startForegroundService(serviceIntent);
+                    } else {
+                        startService(serviceIntent);
+                    }
+                    android.util.Log.d("MainActivity", "Successfully sent SHOW_BUBBLE foreground service intent");
                 } catch (Exception se) {
                     android.util.Log.e("MainActivity", "Failed to send SHOW_BUBBLE intent", se);
                 }
