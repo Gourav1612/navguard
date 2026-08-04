@@ -92,11 +92,12 @@ export async function POST(req: NextRequest) {
         .update({ is_trip_active: true } as any)
         .eq('id', bus_id);
 
-      // Insert announcement for parents & notifications for driver
+      // Insert announcement for parents assigned to this bus & notifications for driver
       if (schoolId) {
         try {
           await adminClient.from('announcements').insert({
             school_id: schoolId,
+            bus_id: bus_id,
             title: action === 'start' ? '🚌 Bus Trip Started' : '🏁 Bus Trip Completed',
             body: action === 'start'
               ? `Bus ${busLabel} trip has been initiated by Admin. Live GPS tracking is now active for your child's route.`
@@ -134,6 +135,7 @@ export async function POST(req: NextRequest) {
         try {
           await adminClient.from('announcements').insert({
             school_id: schoolId,
+            bus_id: bus_id,
             title: '🏁 Bus Trip Completed',
             body: `Bus ${busLabel} trip has been completed by Admin.`,
             target_role: 'parent',

@@ -6,16 +6,40 @@ export async function GET() {
   const auth = await requireRole(['parent']);
   if (auth.error) return auth.error;
 
-  const { profile } = auth;
+  const { user, profile } = auth;
   const supabase = await createSupabaseServerClient();
 
   try {
-    const { data: announcements, error } = await supabase
+    // 1. Fetch parent's linked student bus_ids
+    const { data: parentRaw } = await supabase
+      .from('parent_profiles')
+      .select(`
+        links:parent_student_links(
+          student:student_profiles(bus_id)
+        )
+      `)
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    const parentBusIds = (parentRaw?.links || [])
+      .map((l: any) => l.student?.bus_id)
+      .filter(Boolean);
+
+    // 2. Query announcements matching school_id AND (bus_id IS NULL OR bus_id IN parentBusIds)
+    let query = supabase
       .from('announcements')
-      .select('id, title, body, created_at')
+      .select('id, bus_id, title, body, created_at')
       .eq('school_id', profile.school_id)
       .in('target_role', ['all', 'parent'])
       .order('created_at', { ascending: false });
+
+    if (parentBusIds.length > 0) {
+      query = query.or(`bus_id.is.null,bus_id.in.(${parentBusIds.join(',')})`);
+    } else {
+      query = query.is('bus_id', null);
+    }
+
+    const { data: announcements, error } = await query;
 
     if (error) {
       return NextResponse.json(
@@ -24,7 +48,7 @@ export async function GET() {
       );
     }
 
-    return NextResponse.json(announcements);
+    return NextResponse.json(announcements || []);
   } catch (err: any) {
     return NextResponse.json(
       { error: err.message || 'Internal server error', code: 'SERVER_ERROR' },
