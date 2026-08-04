@@ -19,28 +19,39 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Action must be "start" or "end"' }, { status: 400 });
     }
 
-    // 1. Fetch Bus details using the actual DB column names (name, not bus_number)
+    // 1. Fetch Bus details (buses table has: id, name, registration_plate, school_id etc — NOT route_id)
     const { data: bus, error: busErr } = await adminClient
       .from('buses')
-      .select('id, name, registration_plate, route_id, school_id')
+      .select('id, name, registration_plate, school_id')
       .eq('id', bus_id)
       .maybeSingle();
 
     if (busErr || !bus) {
       return NextResponse.json(
-        { error: `Bus record not found. ID: ${bus_id} | DB error: ${busErr?.message || 'null'}` },
+        { error: `Bus not found (id: ${bus_id})` },
         { status: 404 }
       );
     }
 
     const busLabel = bus.name || bus.registration_plate || bus_id;
 
-    // 2. Find driver assigned to this bus
-    const { data: driver } = await adminClient
-      .from('drivers')
-      .select('id, user_id')
+    // 2. Find the route assigned to this bus (routes.bus_id → buses.id)
+    const { data: routeRow } = await adminClient
+      .from('routes')
+      .select('id')
       .eq('bus_id', bus_id)
       .maybeSingle();
+
+    const routeId = routeRow?.id || null;
+
+    // 3. Find the driver assigned to this bus
+    const { data: driver } = await adminClient
+      .from('drivers')
+      .select('id, school_id')
+      .eq('bus_id', bus_id)
+      .maybeSingle();
+
+    const schoolId = bus.school_id || driver?.school_id || null;
 
     if (action === 'start') {
       // Check for an already active trip first
@@ -56,8 +67,9 @@ export async function POST(req: NextRequest) {
           .from('trips')
           .insert({
             bus_id,
-            route_id: bus.route_id || null,
+            route_id: routeId,
             driver_id: driver?.id || null,
+            school_id: schoolId,
             status: 'active',
             started_at: new Date().toISOString(),
           })
@@ -66,9 +78,12 @@ export async function POST(req: NextRequest) {
 
         if (tripErr) {
           console.error('Failed to create trip:', tripErr);
-        } else {
-          activeTrip = newTrip;
+          return NextResponse.json(
+            { error: `Failed to create trip: ${tripErr.message}` },
+            { status: 500 }
+          );
         }
+        activeTrip = newTrip;
       }
 
       // Update bus is_trip_active flag
@@ -77,14 +92,16 @@ export async function POST(req: NextRequest) {
         .update({ is_trip_active: true } as any)
         .eq('id', bus_id);
 
-      // Insert notification
-      if (bus.school_id) {
-        await adminClient.from('notifications').insert({
-          school_id: bus.school_id,
-          title: '🚌 Trip Started by Admin',
-          message: `Admin has initiated live transit trip for ${busLabel}.`,
-          type: 'general',
-        });
+      // Insert notification (non-critical)
+      if (schoolId) {
+        try {
+          await adminClient.from('notifications').insert({
+            school_id: schoolId,
+            title: '🚌 Trip Started by Admin',
+            message: `Admin has initiated live transit trip for ${busLabel}.`,
+            type: 'general',
+          });
+        } catch (_) {}
       }
 
       return NextResponse.json({
@@ -110,13 +127,15 @@ export async function POST(req: NextRequest) {
         .update({ is_trip_active: false } as any)
         .eq('id', bus_id);
 
-      if (bus.school_id) {
-        await adminClient.from('notifications').insert({
-          school_id: bus.school_id,
-          title: '🏁 Trip Ended by Admin',
-          message: `Admin has completed live transit trip for ${busLabel}.`,
-          type: 'general',
-        });
+      if (schoolId) {
+        try {
+          await adminClient.from('notifications').insert({
+            school_id: schoolId,
+            title: '🏁 Trip Ended by Admin',
+            message: `Admin has completed live transit trip for ${busLabel}.`,
+            type: 'general',
+          });
+        } catch (_) {}
       }
 
       return NextResponse.json({
