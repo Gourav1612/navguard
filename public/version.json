@@ -1,5 +1,5 @@
 {
-  "version": "1.0.62",
+  "version": "1.0.63",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: feat(android): add TripStatusReceiver - polls /api/driver/assignment every 30s, notifies driver of admin trip start/end, survives app kill from recents"
+  "releaseNotes": "Auto-build: fix(pip): enable PiP for all active drivers regardless of trip status - remove isTripActive gate from onUserLeaveHint and Auto-PiP config"
 }
