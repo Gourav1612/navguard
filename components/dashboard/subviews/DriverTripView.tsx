@@ -418,20 +418,11 @@ export default function DriverTripPage({
             </div>
           </div>
 
-          <button
-            onClick={handleEndTrip}
-            disabled={endTripMutation.isPending}
-            className="w-full flex items-center justify-center py-4 bg-red-600 text-white rounded-2xl font-extrabold text-xs uppercase tracking-wider shadow-lg shadow-red-600/15 transition-all duration-205 cursor-pointer disabled:opacity-50 hover:bg-red-700 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-red-600/25 active:scale-98"
-          >
-            {endTripMutation.isPending ? (
-              <>
-                <Loader2 className="w-5 h-5 animate-spin mr-1" />
-                Terminating Trip Logs...
-              </>
-            ) : (
-              'End Operational Trip'
-            )}
-          </button>
+          <div className="bg-slate-100 border border-slate-200/80 rounded-2xl p-4 text-center">
+            <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-widest block">
+              Trip Status Control Managed by Admin
+            </span>
+          </div>
         </div>
 
       </div>

@@ -413,12 +413,7 @@ export default function DriverDashboardView({ tab }: { tab?: string }) {
     sendInitialTelemetry();
   }, [assignment]);
 
-  // Auto-redirect to active trip console if a trip is already active
-  useEffect(() => {
-    if (assignment?.active_trip) {
-      router.push('/dashboard?tab=trip');
-    }
-  }, [assignment, router]);
+  // Auto-redirect removed: Admin controls trip state, driver stays on Home/Route view
 
   // Manage native background LocationService globally on the driver portal
   useEffect(() => {
@@ -801,36 +796,19 @@ export default function DriverDashboardView({ tab }: { tab?: string }) {
         </div>
       )}
 
-      {/* Operational State Button */}
+      {/* Active GPS Telemetry Live Streaming Status Card */}
       {bus && route && (
-        <div className="pt-2">
-          {isTripActive ? (
-            <button
-              onClick={() => router.push('/dashboard?tab=trip')}
-              className="w-full flex items-center justify-center gap-2 py-4 bg-[#10b981] hover:bg-[#059669] text-white rounded-2xl font-bold shadow-lg shadow-emerald-500/20 transition-all duration-300 cursor-pointer"
-            >
-              Resume Active Trip
-              <ArrowRight className="w-4.5 h-4.5" />
-            </button>
-          ) : (
-            <button
-              onClick={handleStartTrip}
-              disabled={startTripMutation.isPending}
-              className="w-full flex items-center justify-center gap-2 py-4 bg-[#5c3b99] hover:bg-[#432775] text-white rounded-2xl font-bold shadow-lg shadow-purple-500/20 transition-all duration-300 cursor-pointer disabled:opacity-50"
-            >
-              {startTripMutation.isPending ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin mr-1" />
-                  Initiating Trip...
-                </>
-              ) : (
-                <>
-                  <Play className="w-5 h-5 fill-current mr-1" />
-                  Start Transit Trip
-                </>
-              )}
-            </button>
-          )}
+        <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-3xl p-5 shadow-sm space-y-2">
+          <div className="flex items-center gap-3 text-emerald-700">
+            <span className="relative flex h-3.5 w-3.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500"></span>
+            </span>
+            <span className="font-extrabold text-xs uppercase tracking-wider">Active GPS Tracking Live</span>
+          </div>
+          <p className="text-slate-600 text-xs font-semibold leading-relaxed pl-6">
+            Location telemetry is continuously streaming to Admin & Parents. Live trip transit start/stop is managed by Admin.
+          </p>
         </div>
       )}
     </div>
