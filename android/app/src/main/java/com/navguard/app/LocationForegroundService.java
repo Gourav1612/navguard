@@ -115,7 +115,7 @@ public class LocationForegroundService extends Service {
                     Intent pipIntent = new Intent(this, MainActivity.class);
                     pipIntent.setAction("com.navguard.app.ACTION_ENTER_PIP");
                     pipIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
-                    startActivity(pipIntent);
+                    startActivityWithBackgroundPrivileges(pipIntent);
                 } catch (Exception e) {
                     Log.e(TAG, "Failed launching MainActivity for PiP", e);
                 }
@@ -126,7 +126,7 @@ public class LocationForegroundService extends Service {
                     Intent exitIntent = new Intent(this, MainActivity.class);
                     exitIntent.setAction("com.navguard.app.ACTION_EXIT_PIP");
                     exitIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-                    startActivity(exitIntent);
+                    startActivityWithBackgroundPrivileges(exitIntent);
                 } catch (Exception ignored) {}
             } else if ("HEARTBEAT_REREGISTER".equals(action)) {
                 Log.d(TAG, "Heartbeat received — re-registering location updates");
@@ -340,14 +340,14 @@ public class LocationForegroundService extends Service {
                                 Intent pipIntent = new Intent(LocationForegroundService.this, MainActivity.class);
                                 pipIntent.setAction("com.navguard.app.ACTION_ENTER_PIP");
                                 pipIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
-                                startActivity(pipIntent);
+                                startActivityWithBackgroundPrivileges(pipIntent);
                             } else {
                                 // Admin completed trip! Hide floating bubble & close PiP
                                 hideFloatingBubble();
                                 Intent exitIntent = new Intent(LocationForegroundService.this, MainActivity.class);
                                 exitIntent.setAction("com.navguard.app.ACTION_EXIT_PIP");
                                 exitIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-                                startActivity(exitIntent);
+                                startActivityWithBackgroundPrivileges(exitIntent);
                             }
                         }
                     } catch (Exception err) {
@@ -800,6 +800,22 @@ public class LocationForegroundService extends Service {
     }
 
 
+
+    private void startActivityWithBackgroundPrivileges(Intent intent) {
+        try {
+            if (Build.VERSION.SDK_INT >= 34) { // Android 14, 15, 16
+                try {
+                    android.app.ActivityOptions options = android.app.ActivityOptions.makeBasic();
+                    options.setPendingIntentBackgroundActivityStartMode(android.app.ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED);
+                    startActivity(intent, options.toBundle());
+                    return;
+                } catch (Throwable ignored) {}
+            }
+            startActivity(intent);
+        } catch (Exception e) {
+            Log.e(TAG, "Failed startActivityWithBackgroundPrivileges", e);
+        }
+    }
 
     private void hideFloatingBubble() {
         if (floatingView != null) {
