@@ -1,5 +1,5 @@
 {
-  "version": "1.0.66",
+  "version": "1.0.67",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: fix(android16): support Android 14/15/16 Baklava - add location foreground service type fallback, WindowManager layout flags (FLAG_NOT_TOUCH_MODAL), and updated setAutoEnterEnabled inside onUserLeaveHint"
+  "releaseNotes": "Auto-build: feat(lockdown): implement Anti-Tamper PiP Lockdown - driver cannot close PiP while trip is active, auto-relaunches in 300ms, and auto-closes when admin ends trip"
 }
