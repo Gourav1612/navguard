@@ -107,6 +107,7 @@ public class MainActivity extends BridgeActivity {
                              })
                              .setCancelable(false)
                              .show();
+                }
             }
         }
 
