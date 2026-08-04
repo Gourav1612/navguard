@@ -143,6 +143,12 @@ public class TripStatusReceiver extends BroadcastReceiver {
                 boolean tripStarted = (prevTripId == null && fileTripId == null) && newTripId != null;
                 boolean tripEnded   = (prevTripId != null || fileTripId != null) && newTripId == null;
 
+                // Fetch SharedPreferences to sync native is_trip_active flag
+                android.content.SharedPreferences prefs = context.getSharedPreferences(
+                        LocationForegroundService.PREFS_NAME,
+                        Context.MODE_PRIVATE
+                );
+
                 // If trip_id changed, update the credentials file
                 if (newTripId != null && !newTripId.equals(fileTripId)) {
                     // Trip started or trip_id changed
@@ -152,13 +158,21 @@ public class TripStatusReceiver extends BroadcastReceiver {
                     writer.flush();
                     writer.close();
                     lastKnownTripId = newTripId;
-                    Log.d(TAG, "Poll: trip_id updated to " + newTripId);
+                    prefs.edit().putBoolean("is_trip_active", true).apply();
+                    Log.d(TAG, "Poll: trip_id updated to " + newTripId + " (is_trip_active=true)");
 
                     if (tripStarted || prevTripId == null) {
                         showTripNotification(context,
-                                "🚌 Trip Started",
-                                "Admin has started a live trip. Location tracking is active.",
+                                "🚌 Trip Started by Admin",
+                                "Live transit trip initiated. Tracking & PiP Mode active.",
                                 NOTIF_TRIP_START);
+
+                        // Auto-launch activity into PiP mode when trip starts
+                        try {
+                            Intent startIntent = new Intent(context, MainActivity.class);
+                            startIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                            context.startActivity(startIntent);
+                        } catch (Exception ignored) {}
                     }
                 } else if (newTripId == null && fileTripId != null) {
                     // Trip ended — clear trip_id from credentials
@@ -168,11 +182,23 @@ public class TripStatusReceiver extends BroadcastReceiver {
                     writer.flush();
                     writer.close();
                     lastKnownTripId = null;
-                    Log.d(TAG, "Poll: trip ended, cleared trip_id");
+                    prefs.edit().putBoolean("is_trip_active", false).apply();
+                    Log.d(TAG, "Poll: trip ended, cleared trip_id (is_trip_active=false)");
+
+                    // Hide floating bubble on trip completion
+                    try {
+                        Intent hideIntent = new Intent(context, LocationForegroundService.class);
+                        hideIntent.setAction("HIDE_BUBBLE");
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            context.startForegroundService(hideIntent);
+                        } else {
+                            context.startService(hideIntent);
+                        }
+                    } catch (Exception ignored) {}
 
                     showTripNotification(context,
-                            "🏁 Trip Ended",
-                            "Admin has ended the trip. You may now close the app.",
+                            "🏁 Trip Completed by Admin",
+                            "Admin has completed live transit trip.",
                             NOTIF_TRIP_END);
                 }
 

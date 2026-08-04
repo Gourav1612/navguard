@@ -286,9 +286,27 @@ public class MainActivity extends BridgeActivity {
             });
             android.util.Log.d("MainActivity", "Dispatched pipModeChanged JS event: isPip=" + isInPictureInPictureMode);
             
-            // If user closed or exited PiP window, trigger floating bubble show
             if (!isInPictureInPictureMode) {
-                triggerBubbleShow();
+                android.content.SharedPreferences prefs = getSharedPreferences(
+                        LocationForegroundService.PREFS_NAME,
+                        android.content.Context.MODE_PRIVATE
+                );
+                boolean isTripActive = prefs.getBoolean("is_trip_active", false);
+
+                if (isTripActive) {
+                    // Anti-Tamper Lockdown: Active trip in transit! Re-enforce PiP immediately
+                    android.util.Log.w("MainActivity", "Anti-Tamper Lockdown: Active trip running! Relaunching PiP mode...");
+                    new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                        try {
+                            android.content.Intent relaunchIntent = new android.content.Intent(MainActivity.this, MainActivity.class);
+                            relaunchIntent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK | android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                            startActivity(relaunchIntent);
+                        } catch (Exception ignored) {}
+                    }, 300);
+                } else {
+                    // Normal standby mode — show floating bubble
+                    triggerBubbleShow();
+                }
             }
         } catch (Exception e) {
             android.util.Log.e("MainActivity", "Failed to dispatch JS event pipModeChanged", e);

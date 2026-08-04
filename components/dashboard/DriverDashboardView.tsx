@@ -237,6 +237,27 @@ export default function DriverDashboardView({ tab }: { tab?: string }) {
     };
   }, [assignment?.active_trip]);
 
+  // Real-time listener for trips table to sync Admin trip start/end instantly (<100ms)
+  useEffect(() => {
+    const bus = assignment?.bus;
+    if (!bus?.id) return;
+
+    const channel = supabaseClient
+      .channel('driver-trips-realtime-sync')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'trips', filter: `bus_id=eq.${bus.id}` },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['driver-assignment'] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabaseClient.removeChannel(channel);
+    };
+  }, [assignment?.bus?.id, queryClient]);
+
   // Initialize Geolocation Tracking Watcher globally when bus is assigned
   useEffect(() => {
     const bus = assignment?.bus;
