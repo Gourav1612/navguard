@@ -115,22 +115,45 @@ public class MainActivity extends BridgeActivity {
             if (!android.provider.Settings.canDrawOverlays(this)) {
                 if (!overlayPromptShownThisSession) {
                     overlayPromptShownThisSession = true;
+
+                    String message;
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        message = "NaviGuard needs 'Display Over Apps' permission for the floating tracking bubble.\n\n"
+                                + "⚠️ IF SETTING IS GREYED OUT (Restricted Setting):\n"
+                                + "1. Tap 'Open App Info' below\n"
+                                + "2. Tap top-right 3 dots (⋮)\n"
+                                + "3. Tap 'Allow restricted settings'\n"
+                                + "4. Go to 'Display over other apps' and turn ON!";
+                    } else {
+                        message = "NaviGuard needs to show a floating GPS tracking bubble when you switch away from the app.\n\n"
+                                + "Tap 'Allow' to enable this permission — it keeps tracking visible at all times.";
+                    }
+
                     new android.app.AlertDialog.Builder(this)
-                            .setTitle("Allow Display Over Other Apps")
-                            .setMessage("NaviGuard needs to show a floating GPS tracking bubble when you switch away from the app.\n\nTap \"Allow\" to enable this permission — it keeps tracking visible at all times.")
-                            .setPositiveButton("Allow", (dialog, which) -> {
+                            .setTitle("Display Over Other Apps")
+                            .setMessage(message)
+                            .setPositiveButton(Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU ? "Open App Info" : "Allow", (dialog, which) -> {
                                 try {
-                                    android.content.Intent intent = new android.content.Intent(
-                                            android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                                            android.net.Uri.parse("package:" + getPackageName())
-                                    );
-                                    startActivity(intent);
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                        // Open App Info directly so 3 dots menu (Allow restricted settings) is visible
+                                        android.content.Intent intent = new android.content.Intent(
+                                                android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                                android.net.Uri.parse("package:" + getPackageName())
+                                        );
+                                        startActivity(intent);
+                                    } else {
+                                        android.content.Intent intent = new android.content.Intent(
+                                                android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                                android.net.Uri.parse("package:" + getPackageName())
+                                        );
+                                        startActivity(intent);
+                                    }
                                 } catch (Exception e) {
                                     android.util.Log.e("MainActivity", "Failed to open overlay settings", e);
                                 }
                             })
-                            .setNegativeButton("Deny", (dialog, which) -> {
-                                android.util.Log.d("MainActivity", "User denied Display Over Apps permission");
+                            .setNegativeButton("Not Now", (dialog, which) -> {
+                                android.util.Log.d("MainActivity", "User dismissed Display Over Apps permission prompt");
                             })
                             .setCancelable(false)
                             .show();

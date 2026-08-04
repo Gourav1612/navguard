@@ -430,17 +430,18 @@ export default function DriverDashboardView({ tab }: { tab?: string }) {
           const { data: { session } } = await supabaseClient.auth.getSession();
           const token = session?.access_token;
           if (token) {
-            const isTripInTransit = !!activeTrip;
+            const isTripInTransit = true; // Always enable driver tracking & Auto-PiP when driver is logged in
             const result = await LocationService.startTracking({
               token,
               busId: bus.id,
               tripId: activeTrip?.trip_id || '',
-              isTripActive: isTripInTransit,
+              isTripActive: true,
               serverUrl: `${window.location.origin}/api/driver/location`,
             });
 
-            // Also explicitly notify native plugin of trip transit state
-            LocationService.setTripStatus({ isTripActive: isTripInTransit }).catch(() => {});
+            // Also explicitly notify native plugin of driver state
+            LocationService.setDriverStatus({ isDriver: true }).catch(() => {});
+            LocationService.setTripStatus({ isTripActive: true }).catch(() => {});
 
             // Show in-app overlay permission dialog if not granted
             if (result?.overlayPermissionNeeded) {
@@ -655,18 +656,31 @@ export default function DriverDashboardView({ tab }: { tab?: string }) {
       {/* Overlay Permission Dialog */}
       {showOverlayDialog && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/70 backdrop-blur-md p-4 animate-in fade-in duration-300">
-          <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-200 text-center">
-            <div className="w-16 h-16 bg-purple-100 border border-purple-200 rounded-2xl flex items-center justify-center mx-auto">
+          <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-200 text-center">
+            <div className="w-14 h-14 bg-purple-100 border border-purple-200 rounded-2xl flex items-center justify-center mx-auto">
               <span className="text-3xl">🫧</span>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <h3 className="text-lg font-black text-slate-900">Floating Bubble Permission</h3>
               <p className="text-slate-500 text-xs leading-relaxed font-medium">
-                NaviGuard needs <span className="text-purple-700 font-bold">"Display over other apps"</span> permission to show the live tracking bubble when the app is in the background.<br /><br />
-                Without this, the bubble won't appear after minimizing the app.
+                NaviGuard needs <span className="text-purple-700 font-bold">"Display over other apps"</span> permission to show the live tracking bubble when minimized.
               </p>
             </div>
-            <div className="flex flex-col gap-2.5">
+
+            {/* Android 13+ Restricted Settings Instruction Box */}
+            <div className="space-y-1.5 text-left bg-purple-50/70 border border-purple-200/80 rounded-2xl p-3.5 text-xs text-slate-700">
+              <p className="font-extrabold text-purple-900 text-[11px] uppercase tracking-wider mb-1 flex items-center gap-1">
+                <span>⚠️</span> If Setting is Greyed Out (Restricted):
+              </p>
+              <ol className="list-decimal pl-4 space-y-1 font-semibold text-[11px] text-slate-700">
+                <li>Tap <b className="text-purple-900">"Open App Info"</b> button below</li>
+                <li>Tap top-right 3 dots <b className="text-purple-900">(⋮)</b> menu</li>
+                <li>Tap <b className="text-purple-900">"Allow restricted settings"</b></li>
+                <li>Go to <b className="text-purple-900">"Display over other apps"</b> & turn ON</li>
+              </ol>
+            </div>
+
+            <div className="flex flex-col gap-2 pt-1">
               <button
                 onClick={async () => {
                   setShowOverlayDialog(false);
@@ -674,13 +688,13 @@ export default function DriverDashboardView({ tab }: { tab?: string }) {
                 }}
                 className="w-full py-3.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-xs font-black uppercase tracking-widest rounded-xl shadow-lg shadow-purple-500/25 cursor-pointer"
               >
-                Allow — Open Settings
+                Open App Info Page
               </button>
               <button
                 onClick={() => setShowOverlayDialog(false)}
-                className="w-full py-2.5 bg-slate-100 text-slate-500 text-[10px] font-bold uppercase tracking-wider rounded-xl cursor-pointer"
+                className="w-full py-2 bg-slate-100 text-slate-500 text-[10px] font-bold uppercase tracking-wider rounded-xl cursor-pointer"
               >
-                Not Now (Bubble disabled)
+                Not Now (Use PiP Only)
               </button>
             </div>
           </div>
