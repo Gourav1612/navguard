@@ -1,5 +1,5 @@
 {
-  "version": "1.0.72",
+  "version": "1.0.73",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: fix(pip): enable Auto-PiP for all logged in drivers on swipe home without overlay permission, and force instant background launch into PiP when Admin starts trip"
+  "releaseNotes": "Auto-build: fix(build): fully qualify android.content.SharedPreferences in LocationForegroundService.java resolving symbol error"
 }
