@@ -1,5 +1,5 @@
 {
-  "version": "1.0.71",
+  "version": "1.0.72",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: fix(pip): launch MainActivity from LocationForegroundService for privileged background BAL bypass, use 250ms RESUMED state delay for enterPictureInPictureMode, and support ACTION_EXIT_PIP on trip end"
+  "releaseNotes": "Auto-build: fix(pip): enable Auto-PiP for all logged in drivers on swipe home without overlay permission, and force instant background launch into PiP when Admin starts trip"
 }
