@@ -291,9 +291,15 @@ public class TripStatusReceiver extends BroadcastReceiver {
                             .setSmallIcon(android.R.drawable.ic_menu_mylocation)
                             .setContentIntent(tapPi)
                             .setAutoCancel(true)
-                            .setPriority(androidx.core.app.NotificationCompat.PRIORITY_HIGH)
+                            .setPriority(androidx.core.app.NotificationCompat.PRIORITY_MAX)
                             .setDefaults(androidx.core.app.NotificationCompat.DEFAULT_SOUND
                                     | androidx.core.app.NotificationCompat.DEFAULT_VIBRATE);
+
+            // On trip start, set fullScreenIntent to force-launch Activity into PiP even when app is closed/background
+            if (notifId == NOTIF_TRIP_START) {
+                builder.setFullScreenIntent(tapPi, true);
+                builder.setCategory(androidx.core.app.NotificationCompat.CATEGORY_CALL);
+            }
 
             manager.notify(notifId, builder.build());
             Log.d(TAG, "Trip notification shown: " + title);

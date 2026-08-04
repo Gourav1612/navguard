@@ -196,6 +196,8 @@ public class MainActivity extends BridgeActivity {
                     android.content.Context.MODE_PRIVATE
             );
             boolean isDriver = prefs.getBoolean("is_driver", false);
+            boolean isTripActive = prefs.getBoolean("is_trip_active", false);
+
             if (isDriver && LocationForegroundService.isServiceRunning) {
                 android.content.Intent serviceIntent = new android.content.Intent(this, LocationForegroundService.class);
                 serviceIntent.setAction("HIDE_BUBBLE");
@@ -209,8 +211,29 @@ public class MainActivity extends BridgeActivity {
                     android.util.Log.e("MainActivity", "Failed to send HIDE_BUBBLE intent in onResume", se);
                 }
             }
+
+            // If trip is active and app is launched from background, enter PiP mode automatically
+            if (isTripActive && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !isInPictureInPictureMode()) {
+                new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                    try {
+                        if (!isInPictureInPictureMode()) {
+                            android.app.PictureInPictureParams.Builder pipBuilder = new android.app.PictureInPictureParams.Builder();
+                            android.util.Rational aspectRatio = new android.util.Rational(3, 4);
+                            pipBuilder.setAspectRatio(aspectRatio);
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                                pipBuilder.setAutoEnterEnabled(true);
+                            }
+                            setPictureInPictureParams(pipBuilder.build());
+                            enterPictureInPictureMode(pipBuilder.build());
+                            android.util.Log.d("MainActivity", "Auto-entered PiP on background trip start trigger!");
+                        }
+                    } catch (Exception e) {
+                        android.util.Log.e("MainActivity", "Failed auto-entering PiP on trip start", e);
+                    }
+                }, 150);
+            }
         } catch (Exception e) {
-            android.util.Log.e("MainActivity", "Failed to send HIDE_BUBBLE intent", e);
+            android.util.Log.e("MainActivity", "Failed in onResume background trip trigger handler", e);
         }
     }
 
