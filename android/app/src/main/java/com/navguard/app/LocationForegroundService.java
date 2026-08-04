@@ -806,7 +806,15 @@ public class LocationForegroundService extends Service {
             if (Build.VERSION.SDK_INT >= 34) { // Android 14, 15, 16
                 try {
                     android.app.ActivityOptions options = android.app.ActivityOptions.makeBasic();
-                    options.setPendingIntentBackgroundActivityStartMode(android.app.ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED);
+                    try {
+                        java.lang.reflect.Method method = options.getClass().getMethod("setPendingIntentBackgroundActivityStartMode", int.class);
+                        method.invoke(options, 1); // 1 = MODE_BACKGROUND_ACTIVITY_START_ALLOWED
+                    } catch (Throwable t) {
+                        try {
+                            java.lang.reflect.Method m2 = options.getClass().getMethod("setPendingIntentCreatorBackgroundActivityStartMode", int.class);
+                            m2.invoke(options, 1);
+                        } catch (Throwable ignored) {}
+                    }
                     startActivity(intent, options.toBundle());
                     return;
                 } catch (Throwable ignored) {}
