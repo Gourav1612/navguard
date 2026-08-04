@@ -1,5 +1,5 @@
 {
-  "version": "1.0.73",
+  "version": "1.0.74",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: fix(build): fully qualify android.content.SharedPreferences in LocationForegroundService.java resolving symbol error"
+  "releaseNotes": "Auto-build: fix(build): fully qualify android.content.SharedPreferences in line 703 of LocationForegroundService.java resolving compilation error"
 }
