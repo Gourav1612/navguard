@@ -1,5 +1,5 @@
 {
-  "version": "1.0.63",
+  "version": "1.0.64",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: fix(pip): enable PiP for all active drivers regardless of trip status - remove isTripActive gate from onUserLeaveHint and Auto-PiP config"
+  "releaseNotes": "Auto-build: feat(android): in-app overlay permission dialog on first start + floating bubble arrow peek after 10s inactivity with semi-transparent arrow tab shape"
 }
