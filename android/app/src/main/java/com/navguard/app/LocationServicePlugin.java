@@ -90,6 +90,10 @@ public class LocationServicePlugin extends Plugin {
             Log.e("LocationServicePlugin", "Failed to start foreground service", e);
         }
 
+        // Start polling for admin trip status changes every 30s
+        TripStatusReceiver.scheduleNextPoll(getContext());
+        Log.d("LocationServicePlugin", "Started trip status polling");
+
         // Enable Auto-PiP on Android 12+ dynamically ONLY if a trip is active in transit
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && getActivity() != null) {
             getActivity().runOnUiThread(() -> {
@@ -135,6 +139,10 @@ public class LocationServicePlugin extends Plugin {
                 Context.MODE_PRIVATE
         );
         prefs.edit().clear().apply();
+
+        // Cancel trip status polling
+        TripStatusReceiver.cancelPolling(getContext());
+        Log.d("LocationServicePlugin", "Stopped trip status polling");
 
         // Also delete the credentials file
         try {
