@@ -102,11 +102,39 @@ public class MainActivity extends BridgeActivity {
                                     }
                                 }
                             })
-                            .setNegativeButton("Not Now", (dialog, which) -> {
+                             .setNegativeButton("Not Now", (dialog, which) -> {
                                 batteryPromptShownThisSession = true;
+                             })
+                             .setCancelable(false)
+                             .show();
+            }
+        }
+
+        // 4. Request SYSTEM_ALERT_WINDOW ("Display over other apps") permission — needed for floating bubble
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if (!android.provider.Settings.canDrawOverlays(this)) {
+                if (!overlayPromptShownThisSession) {
+                    overlayPromptShownThisSession = true;
+                    new android.app.AlertDialog.Builder(this)
+                            .setTitle("Allow Display Over Other Apps")
+                            .setMessage("NaviGuard needs to show a floating GPS tracking bubble when you switch away from the app.\n\nTap \"Allow\" to enable this permission — it keeps tracking visible at all times.")
+                            .setPositiveButton("Allow", (dialog, which) -> {
+                                try {
+                                    android.content.Intent intent = new android.content.Intent(
+                                            android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                            android.net.Uri.parse("package:" + getPackageName())
+                                    );
+                                    startActivity(intent);
+                                } catch (Exception e) {
+                                    android.util.Log.e("MainActivity", "Failed to open overlay settings", e);
+                                }
+                            })
+                            .setNegativeButton("Deny", (dialog, which) -> {
+                                android.util.Log.d("MainActivity", "User denied Display Over Apps permission");
                             })
                             .setCancelable(false)
                             .show();
+                }
             }
         }
     }
