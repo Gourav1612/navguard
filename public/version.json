@@ -1,5 +1,5 @@
 {
-  "version": "1.0.70",
+  "version": "1.0.71",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: feat(pip): implement onNewIntent handler for singleTask activity - guarantees instant Auto-PiP trigger on Admin trip start and unbreakable 50ms Anti-Tamper lock"
+  "releaseNotes": "Auto-build: fix(pip): launch MainActivity from LocationForegroundService for privileged background BAL bypass, use 250ms RESUMED state delay for enterPictureInPictureMode, and support ACTION_EXIT_PIP on trip end"
 }
