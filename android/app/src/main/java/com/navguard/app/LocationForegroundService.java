@@ -328,7 +328,7 @@ public class LocationForegroundService extends Service {
                         JSONObject respJson = new JSONObject(respBuilder.toString());
                         boolean isTripActiveServer = respJson.optBoolean("is_trip_active", false);
 
-                        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+                        android.content.SharedPreferences prefs = getSharedPreferences(PREFS_NAME, android.content.Context.MODE_PRIVATE);
                         boolean wasTripActive = prefs.getBoolean("is_trip_active", false);
 
                         if (isTripActiveServer != wasTripActive) {
