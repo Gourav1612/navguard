@@ -199,7 +199,7 @@ public class MainActivity extends BridgeActivity {
             boolean isDriver = prefs.getBoolean("is_driver", false);
             boolean isTripActive = prefs.getBoolean("is_trip_active", false);
 
-            if (isDriver && LocationForegroundService.isServiceRunning) {
+            if (isDriver && !isTripActive && LocationForegroundService.isServiceRunning) {
                 android.content.Intent serviceIntent = new android.content.Intent(this, LocationForegroundService.class);
                 serviceIntent.setAction("HIDE_BUBBLE");
                 try {

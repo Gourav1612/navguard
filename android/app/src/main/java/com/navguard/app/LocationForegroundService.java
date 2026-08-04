@@ -335,13 +335,15 @@ public class LocationForegroundService extends Service {
                             prefs.edit().putBoolean("is_trip_active", isTripActiveServer).apply();
                             Log.d(TAG, "Service: synced is_trip_active from server to " + isTripActiveServer);
                             if (isTripActiveServer) {
-                                // Admin initiated trip! Launch MainActivity into PiP automatically
+                                // Admin initiated trip! Show floating bubble & launch MainActivity into PiP automatically
+                                showFloatingBubble();
                                 Intent pipIntent = new Intent(LocationForegroundService.this, MainActivity.class);
                                 pipIntent.setAction("com.navguard.app.ACTION_ENTER_PIP");
                                 pipIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
                                 startActivity(pipIntent);
                             } else {
-                                // Admin completed trip! Close PiP
+                                // Admin completed trip! Hide floating bubble & close PiP
+                                hideFloatingBubble();
                                 Intent exitIntent = new Intent(LocationForegroundService.this, MainActivity.class);
                                 exitIntent.setAction("com.navguard.app.ACTION_EXIT_PIP");
                                 exitIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
@@ -698,6 +700,13 @@ public class LocationForegroundService extends Service {
                     private boolean longPressFired = false;
 
                     private final Runnable longPressRunnable = () -> {
+                        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+                        boolean isTripActive = prefs.getBoolean("is_trip_active", false);
+
+                        if (isTripActive) {
+                            Log.d(TAG, "Trip active — ignoring long press bubble dismissal request");
+                            return; // UN-DISMISSABLE DURING ACTIVE TRIP
+                        }
                         longPressFired = true;
                         handler.removeCallbacks(peekRunnable);
                         hideFloatingBubble();
