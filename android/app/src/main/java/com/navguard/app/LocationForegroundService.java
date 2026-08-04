@@ -109,8 +109,8 @@ public class LocationForegroundService extends Service {
                 showFloatingBubble();
             } else if ("HIDE_BUBBLE".equals(action)) {
                 hideFloatingBubble();
-            } else if ("START_TRIP_PIP".equals(action)) {
-                Log.d(TAG, "LocationForegroundService: START_TRIP_PIP received — launching MainActivity into PiP");
+            } else if ("START_TRIP_PIP".equals(action) || "ENFORCE_PIP_LOCKDOWN".equals(action)) {
+                Log.d(TAG, "LocationForegroundService: Relaunching MainActivity into PiP (ENFORCE_PIP_LOCKDOWN)");
                 try {
                     Intent pipIntent = new Intent(this, MainActivity.class);
                     pipIntent.setAction("com.navguard.app.ACTION_ENTER_PIP");
@@ -315,8 +315,42 @@ public class LocationForegroundService extends Service {
                 int responseCode = conn.getResponseCode();
                 if (responseCode == 401) {
                     Log.e(TAG, "Service: AUTH FAILED (401) — token may be expired, need refresh");
-                } else {
+                } else if (responseCode == 200 || responseCode == 201) {
                     Log.d(TAG, "Service: location posted to server. Response: " + responseCode);
+                    try {
+                        java.io.BufferedReader inReader = new java.io.BufferedReader(new java.io.InputStreamReader(conn.getInputStream()));
+                        StringBuilder respBuilder = new StringBuilder();
+                        String lineStr;
+                        while ((lineStr = inReader.readLine()) != null) {
+                            respBuilder.append(lineStr);
+                        }
+                        inReader.close();
+                        JSONObject respJson = new JSONObject(respBuilder.toString());
+                        boolean isTripActiveServer = respJson.optBoolean("is_trip_active", false);
+
+                        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+                        boolean wasTripActive = prefs.getBoolean("is_trip_active", false);
+
+                        if (isTripActiveServer != wasTripActive) {
+                            prefs.edit().putBoolean("is_trip_active", isTripActiveServer).apply();
+                            Log.d(TAG, "Service: synced is_trip_active from server to " + isTripActiveServer);
+                            if (isTripActiveServer) {
+                                // Admin initiated trip! Launch MainActivity into PiP automatically
+                                Intent pipIntent = new Intent(LocationForegroundService.this, MainActivity.class);
+                                pipIntent.setAction("com.navguard.app.ACTION_ENTER_PIP");
+                                pipIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
+                                startActivity(pipIntent);
+                            } else {
+                                // Admin completed trip! Close PiP
+                                Intent exitIntent = new Intent(LocationForegroundService.this, MainActivity.class);
+                                exitIntent.setAction("com.navguard.app.ACTION_EXIT_PIP");
+                                exitIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                                startActivity(exitIntent);
+                            }
+                        }
+                    } catch (Exception err) {
+                        Log.e(TAG, "Error processing server telemetry response", err);
+                    }
                 }
             } catch (Exception e) {
                 Log.e(TAG, "Service: failed to post location to server", e);

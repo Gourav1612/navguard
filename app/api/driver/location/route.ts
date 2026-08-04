@@ -205,10 +205,20 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Fetch latest bus is_trip_active status
+    const { data: busData } = await adminSupabase
+      .from('buses')
+      .select('is_trip_active')
+      .eq('id', bus_id)
+      .maybeSingle();
+
+    const isTripActive = busData?.is_trip_active || false;
+
     return NextResponse.json(
       {
         id: newLocation.id,
         recorded_at: newLocation.recorded_at,
+        is_trip_active: isTripActive,
       },
       { status: 201 }
     );

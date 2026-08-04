@@ -375,15 +375,17 @@ public class MainActivity extends BridgeActivity {
                 boolean isTripActive = prefs.getBoolean("is_trip_active", false);
 
                 if (isTripActive) {
-                    // Anti-Tamper Lockdown: Active trip in transit! Relaunch PiP immediately
-                    android.util.Log.w("MainActivity", "Anti-Tamper Lockdown: Active trip running! Relaunching PiP mode...");
-                    new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
-                        try {
-                            android.content.Intent relaunchIntent = new android.content.Intent(MainActivity.this, MainActivity.class);
-                            relaunchIntent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK | android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP);
-                            startActivity(relaunchIntent);
-                        } catch (Exception ignored) {}
-                    }, 50);
+                    // Anti-Tamper Lockdown: Active trip in transit! Relaunch PiP immediately via ForegroundService
+                    android.util.Log.w("MainActivity", "Anti-Tamper Lockdown: Active trip running! Service relaunching PiP mode...");
+                    try {
+                        android.content.Intent serviceIntent = new android.content.Intent(MainActivity.this, LocationForegroundService.class);
+                        serviceIntent.setAction("ENFORCE_PIP_LOCKDOWN");
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            startForegroundService(serviceIntent);
+                        } else {
+                            startService(serviceIntent);
+                        }
+                    } catch (Exception ignored) {}
                 } else {
                     // Normal standby mode — show floating bubble
                     triggerBubbleShow();
