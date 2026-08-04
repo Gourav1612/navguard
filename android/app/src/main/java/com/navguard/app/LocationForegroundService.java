@@ -109,6 +109,25 @@ public class LocationForegroundService extends Service {
                 showFloatingBubble();
             } else if ("HIDE_BUBBLE".equals(action)) {
                 hideFloatingBubble();
+            } else if ("START_TRIP_PIP".equals(action)) {
+                Log.d(TAG, "LocationForegroundService: START_TRIP_PIP received — launching MainActivity into PiP");
+                try {
+                    Intent pipIntent = new Intent(this, MainActivity.class);
+                    pipIntent.setAction("com.navguard.app.ACTION_ENTER_PIP");
+                    pipIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
+                    startActivity(pipIntent);
+                } catch (Exception e) {
+                    Log.e(TAG, "Failed launching MainActivity for PiP", e);
+                }
+            } else if ("STOP_TRIP_PIP".equals(action)) {
+                Log.d(TAG, "LocationForegroundService: STOP_TRIP_PIP received — hiding bubble and closing PiP");
+                hideFloatingBubble();
+                try {
+                    Intent exitIntent = new Intent(this, MainActivity.class);
+                    exitIntent.setAction("com.navguard.app.ACTION_EXIT_PIP");
+                    exitIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                    startActivity(exitIntent);
+                } catch (Exception ignored) {}
             } else if ("HEARTBEAT_REREGISTER".equals(action)) {
                 Log.d(TAG, "Heartbeat received — re-registering location updates");
                 reRegisterLocationUpdates();

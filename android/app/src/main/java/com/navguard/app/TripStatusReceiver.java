@@ -167,13 +167,18 @@ public class TripStatusReceiver extends BroadcastReceiver {
                                 "Live transit trip initiated. Tracking & PiP Mode active.",
                                 NOTIF_TRIP_START);
 
-                        // Auto-launch activity into PiP mode when trip starts
+                        // Notify LocationForegroundService to trigger Auto-PiP via ForegroundService
                         try {
-                            Intent startIntent = new Intent(context, MainActivity.class);
-                            startIntent.setAction("com.navguard.app.ACTION_ENTER_PIP");
-                            startIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
-                            context.startActivity(startIntent);
-                        } catch (Exception ignored) {}
+                            Intent serviceIntent = new Intent(context, LocationForegroundService.class);
+                            serviceIntent.setAction("START_TRIP_PIP");
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                context.startForegroundService(serviceIntent);
+                            } else {
+                                context.startService(serviceIntent);
+                            }
+                        } catch (Exception e) {
+                            Log.e(TAG, "Failed sending START_TRIP_PIP to LocationForegroundService", e);
+                        }
                     }
                 } else if (newTripId == null && fileTripId != null) {
                     // Trip ended — clear trip_id from credentials
@@ -186,16 +191,18 @@ public class TripStatusReceiver extends BroadcastReceiver {
                     prefs.edit().putBoolean("is_trip_active", false).apply();
                     Log.d(TAG, "Poll: trip ended, cleared trip_id (is_trip_active=false)");
 
-                    // Hide floating bubble on trip completion
+                    // Send STOP_TRIP_PIP to LocationForegroundService to hide bubble and exit PiP
                     try {
-                        Intent hideIntent = new Intent(context, LocationForegroundService.class);
-                        hideIntent.setAction("HIDE_BUBBLE");
+                        Intent serviceIntent = new Intent(context, LocationForegroundService.class);
+                        serviceIntent.setAction("STOP_TRIP_PIP");
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                            context.startForegroundService(hideIntent);
+                            context.startForegroundService(serviceIntent);
                         } else {
-                            context.startService(hideIntent);
+                            context.startService(serviceIntent);
                         }
-                    } catch (Exception ignored) {}
+                    } catch (Exception e) {
+                        Log.e(TAG, "Failed sending STOP_TRIP_PIP to LocationForegroundService", e);
+                    }
 
                     showTripNotification(context,
                             "🏁 Trip Completed by Admin",

@@ -301,7 +301,15 @@ public class MainActivity extends BridgeActivity {
     protected void onNewIntent(android.content.Intent intent) {
         super.onNewIntent(intent);
         setIntent(intent);
-        android.util.Log.d("MainActivity", "onNewIntent received: " + intent.getAction());
+        android.util.Log.d("MainActivity", "onNewIntent received: " + (intent != null ? intent.getAction() : "null"));
+
+        if (intent != null && "com.navguard.app.ACTION_EXIT_PIP".equals(intent.getAction())) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && isInPictureInPictureMode()) {
+                finishAndRemoveTask();
+            }
+            return;
+        }
+
         checkAndEnterPipIfTripActive();
     }
 
@@ -324,16 +332,17 @@ public class MainActivity extends BridgeActivity {
                     }
                     setPictureInPictureParams(pipBuilder.build());
 
+                    // Wait 250ms until Activity reaches RESUMED state before calling enterPictureInPictureMode
                     new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
                         try {
-                            if (!isInPictureInPictureMode()) {
+                            if (!isInPictureInPictureMode() && isPictureInPictureAllowed()) {
                                 boolean entered = enterPictureInPictureMode(pipBuilder.build());
                                 android.util.Log.d("MainActivity", "enterPictureInPictureMode result: " + entered);
                             }
                         } catch (Exception e) {
                             android.util.Log.e("MainActivity", "Failed entering PiP in checkAndEnterPipIfTripActive", e);
                         }
-                    }, 50);
+                    }, 250);
                 } catch (Exception e) {
                     android.util.Log.e("MainActivity", "Failed setting PiP params in checkAndEnterPipIfTripActive", e);
                 }
