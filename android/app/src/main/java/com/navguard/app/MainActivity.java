@@ -160,28 +160,32 @@ public class MainActivity extends BridgeActivity {
                 }
             }
         }
-    }
 
         // Configure Auto Picture-in-Picture conditionally on resume (Android 12+)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             try {
                 if (isPictureInPictureAllowed()) {
-                    // Driver is active if tracking_credentials.json exists
+                    android.content.SharedPreferences prefs = getSharedPreferences(
+                            LocationForegroundService.PREFS_NAME,
+                            android.content.Context.MODE_PRIVATE
+                    );
+                    boolean isDriver = prefs.getBoolean("is_driver", false);
                     java.io.File credsFile = new java.io.File(getFilesDir(), "tracking_credentials.json");
-                    boolean isDriver = credsFile.exists();
+                    boolean hasCreds = credsFile.exists();
+
+                    boolean enableAutoPip = isDriver || hasCreds;
 
                     android.app.PictureInPictureParams.Builder builder = new android.app.PictureInPictureParams.Builder();
-                    // Always enable Auto-PiP for active drivers (regardless of trip status)
-                    builder.setAutoEnterEnabled(isDriver);
-                    if (isDriver) {
+                    builder.setAutoEnterEnabled(enableAutoPip);
+                    if (enableAutoPip) {
                         android.util.Rational aspectRatio = new android.util.Rational(3, 4);
                         builder.setAspectRatio(aspectRatio);
                     }
                     setPictureInPictureParams(builder.build());
-                    android.util.Log.d("MainActivity", "Configured Auto-PiP: isDriver=" + isDriver);
+                    android.util.Log.d("MainActivity", "Configured Auto-PiP onResume: enableAutoPip=" + enableAutoPip);
                 }
             } catch (Exception e) {
-                android.util.Log.e("MainActivity", "Failed to configure Auto-PiP parameters", e);
+                android.util.Log.e("MainActivity", "Failed to configure Auto-PiP parameters onResume", e);
             }
         }
 
