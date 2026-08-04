@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // Update bus status
+      // Update bus status or metadata
       await adminClient
         .from('buses')
         .update({ is_trip_active: true } as any)

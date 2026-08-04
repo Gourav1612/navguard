@@ -32,10 +32,17 @@ export async function GET() {
       );
     }
 
+    // Fetch active trips to map is_trip_active accurately
+    const { data: activeTrips = [] } = await supabase
+      .from('trips')
+      .select('bus_id')
+      .eq('status', 'active');
+
+    const activeBusIdSet = new Set((activeTrips || []).map((t: any) => t.bus_id));
+
     // Map nested data to output schema format
     const mapped = (buses || []).map((bus: any) => {
       const driverObj = Array.isArray(bus.driver) ? bus.driver[0] : bus.driver;
-      // Note: routes can be one-to-many. In nested fetch it returns as array or single.
       const routeObj = Array.isArray(bus.route) ? bus.route[0] : bus.route;
 
       return {
@@ -45,6 +52,7 @@ export async function GET() {
         registration_plate: bus.registration_plate,
         capacity: bus.capacity,
         status: bus.status,
+        is_trip_active: bus.is_trip_active === true || activeBusIdSet.has(bus.id),
         driver: driverObj
           ? {
               id: driverObj.id,

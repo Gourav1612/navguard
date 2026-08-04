@@ -15,6 +15,7 @@ export default function AdminBuses() {
   const queryClient = useQueryClient();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingBusId, setEditingBusId] = useState<string | null>(null);
+  const [togglingBusId, setTogglingBusId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Fetch buses list
@@ -251,15 +252,21 @@ export default function AdminBuses() {
                 </div>
                 <div className="mt-4 pt-3 border-t border-slate-100">
                   <button
-                    onClick={() => toggleTripMutation.mutate({ busId: bus.id, action: bus.is_trip_active ? 'end' : 'start' })}
-                    disabled={toggleTripMutation.isPending}
+                    onClick={() => {
+                      setTogglingBusId(bus.id);
+                      toggleTripMutation.mutate(
+                        { busId: bus.id, action: bus.is_trip_active ? 'end' : 'start' },
+                        { onSettled: () => setTogglingBusId(null) }
+                      );
+                    }}
+                    disabled={togglingBusId === bus.id}
                     className={`w-full py-2.5 px-3 rounded-xl text-xs font-black uppercase tracking-wider transition flex items-center justify-center gap-1.5 cursor-pointer shadow-sm ${
                       bus.is_trip_active
                         ? 'bg-red-600 hover:bg-red-700 text-white shadow-red-500/20'
                         : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20'
                     }`}
                   >
-                    {toggleTripMutation.isPending ? (
+                    {togglingBusId === bus.id ? (
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
                     ) : bus.is_trip_active ? (
                       <>🛑 End Live Trip</>
