@@ -23,6 +23,7 @@ export async function POST(req: NextRequest) {
 
   const { user, profile } = auth;
   const supabase = await createSupabaseServerClient();
+  const adminSupabase = createAdminClient();
 
   try {
     const body = await req.json();
@@ -37,10 +38,10 @@ export async function POST(req: NextRequest) {
 
     const { bus_id, trip_id, latitude, longitude, speed, heading } = parsed.data;
 
-    // 1. Fetch driver profile to verify ownership of the bus
+    // 1. Fetch driver profile & bus details
     const { data: driver, error: driverErr } = await supabase
       .from('drivers')
-      .select('id, bus_id')
+      .select('id, bus_id, school_id')
       .eq('user_id', user.id)
       .single();
 
@@ -59,182 +60,135 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    let trip = null;
+    // Fetch bus details to get route_id & school_id
+    const { data: bus } = await adminSupabase
+      .from('buses')
+      .select('id, bus_number, route_id, school_id')
+      .eq('id', bus_id)
+      .single();
 
-    if (trip_id) {
-      // 2. Verify trip is active and belongs to this driver
-      const { data: tripRaw, error: tripErr } = await supabase
-        .from('trips')
-        .select('id, status, driver_id, route_id')
-        .eq('id', trip_id)
-        .maybeSingle();
+    const activeSchoolId = bus?.school_id || driver.school_id || profile?.school_id;
+    const activeRouteId = bus?.route_id;
 
-      if (tripErr || !tripRaw) {
-        return NextResponse.json(
-          { error: 'Trip record not found', code: 'NOT_FOUND' },
-          { status: 404 }
-        );
-      }
-
-      if (tripRaw.driver_id !== driver.id || tripRaw.status !== 'active') {
-        return NextResponse.json(
-          { error: 'Forbidden: Trip is inactive or belongs to another driver', code: 'FORBIDDEN' },
-          { status: 403 }
-        );
-      }
-
-      trip = tripRaw;
-    }
-
-    // A. Geofence Check: Verify location is close to assigned route's stops (Only if active trip exists)
-    if (trip && trip.route_id) {
-      const { data: stops } = await supabase
-        .from('stops')
-        .select('latitude, longitude')
-        .eq('route_id', trip.route_id);
-
-      if (stops && stops.length > 0) {
-        let isWithinGeofence = false;
-        for (const stop of stops) {
-          const dist = getDistance(latitude, longitude, Number(stop.latitude), Number(stop.longitude));
-          if (dist <= 5000) { // 5km geofence threshold
-            isWithinGeofence = true;
-            break;
-          }
-        }
-
-        if (!isWithinGeofence) {
-          return NextResponse.json(
-            { error: 'Forbidden: Location is too far from the assigned route stops (Geofence exceeded)', code: 'ROUTE_DEVIATION' },
-            { status: 400 }
-          );
-        }
-      }
-    }
-
-    // B. Anti-GPS Spoofing Check: Verify speed/velocity logic
-    const { data: lastLoc } = await supabase
+    // 2. Fetch last recorded bus location to check for movement & idle halt time
+    const { data: lastLoc } = await adminSupabase
       .from('bus_locations')
       .select('latitude, longitude, recorded_at')
-      .eq(trip_id ? 'trip_id' : 'bus_id', trip_id || bus_id)
+      .eq('bus_id', bus_id)
       .order('recorded_at', { ascending: false })
       .limit(1)
       .maybeSingle();
 
     if (lastLoc) {
-      const distance = getDistance(
+      const distFromLast = getDistance(
         Number(lastLoc.latitude),
         Number(lastLoc.longitude),
         latitude,
         longitude
       );
 
-      const timeDiffSeconds = (new Date().getTime() - new Date(lastLoc.recorded_at).getTime()) / 1000;
-      if (timeDiffSeconds > 0) {
-        const calculatedSpeedKmh = (distance / timeDiffSeconds) * 3.6;
-        if (distance > 50 && calculatedSpeedKmh > 150) {
+      const timeDiffSec = (Date.now() - new Date(lastLoc.recorded_at).getTime()) / 1000;
+
+      // Anti-GPS Spoofing Check
+      if (timeDiffSec > 0) {
+        const calculatedSpeedKmh = (distFromLast / timeDiffSec) * 3.6;
+        if (distFromLast > 50 && calculatedSpeedKmh > 150) {
           return NextResponse.json(
             { error: 'Forbidden: Anomalous telemetry data (GPS spoofing threshold exceeded)', code: 'SPOOFING_DETECTED' },
             { status: 400 }
           );
         }
       }
+
+      // ⏱️ 10-MINUTE HALT / IDLE TIMEOUT ALERT
+      // If bus moved less than 15 meters and time passed is > 10 minutes
+      const lastHaltStart = Number(user.user_metadata?.halt_started_at || 0);
+      const haltAlertSent = user.user_metadata?.halt_alert_sent === true;
+
+      if (distFromLast < 15) {
+        const haltStartTime = lastHaltStart || Date.now();
+        const haltDurationMins = (Date.now() - haltStartTime) / (1000 * 60);
+
+        if (!lastHaltStart) {
+          await adminSupabase.auth.admin.updateUserById(user.id, {
+            user_metadata: { ...user.user_metadata, halt_started_at: haltStartTime },
+          });
+        }
+
+        if (haltDurationMins >= 10 && !haltAlertSent) {
+          // Trigger Extended Halt Alert Notification for Admin
+          if (activeSchoolId) {
+            await adminSupabase.from('notifications').insert({
+              school_id: activeSchoolId,
+              title: '⏱️ Extended Bus Halt Alert',
+              message: `Bus ${bus?.bus_number || bus_id} has been stationary at the same position for over 10 minutes.`,
+              type: 'general',
+            });
+          }
+
+          // Mark halt alert as sent to prevent spamming
+          await adminSupabase.auth.admin.updateUserById(user.id, {
+            user_metadata: { ...user.user_metadata, halt_alert_sent: true },
+          });
+        }
+      } else {
+        // Bus moved > 15m: Reset halt tracker
+        if (lastHaltStart || haltAlertSent) {
+          await adminSupabase.auth.admin.updateUserById(user.id, {
+            user_metadata: { ...user.user_metadata, halt_started_at: null, halt_alert_sent: false },
+          });
+        }
+      }
     }
 
-    // Proximity / Deviation Alerts Check (Only if active trip exists)
-    if (trip && trip.route_id) {
-      const { data: stops = [] } = await supabase
+    // ⚠️ 3. ROUTE DEVIATION CHECK (> 300m off-route)
+    if (activeRouteId) {
+      const { data: stops = [] } = await adminSupabase
         .from('stops')
-        .select('*')
-        .eq('route_id', trip.route_id)
-        .order('stop_order', { ascending: true });
+        .select('latitude, longitude, name')
+        .eq('route_id', activeRouteId);
 
       if (stops && stops.length > 0) {
-        // Fetch stops passed so far in this trip from audit logs
-        const { data: passedLogs = [] } = await supabase
-          .from('audit_logs')
-          .select('record_id')
-          .eq('action', 'STOP_PASSED')
-          .filter('new_values->>trip_id', 'eq', trip_id);
-
-        const passedStopIds = new Set((passedLogs || []).map((l: any) => l.record_id));
-
-        // Find closest stop index to the current location of the bus
-        let closestStopIdx = -1;
-        let minDistance = Infinity;
-        const distances = stops.map((stop: any, idx: number) => {
+        let minDistanceToRoute = Infinity;
+        for (const stop of stops) {
           const dist = getDistance(latitude, longitude, Number(stop.latitude), Number(stop.longitude));
-          if (dist < minDistance) {
-            minDistance = dist;
-            closestStopIdx = idx;
+          if (dist < minDistanceToRoute) {
+            minDistanceToRoute = dist;
           }
-          return dist;
-        });
+        }
 
-        // If closestStopIdx is valid, any stops before closestStopIdx that are not marked passed
-        // and are currently > 500m away have been bypassed.
-        if (closestStopIdx >= 0) {
-          for (let i = 0; i < closestStopIdx; i++) {
-            const stop = stops[i];
-            const dist = distances[i];
+        // If minimum distance from any route stop exceeds 300 meters
+        if (minDistanceToRoute > 300) {
+          const lastDevAlert = Number(user.user_metadata?.last_deviation_alert_at || 0);
+          const canSendDevAlert = Date.now() - lastDevAlert > 5 * 60 * 1000; // 5-min cooldown
 
-            if (!passedStopIds.has(stop.id) && dist > 500) {
-              // Find students assigned to this stop
-              const { data: students = [] } = await supabase
-                .from('student_profiles')
-                .select(`
-                  id,
-                  user:user_profiles (
-                    full_name
-                  )
-                `)
-                .eq('bus_id', bus_id)
-                .eq('stop_id', stop.id);
+          if (canSendDevAlert && activeSchoolId) {
+            await adminSupabase.from('notifications').insert({
+              school_id: activeSchoolId,
+              title: '⚠️ Route Deviation Alert',
+              message: `Bus ${bus?.bus_number || bus_id} has drifted ${Math.round(minDistanceToRoute)}m off its scheduled route alignment.`,
+              type: 'general',
+            });
 
-              for (const student of (students || [])) {
-                const studentName = (student.user as any)?.full_name || 'A student';
-                const alertBody = `${studentName} did not de-board at designated stop (${stop.name}) on trip ${trip_id}.`;
-                
-                // Verify if warning is already sent to prevent spamming
-                const { data: existingAlerts } = await supabase
-                  .from('announcements')
-                  .select('id')
-                  .eq('title', '⚠️ Route Deviation Alert')
-                  .eq('body', alertBody);
-
-                if (!existingAlerts || existingAlerts.length === 0) {
-                  const adminClient = createAdminClient();
-                  await adminClient.from('announcements').insert({
-                    school_id: profile?.school_id,
-                    created_by: user.id,
-                    title: '⚠️ Route Deviation Alert',
-                    body: alertBody,
-                    target_role: 'all',
-                  });
-                }
-              }
-            }
+            await adminSupabase.auth.admin.updateUserById(user.id, {
+              user_metadata: { ...user.user_metadata, last_deviation_alert_at: Date.now() },
+            });
           }
         }
       }
     }
 
-    // 3. Log GPS coordinates using adminClient to bypass insert RLS active-trip constraint on bus_locations
-    const adminSupabase = createAdminClient();
-
-    // First, delete any previous locations for this bus to ensure only the latest location is saved
+    // 4. Update / Insert latest bus location in bus_locations table
     await adminSupabase
       .from('bus_locations')
       .delete()
       .eq('bus_id', bus_id);
 
-
-
     const { data: newLocation, error: locErr } = await adminSupabase
       .from('bus_locations')
       .insert({
         bus_id,
-        trip_id,
+        trip_id: trip_id || null,
         latitude,
         longitude,
         speed,

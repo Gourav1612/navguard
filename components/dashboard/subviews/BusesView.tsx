@@ -105,6 +105,27 @@ export default function AdminBuses() {
     },
   });
 
+  // Mutate toggle trip (Admin Start / Stop Trip)
+  const toggleTripMutation = useMutation({
+    mutationFn: async ({ busId, action }: { busId: string; action: 'start' | 'end' }) => {
+      const res = await fetch('/api/admin/trips/toggle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bus_id: busId, action }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to toggle trip');
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-buses'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-dashboard'] });
+    },
+    onError: (err: any) => {
+      alert(err.message);
+    },
+  });
+
   const handleOpenAddModal = () => {
     setEditingBusId(null);
     setErrorMessage(null);
@@ -228,9 +249,28 @@ export default function AdminBuses() {
                     )}
                   </span>
                 </div>
+                <div className="mt-4 pt-3 border-t border-slate-100">
+                  <button
+                    onClick={() => toggleTripMutation.mutate({ busId: bus.id, action: bus.is_trip_active ? 'end' : 'start' })}
+                    disabled={toggleTripMutation.isPending}
+                    className={`w-full py-2.5 px-3 rounded-xl text-xs font-black uppercase tracking-wider transition flex items-center justify-center gap-1.5 cursor-pointer shadow-sm ${
+                      bus.is_trip_active
+                        ? 'bg-red-600 hover:bg-red-700 text-white shadow-red-500/20'
+                        : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20'
+                    }`}
+                  >
+                    {toggleTripMutation.isPending ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : bus.is_trip_active ? (
+                      <>🛑 End Live Trip</>
+                    ) : (
+                      <>🚀 Start Live Trip</>
+                    )}
+                  </button>
+                </div>
               </div>
 
-              <div className="flex items-center gap-3 mt-6 pt-4 border-t border-slate-100">
+              <div className="flex items-center gap-3 mt-4 pt-4 border-t border-slate-100">
                 <button
                   onClick={() => handleOpenEditModal(bus)}
                   className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 border border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-600 rounded-lg text-xs font-semibold transition"
