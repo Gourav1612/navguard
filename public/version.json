@@ -1,5 +1,5 @@
 {
-  "version": "1.0.61",
+  "version": "1.0.62",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: fix(android): resolve PiP and bubble conflict by separating trip-gated PiP presentation and bubble triggers"
+  "releaseNotes": "Auto-build: feat(android): add TripStatusReceiver - polls /api/driver/assignment every 30s, notifies driver of admin trip start/end, survives app kill from recents"
 }
