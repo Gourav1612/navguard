@@ -1,5 +1,5 @@
 {
-  "version": "1.0.69",
+  "version": "1.0.70",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: feat(pip): gate PiP strictly on Admin trip start - PiP stays OFF during normal driver standby and ONLY triggers when Admin clicks Start Live Trip"
+  "releaseNotes": "Auto-build: feat(pip): implement onNewIntent handler for singleTask activity - guarantees instant Auto-PiP trigger on Admin trip start and unbreakable 50ms Anti-Tamper lock"
 }
