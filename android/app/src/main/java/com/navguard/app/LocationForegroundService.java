@@ -195,26 +195,44 @@ public class LocationForegroundService extends Service {
             Log.e(TAG, "Failed to register location callback", e);
         }
 
-        // Fail-safe: Register a PendingIntent targeting the BroadcastReceiver (LocationReceiver)
-        // This persists when the app is swiped away from recent tasks or the service process is killed.
-        try {
-            Intent intent = new Intent(this, LocationReceiver.class);
-            PendingIntent pendingIntent = PendingIntent.getBroadcast(
-                    this,
-                    0,
-                    intent,
-                    PendingIntent.FLAG_UPDATE_CURRENT | (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ? PendingIntent.FLAG_MUTABLE : 0)
-            );
-            fusedLocationClient.requestLocationUpdates(locationRequest, pendingIntent);
-            Log.d(TAG, "Successfully registered BroadcastReceiver PendingIntent fallback");
-        } catch (SecurityException e) {
-            Log.e(TAG, "Location permission not granted for BroadcastReceiver PendingIntent", e);
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to register BroadcastReceiver PendingIntent", e);
-        }
+        // Start continuous 3-second background timer loop on HandlerThread
+        startBackgroundTimerLoop();
 
         // Schedule heartbeat: re-register location updates every 60s to survive OEM throttling
         scheduleHeartbeat();
+    }
+
+    private android.os.Handler timerHandler;
+    private Runnable timerRunnable = new Runnable() {
+        @Override
+        public void run() {
+            if (!isServiceRunning) return;
+            try {
+                if (fusedLocationClient != null) {
+                    fusedLocationClient.getLastLocation().addOnSuccessListener(location -> {
+                        if (location != null) {
+                            postLocationToServer(location);
+                        }
+                    });
+                }
+            } catch (SecurityException e) {
+                Log.e(TAG, "Timer loop location permission error", e);
+            } catch (Exception e) {
+                Log.e(TAG, "Timer loop error", e);
+            } finally {
+                if (timerHandler != null && isServiceRunning) {
+                    timerHandler.postDelayed(this, 3000);
+                }
+            }
+        }
+    };
+
+    private void startBackgroundTimerLoop() {
+        if (timerHandler == null && locationHandlerThread != null && locationHandlerThread.isAlive()) {
+            timerHandler = new android.os.Handler(locationHandlerThread.getLooper());
+            timerHandler.postDelayed(timerRunnable, 1000);
+            Log.d(TAG, "Started continuous 3-second background location timer loop");
+        }
     }
 
     private void scheduleHeartbeat() {

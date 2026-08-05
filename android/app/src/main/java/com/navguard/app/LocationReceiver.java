@@ -156,6 +156,36 @@ public class LocationReceiver extends BroadcastReceiver {
 
             int responseCode = conn.getResponseCode();
             Log.d(TAG, "Location posted to server. Response: " + responseCode);
+            if (responseCode == 200 || responseCode == 201) {
+                try {
+                    java.io.BufferedReader inReader = new java.io.BufferedReader(new java.io.InputStreamReader(conn.getInputStream()));
+                    StringBuilder respBuilder = new StringBuilder();
+                    String lineStr;
+                    while ((lineStr = inReader.readLine()) != null) {
+                        respBuilder.append(lineStr);
+                    }
+                    inReader.close();
+                    JSONObject respJson = new JSONObject(respBuilder.toString());
+                    boolean isTripActiveServer = respJson.optBoolean("is_trip_active", false);
+
+                    android.content.SharedPreferences prefs = context.getSharedPreferences(LocationForegroundService.PREFS_NAME, Context.MODE_PRIVATE);
+                    boolean wasTripActive = prefs.getBoolean("is_trip_active", false);
+
+                    if (isTripActiveServer != wasTripActive) {
+                        prefs.edit().putBoolean("is_trip_active", isTripActiveServer).apply();
+                        Log.d(TAG, "LocationReceiver: synced is_trip_active to " + isTripActiveServer);
+                        Intent serviceIntent = new Intent(context, LocationForegroundService.class);
+                        serviceIntent.setAction(isTripActiveServer ? "START_TRIP_PIP" : "STOP_TRIP_PIP");
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            context.startForegroundService(serviceIntent);
+                        } else {
+                            context.startService(serviceIntent);
+                        }
+                    }
+                } catch (Exception err) {
+                    Log.e(TAG, "Error in LocationReceiver response handling", err);
+                }
+            }
         } catch (Exception e) {
             Log.e(TAG, "Failed to post location to server", e);
         } finally {
