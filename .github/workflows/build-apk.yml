@@ -67,6 +67,8 @@ jobs:
       - name: Sync Capacitor (copy native plugins to android/)
         run: |
           rm -f public/NaviGuard.apk
+          mkdir -p out
+          mkdir -p android/app/src/main/assets
           npx cap sync android
 
       # ── 5.5 Determine version and release notes dynamically ──────────────────
