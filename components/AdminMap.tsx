@@ -56,19 +56,23 @@ export function AdminMap({ activeTrips = [], busesLocations = [] }: AdminMapProp
   const routeLayersRef = useRef<L.Layer[]>([]);
 
   const [filterBusId, setFilterBusId] = useState<string>('all');
+  const prevFilterBusIdRef = useRef<string>('all');
 
-  // Centering map on select bus changes
+  // Centering map on select bus changes (preserving user's current zoom level unless filter selection changes)
   useEffect(() => {
     if (filterBusId !== 'all' && mapRef.current) {
       const selectedBus = busesLocations.find((b) => b.bus_id === filterBusId);
       if (selectedBus?.latest_location) {
+        const filterChanged = prevFilterBusIdRef.current !== filterBusId;
+        const currentZoom = filterChanged ? 15 : (mapRef.current.getZoom() || 15);
         mapRef.current.setView(
           [selectedBus.latest_location.latitude, selectedBus.latest_location.longitude],
-          15,
+          currentZoom,
           { animate: true }
         );
       }
     }
+    prevFilterBusIdRef.current = filterBusId;
   }, [filterBusId, busesLocations]);
 
   // 1. Initialize Leaflet Map exactly once on mount
