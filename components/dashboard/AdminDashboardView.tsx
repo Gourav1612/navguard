@@ -22,9 +22,8 @@ import { useState, useEffect } from 'react';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Capacitor, registerPlugin } from '@capacitor/core';
-
-const BatteryOptimization = registerPlugin<any>('BatteryOptimization');
+import { Capacitor } from '@capacitor/core';
+import { BatteryOptimization } from '@/lib/capacitor-plugins';
 
 // Import all admin subviews
 import BusesView from './subviews/BusesView';

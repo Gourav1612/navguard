@@ -4,9 +4,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { Loader2, Bus, Map, Play, ArrowRight, AlertCircle, AlertTriangle } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
-import { Capacitor, registerPlugin } from '@capacitor/core';
-import { createClient } from '@supabase/supabase-js';
+import { Capacitor } from '@capacitor/core';
+import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { App } from '@capacitor/app';
+import { LocationService, BackgroundGeolocation, AppUpdatePlugin } from '@/lib/capacitor-plugins';
 
 // Import subviews
 import DriverRouteView from './subviews/DriverRouteView';
@@ -17,14 +18,7 @@ const LiveMap = dynamic(() => import('@/components/LiveMap').then((m) => m.LiveM
   ssr: false,
 });
 
-const LocationService = registerPlugin<any>('LocationService');
-const BackgroundGeolocation = registerPlugin<any>('BackgroundGeolocation');
-const AppUpdatePlugin = registerPlugin<any>('AppUpdatePlugin');
-
-const supabaseClient = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+const supabaseClient = createBrowserSupabaseClient();
 
 export default function DriverDashboardView({ tab }: { tab?: string }) {
   const router = useRouter();
@@ -203,7 +197,7 @@ export default function DriverDashboardView({ tab }: { tab?: string }) {
           .eq('action', 'STOP_PASSED')
           .filter('new_values->>trip_id', 'eq', activeTrip.trip_id);
         if (data) {
-          setPassedStops(data.map((log) => log.record_id));
+          setPassedStops(data.map((log: any) => log.record_id));
         }
       } catch (err) {
         console.error('Failed to load passed stops:', err);

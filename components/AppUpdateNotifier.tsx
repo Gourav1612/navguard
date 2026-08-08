@@ -1,12 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Capacitor, registerPlugin } from '@capacitor/core';
+import { Capacitor } from '@capacitor/core';
 import { App } from '@capacitor/app';
 import { Download, AlertTriangle, Loader2, ShieldAlert } from 'lucide-react';
-
-const BatteryOptimization = registerPlugin<any>('BatteryOptimization');
-const AppUpdatePlugin = registerPlugin<any>('AppUpdatePlugin');
+import { BatteryOptimization, AppUpdatePlugin } from '@/lib/capacitor-plugins';
 
 function compareVersions(v1: string, v2: string): number {
   const parts1 = v1.split('.').map(Number);

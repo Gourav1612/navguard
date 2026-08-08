@@ -4,21 +4,16 @@ import { useEffect, useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { Loader2, Radio, CheckCircle, Navigation, ShieldAlert, Users, XCircle, AlertTriangle } from 'lucide-react';
-import { Capacitor, registerPlugin } from '@capacitor/core';
-import { createClient } from '@supabase/supabase-js';
+import { Capacitor } from '@capacitor/core';
+import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import dynamic from 'next/dynamic';
+import { LocationService, BackgroundGeolocation } from '@/lib/capacitor-plugins';
 
 const LiveMap = dynamic(() => import('@/components/LiveMap').then((m) => m.LiveMap), {
   ssr: false,
 });
 
-const BackgroundGeolocation = registerPlugin<any>('BackgroundGeolocation');
-const LocationService = registerPlugin<any>('LocationService');
-
-const supabaseClient = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+const supabaseClient = createBrowserSupabaseClient();
 
 
 interface DriverTripPageProps {

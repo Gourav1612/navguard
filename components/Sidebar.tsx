@@ -22,9 +22,8 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
-import { registerPlugin, Capacitor } from '@capacitor/core';
-
-const LocationService = registerPlugin<any>('LocationService');
+import { Capacitor } from '@capacitor/core';
+import { safeSetDriverStatus } from '@/lib/capacitor-plugins';
 
 interface UserProfile {
   full_name: string;
@@ -67,11 +66,7 @@ export function Sidebar() {
           setUser(data);
           
           // Admins should not have PiP enabled
-          try {
-            await LocationService.setDriverStatus({ isDriver: false });
-          } catch (nativeErr) {
-            console.error('Failed to notify native of admin status:', nativeErr);
-          }
+          await safeSetDriverStatus(false);
           
           if (data.role === 'admin') {
             const { data: mfaData, error: mfaErr } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
@@ -102,9 +97,7 @@ export function Sidebar() {
 
   const handleLogout = async () => {
     try {
-      try {
-        await LocationService.setDriverStatus({ isDriver: false });
-      } catch (nativeErr) {}
+      await safeSetDriverStatus(false);
 
       const res = await fetch('/api/auth/logout', { method: 'POST' });
       if (res.ok) {

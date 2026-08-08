@@ -5,9 +5,8 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Home, Map, ClipboardList, Bell, User, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { registerPlugin, Capacitor } from '@capacitor/core';
-
-const LocationService = registerPlugin<any>('LocationService');
+import { Capacitor } from '@capacitor/core';
+import { safeSetDriverStatus } from '@/lib/capacitor-plugins';
 
 interface UserProfile {
   full_name: string;
@@ -38,20 +37,17 @@ export function BottomNav({ children }: { children: React.ReactNode }) {
     };
     const handleResize = () => {
       const isTiny = window.innerWidth > 0 && window.innerHeight > 0 && window.innerWidth < 360 && window.innerHeight < 390;
-      if (timeoutId) clearTimeout(timeoutId);
-      timeoutId = setTimeout(() => {
-        setIsPipMode(isTiny);
-      }, 150);
+      setIsPipMode(isTiny);
     };
 
-    window.addEventListener('pipModeChanged', handlePip);
+    window.addEventListener('pip-mode-change', handlePip);
     window.addEventListener('resize', handleResize);
     handleResize(); // Initial check
 
     return () => {
-      if (timeoutId) clearTimeout(timeoutId);
-      window.removeEventListener('pipModeChanged', handlePip);
+      window.removeEventListener('pip-mode-change', handlePip);
       window.removeEventListener('resize', handleResize);
+      if (timeoutId) clearTimeout(timeoutId);
     };
   }, []);
 
@@ -77,11 +73,7 @@ export function BottomNav({ children }: { children: React.ReactNode }) {
           setUser(data);
           
           // Set driver status on native client
-          try {
-            await LocationService.setDriverStatus({ isDriver: data.role === 'driver' });
-          } catch (nativeErr) {
-            console.error('Failed to notify native of driver status:', nativeErr);
-          }
+          await safeSetDriverStatus(data.role === 'driver');
         }
       } catch (err) {
         console.error('Failed to fetch user:', err);
@@ -93,9 +85,7 @@ export function BottomNav({ children }: { children: React.ReactNode }) {
   const handleLogout = async () => {
     try {
       // Disable driver status on native side before logout
-      try {
-        await LocationService.setDriverStatus({ isDriver: false });
-      } catch (nativeErr) {}
+      await safeSetDriverStatus(false);
 
       const res = await fetch('/api/auth/logout', { method: 'POST' });
       if (res.ok) {
