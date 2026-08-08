@@ -138,7 +138,7 @@ public class TripStatusReceiver extends BroadcastReceiver {
                         Intent launchIntent = new Intent(context, MainActivity.class);
                         launchIntent.setAction("com.navguard.app.ACTION_ENTER_PIP");
                         launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-                        context.startActivity(launchIntent);
+                        startActivityWithBackgroundPrivileges(context, launchIntent);
                     } catch (Exception e) {
                         Log.e(TAG, "Failed to launch MainActivity on admin request", e);
                     }
@@ -328,6 +328,30 @@ public class TripStatusReceiver extends BroadcastReceiver {
             Log.d(TAG, "Trip notification shown: " + title);
         } catch (Exception e) {
             Log.e(TAG, "Failed to show trip notification", e);
+        }
+    }
+
+    private static void startActivityWithBackgroundPrivileges(Context context, Intent intent) {
+        try {
+            if (Build.VERSION.SDK_INT >= 34) { // Android 14, 15, 16
+                try {
+                    android.app.ActivityOptions options = android.app.ActivityOptions.makeBasic();
+                    try {
+                        java.lang.reflect.Method method = options.getClass().getMethod("setPendingIntentBackgroundActivityStartMode", int.class);
+                        method.invoke(options, 1); // 1 = MODE_BACKGROUND_ACTIVITY_START_ALLOWED
+                    } catch (Throwable t) {
+                        try {
+                            java.lang.reflect.Method m2 = options.getClass().getMethod("setPendingIntentCreatorBackgroundActivityStartMode", int.class);
+                            m2.invoke(options, 1);
+                        } catch (Throwable ignored) {}
+                    }
+                    context.startActivity(intent, options.toBundle());
+                    return;
+                } catch (Throwable ignored) {}
+            }
+            context.startActivity(intent);
+        } catch (Exception e) {
+            Log.e("TripStatusReceiver", "Failed to launch activity with background privileges", e);
         }
     }
 }
