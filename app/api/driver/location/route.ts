@@ -48,14 +48,29 @@ export async function POST(req: NextRequest) {
     }
 
     // Fetch bus details to get route_id & school_id
-    const { data: bus } = await adminSupabase
+    const { data: bus, error: busErr } = await adminSupabase
       .from('buses')
       .select('id, bus_number, route_id, school_id')
       .eq('id', bus_id)
       .single();
 
-    const activeSchoolId = bus?.school_id || driver.school_id || profile?.school_id;
-    const activeRouteId = bus?.route_id;
+    if (busErr) {
+      return NextResponse.json(
+        { error: 'Failed to load bus details', code: 'SERVER_ERROR', details: busErr },
+        { status: 500 }
+      );
+    }
+
+    if (!bus) {
+      return NextResponse.json(
+        { error: 'Bus not found', code: 'NOT_FOUND' },
+        { status: 404 }
+      );
+    }
+
+    const activeSchoolId = bus.school_id || driver.school_id || profile?.school_id;
+    const activeRouteId = bus.route_id;
+    const userMetadata = typeof user.user_metadata === 'object' && user.user_metadata ? user.user_metadata : {};
 
     // 2. Fetch last recorded bus location to check for movement & idle halt time
     const { data: lastLoc } = await adminSupabase
@@ -89,8 +104,8 @@ export async function POST(req: NextRequest) {
 
       // ⏱️ 10-MINUTE HALT / IDLE TIMEOUT ALERT
       // If bus moved less than 15 meters and time passed is > 10 minutes
-      const lastHaltStart = Number(user.user_metadata?.halt_started_at || 0);
-      const haltAlertSent = user.user_metadata?.halt_alert_sent === true;
+      const lastHaltStart = Number(userMetadata.halt_started_at || 0);
+      const haltAlertSent = userMetadata.halt_alert_sent === true;
 
       if (distFromLast < 15) {
         const haltStartTime = lastHaltStart || Date.now();
@@ -98,7 +113,7 @@ export async function POST(req: NextRequest) {
 
         if (!lastHaltStart) {
           await adminSupabase.auth.admin.updateUserById(user.id, {
-            user_metadata: { ...user.user_metadata, halt_started_at: haltStartTime },
+            user_metadata: { ...userMetadata, halt_started_at: haltStartTime },
           });
         }
 
@@ -115,14 +130,14 @@ export async function POST(req: NextRequest) {
 
           // Mark halt alert as sent to prevent spamming
           await adminSupabase.auth.admin.updateUserById(user.id, {
-            user_metadata: { ...user.user_metadata, halt_alert_sent: true },
+            user_metadata: { ...userMetadata, halt_alert_sent: true },
           });
         }
       } else {
         // Bus moved > 15m: Reset halt tracker
         if (lastHaltStart || haltAlertSent) {
           await adminSupabase.auth.admin.updateUserById(user.id, {
-            user_metadata: { ...user.user_metadata, halt_started_at: null, halt_alert_sent: false },
+            user_metadata: { ...userMetadata, halt_started_at: null, halt_alert_sent: false },
           });
         }
       }
