@@ -47,10 +47,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Fetch bus details to get route_id & school_id
+    // Fetch bus details
     const { data: bus, error: busErr } = await adminSupabase
       .from('buses')
-      .select('id, bus_number, route_id, school_id')
+      .select('id, name, school_id')
       .eq('id', bus_id)
       .single();
 
@@ -69,7 +69,16 @@ export async function POST(req: NextRequest) {
     }
 
     const activeSchoolId = bus.school_id || driver.school_id || profile?.school_id;
-    const activeRouteId = bus.route_id;
+    
+    // Fetch active route assigned to this bus from routes table
+    const { data: route } = await adminSupabase
+      .from('routes')
+      .select('id')
+      .eq('bus_id', bus_id)
+      .eq('is_active', true)
+      .maybeSingle();
+
+    const activeRouteId = route?.id;
     const userMetadata = typeof user.user_metadata === 'object' && user.user_metadata ? user.user_metadata : {};
 
     // 2. Fetch last recorded bus location to check for movement & idle halt time
@@ -123,7 +132,7 @@ export async function POST(req: NextRequest) {
             await adminSupabase.from('notifications').insert({
               school_id: activeSchoolId,
               title: '⏱️ Extended Bus Halt Alert',
-              message: `Bus ${bus?.bus_number || bus_id} has been stationary at the same position for over 10 minutes.`,
+              message: `Bus ${bus?.name || bus_id} has been stationary at the same position for over 10 minutes.`,
               type: 'general',
             });
           }
@@ -168,7 +177,7 @@ export async function POST(req: NextRequest) {
             await adminSupabase.from('notifications').insert({
               school_id: activeSchoolId,
               title: '⚠️ Route Deviation Alert',
-              message: `Bus ${bus?.bus_number || bus_id} has drifted ${Math.round(minDistanceToRoute)}m off its scheduled route alignment.`,
+              message: `Bus ${bus?.name || bus_id} has drifted ${Math.round(minDistanceToRoute)}m off its scheduled route alignment.`,
               type: 'general',
             });
 
