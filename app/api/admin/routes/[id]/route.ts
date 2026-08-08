@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireRole } from '@/lib/auth-guard';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { createSupabaseServerClient, createAdminClient } from '@/lib/supabase/server';
 import { RouteSchema } from '@/lib/validations';
 import { optimizeRouteWithGemini } from '@/lib/gemini-optimizer';
 
@@ -209,11 +209,11 @@ export async function DELETE(
 
   const { profile } = auth;
   const { id } = await params;
-  const supabase = await createSupabaseServerClient();
+  const adminClient = createAdminClient();
 
   try {
     // Verify ownership
-    const { data: route, error: fetchErr } = await supabase
+    const { data: route, error: fetchErr } = await adminClient
       .from('routes')
       .select('id')
       .eq('id', id)
@@ -227,28 +227,28 @@ export async function DELETE(
       );
     }
 
-    // 1. Unlink historical or active trips referencing this route
-    await supabase.from('trips').update({ route_id: null }).eq('route_id', id);
+    // 1. Delete associated trips for this route to satisfy ON DELETE RESTRICT constraint
+    await adminClient.from('trips').delete().eq('route_id', id);
 
     // 2. Fetch all stops on this route and unlink any students assigned to them
-    const { data: routeStops } = await supabase.from('stops').select('id').eq('route_id', id);
+    const { data: routeStops } = await adminClient.from('stops').select('id').eq('route_id', id);
     if (routeStops && routeStops.length > 0) {
       const stopIds = routeStops.map((s) => s.id);
-      await supabase.from('student_profiles').update({ stop_id: null }).in('stop_id', stopIds);
+      await adminClient.from('student_profiles').update({ stop_id: null }).in('stop_id', stopIds);
     }
 
     // 3. Delete all stops for this route
-    await supabase.from('stops').delete().eq('route_id', id);
+    await adminClient.from('stops').delete().eq('route_id', id);
 
     // 4. Delete the route itself
-    const { error: deleteErr } = await supabase
+    const { error: deleteErr } = await adminClient
       .from('routes')
       .delete()
       .eq('id', id);
 
     if (deleteErr) {
       return NextResponse.json(
-        { error: 'Failed to delete route', code: 'SERVER_ERROR', details: deleteErr },
+        { error: `Failed to delete route: ${deleteErr.message}`, code: 'SERVER_ERROR', details: deleteErr },
         { status: 500 }
       );
     }
