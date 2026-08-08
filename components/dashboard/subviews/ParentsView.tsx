@@ -10,6 +10,7 @@ import { CreateParentSchema } from '@/lib/validations';
 import { z } from 'zod';
 import { deleteParentAction } from '@/app/actions/admin-pagination';
 import { PaginationControls } from '@/components/ui/PaginationControls';
+import { CardGridSkeleton } from '@/components/ui/Skeleton';
 
 type ParentFormValues = z.infer<typeof CreateParentSchema>;
 
@@ -247,12 +248,7 @@ export default function AdminParents() {
   };
 
   if (parentsLoading) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[50vh] gap-3 animate-pulse">
-        <Loader2 className="w-8 h-8 text-primary animate-spin" />
-        <p className="text-slate-500 font-bold text-sm">Accessing parents indexes...</p>
-      </div>
-    );
+    return <CardGridSkeleton cards={6} />;
   }
 
   const mutating = createMutation.isPending || updateMutation.isPending;

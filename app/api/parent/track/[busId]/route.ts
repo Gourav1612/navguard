@@ -133,7 +133,7 @@ export async function GET(
     const { data: latestLoc } = await supabase
       .from('bus_locations')
       .select('latitude, longitude, speed, heading, recorded_at')
-      .eq('trip_id', activeTrip.id)
+      .eq('bus_id', busId)
       .order('recorded_at', { ascending: false })
       .limit(1)
       .maybeSingle();

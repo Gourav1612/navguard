@@ -10,6 +10,7 @@ import { BusSchema } from '@/lib/validations';
 import type { z } from 'zod';
 import { deleteBusAction } from '@/app/actions/admin-pagination';
 import { PaginationControls } from '@/components/ui/PaginationControls';
+import { CardGridSkeleton } from '@/components/ui/Skeleton';
 
 type BusFormValues = z.infer<typeof BusSchema>;
 
@@ -120,11 +121,10 @@ export default function AdminBuses() {
   // Mutate toggle trip (Admin Start / Stop Trip)
   const toggleTripMutation = useMutation({
     mutationFn: async ({ busId, action }: { busId: string; action: 'start' | 'end' }) => {
-      const endpoint = action === 'start' ? '/api/admin/trips/start' : '/api/admin/trips/end';
-      const res = await fetch(endpoint, {
+      const res = await fetch('/api/admin/trips/toggle', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bus_id: busId }),
+        body: JSON.stringify({ bus_id: busId, action }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -172,12 +172,7 @@ export default function AdminBuses() {
   };
 
   if (isLoading) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[50vh] gap-3">
-        <Loader2 className="w-8 h-8 text-primary animate-spin" />
-        <p className="text-slate-500 font-medium text-sm">Fetching fleet roster...</p>
-      </div>
-    );
+    return <CardGridSkeleton cards={6} />;
   }
 
   const mutating = createMutation.isPending || updateMutation.isPending;

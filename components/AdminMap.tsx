@@ -26,6 +26,28 @@ interface AdminMapProps {
   busesLocations?: BusLocation[];
 }
 
+function escapeHtml(value: unknown) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+// Haversine distance calculator helper
+function calculateDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371; // Earth's radius in km
+  const dLat = (lat2 - lat1) * (Math.PI / 180);
+  const dLon = (lon2 - lon1) * (Math.PI / 180);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
 export function AdminMap({ activeTrips = [], busesLocations = [] }: AdminMapProps) {
   const mapRef = useRef<L.Map | null>(null);
   // Track markers by busId
@@ -207,7 +229,7 @@ export function AdminMap({ activeTrips = [], busesLocations = [] }: AdminMapProp
             .addTo(map)
             .bindPopup(`
               <div class="font-sans">
-                <div class="font-bold text-slate-800 text-xs">${stop.name}</div>
+                <div class="font-bold text-slate-800 text-xs">${escapeHtml(stop.name)}</div>
                 <div class="text-[10px] text-slate-500">${labelText}</div>
               </div>
             `);
@@ -218,6 +240,7 @@ export function AdminMap({ activeTrips = [], busesLocations = [] }: AdminMapProp
 
     // Bus Icon Factory
     const createBusIcon = (name: string, isActive: boolean, isStale?: boolean) => {
+      const safeName = escapeHtml(name);
       const bgClass = isStale
         ? 'bg-red-500 border-red-700 text-white'
         : isActive 
@@ -229,7 +252,7 @@ export function AdminMap({ activeTrips = [], busesLocations = [] }: AdminMapProp
           <div class="relative flex items-center justify-center w-9 h-9 ${bgClass} border-2 rounded-full shadow-lg transition-all duration-300">
             <span class="text-sm">🚌</span>
             <div class="absolute top-10 bg-slate-900/90 text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow whitespace-nowrap border border-slate-700">
-              ${name}
+              ${safeName}
             </div>
           </div>
         `,
@@ -270,9 +293,13 @@ export function AdminMap({ activeTrips = [], busesLocations = [] }: AdminMapProp
           });
           if (nearestStop) {
             const distLabel = minDistance < 1 ? `${Math.round(minDistance * 1000)}m` : `${minDistance.toFixed(1)} km`;
-            nearestStopInfo = `<div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Nearest Stop:</span> ${nearestStop.name} (${distLabel})</div>`;
+            nearestStopInfo = `<div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Nearest Stop:</span> ${escapeHtml(nearestStop.name)} (${distLabel})</div>`;
           }
         }
+        const safeBusName = escapeHtml(bus.bus_name);
+        const safeRouteName = escapeHtml(bus.route_name);
+        const safeDriverName = escapeHtml(bus.driver_name);
+        const safeSpeed = Number(speed || 0).toFixed(1);
         
         if (marker) {
           marker.setLatLng([latitude, longitude]);
@@ -442,19 +469,6 @@ export function AdminMap({ activeTrips = [], busesLocations = [] }: AdminMapProp
       supabase.removeChannel(channel);
     };
   }, [busesLocations, activeTrips, filterBusId]);
-
-// Haversine distance calculator helper
-function calculateDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 6371; // Earth's radius in km
-  const dLat = (lat2 - lat1) * (Math.PI / 180);
-  const dLon = (lon2 - lon1) * (Math.PI / 180);
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
-    Math.sin(dLon / 2) * Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-}
 
   return (
     <div className="relative z-0 w-full h-[450px] border border-slate-200 rounded-2xl overflow-hidden shadow-inner">

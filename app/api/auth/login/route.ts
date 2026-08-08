@@ -4,6 +4,19 @@ import { LoginSchema } from '@/lib/validations';
 import { sendVerificationEmail } from '@/lib/mail';
 import crypto from 'crypto';
 
+function getAppOrigin() {
+  const configuredUrl =
+    process.env.NEXT_PUBLIC_APP_URL ||
+    process.env.APP_URL ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '');
+
+  try {
+    return new URL(configuredUrl).origin;
+  } catch {
+    return 'https://navguard-eight.vercel.app';
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -86,7 +99,7 @@ export async function POST(req: NextRequest) {
           if (canSendEmail) {
             // Dispatch reset password link via email
             try {
-              const origin = req.headers.get('origin') || 'https://navguard-eight.vercel.app';
+              const origin = getAppOrigin();
               const resetUrl = `${origin}/reset-password?token=${resetToken}&email=${encodeURIComponent(email)}`;
               const html = `
                 <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 32px 24px; max-width: 500px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 16px; background-color: #ffffff;">

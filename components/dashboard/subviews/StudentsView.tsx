@@ -11,6 +11,7 @@ import { z } from 'zod';
 import { parseGoogleMapsLink } from '@/lib/utils';
 import { deleteStudentAction } from '@/app/actions/admin-pagination';
 import { PaginationControls } from '@/components/ui/PaginationControls';
+import { TableSkeleton } from '@/components/ui/Skeleton';
 
 type StudentFormValues = z.infer<typeof CreateStudentSchema>;
 
@@ -416,12 +417,7 @@ export default function AdminStudents() {
   };
 
   if (studentsLoading) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[50vh] gap-3">
-        <Loader2 className="w-8 h-8 text-primary animate-spin" />
-        <p className="text-slate-500 font-medium text-sm">Reviewing directory rosters...</p>
-      </div>
-    );
+    return <TableSkeleton cols={6} rows={8} />;
   }
 
   const mutating = createMutation.isPending || updateMutation.isPending;

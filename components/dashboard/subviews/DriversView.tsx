@@ -13,6 +13,7 @@ import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import dynamic from 'next/dynamic';
 import { deleteDriverAction } from '@/app/actions/admin-pagination';
 import { PaginationControls } from '@/components/ui/PaginationControls';
+import { TableSkeleton } from '@/components/ui/Skeleton';
 
 const LiveMap = dynamic(() => import('@/components/LiveMap').then((m) => m.LiveMap), {
   ssr: false,
@@ -303,12 +304,7 @@ export default function AdminDrivers() {
   };
 
   if (driversLoading) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[50vh] gap-3">
-        <Loader2 className="w-8 h-8 text-primary animate-spin" />
-        <p className="text-slate-500 font-medium text-sm">Reviewing licenses...</p>
-      </div>
-    );
+    return <TableSkeleton cols={6} rows={8} />;
   }
 
   const mutating = createMutation.isPending || updateMutation.isPending;

@@ -70,18 +70,17 @@ export async function GET() {
     // 3. For each active trip, fetch its latest location from bus_locations
     const activeTripsWithLocation = await Promise.all(
       (activeTripsRaw || []).map(async (trip: any) => {
+        const busObj = Array.isArray(trip.buses) ? trip.buses[0] : (trip.buses || {});
+        const driverObj = Array.isArray(trip.drivers) ? trip.drivers[0] : (trip.drivers || {});
+        const routeObj = Array.isArray(trip.routes) ? trip.routes[0] : (trip.routes || {});
+
         const { data: locationData } = await supabase
           .from('bus_locations')
           .select('latitude, longitude, speed, heading, recorded_at')
-          .eq('trip_id', trip.id)
+          .eq('bus_id', busObj.id)
           .order('recorded_at', { ascending: false })
           .limit(1)
           .maybeSingle();
-
-        // Safe type casts
-        const busObj = trip.buses || {};
-        const driverObj = trip.drivers || {};
-        const routeObj = trip.routes || {};
 
         return {
           trip_id: trip.id,

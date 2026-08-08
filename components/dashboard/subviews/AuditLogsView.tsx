@@ -4,6 +4,7 @@ import { Loader2, ShieldAlert, History, Activity, Terminal, Trash2 } from 'lucid
 import { formatDateTime } from '@/lib/utils';
 import { getPaginatedAuditLogs } from '@/app/actions/admin-pagination';
 import { PaginationControls } from '@/components/ui/PaginationControls';
+import { TableSkeleton } from '@/components/ui/Skeleton';
 
 export default function AdminAuditLogs() {
   const queryClient = useQueryClient();
@@ -43,12 +44,7 @@ export default function AdminAuditLogs() {
   const totalCount = paginatedResult?.count || logs.length;
 
   if (isLoading) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[50vh] gap-3">
-        <Loader2 className="w-8 h-8 text-primary animate-spin" />
-        <p className="text-slate-500 font-medium text-sm">Compiling audit trials...</p>
-      </div>
-    );
+    return <TableSkeleton cols={6} rows={10} />;
   }
 
   if (error) {

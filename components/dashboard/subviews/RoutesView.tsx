@@ -12,6 +12,7 @@ import type { z } from 'zod';
 import { parseGoogleMapsLink, optimizeRouteStops } from '@/lib/utils';
 import { deleteRouteAction } from '@/app/actions/admin-pagination';
 import { PaginationControls } from '@/components/ui/PaginationControls';
+import { CardGridSkeleton } from '@/components/ui/Skeleton';
 
 type RouteFormValues = z.infer<typeof RouteSchema>;
 
@@ -398,12 +399,7 @@ export default function AdminRoutes() {
   };
 
   if (routesLoading) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[50vh] gap-3">
-        <Loader2 className="w-8 h-8 text-primary animate-spin" />
-        <p className="text-slate-500 font-medium text-sm">Building routing indexes...</p>
-      </div>
-    );
+    return <CardGridSkeleton cards={6} />;
   }
 
   return (
