@@ -1,5 +1,5 @@
 {
-  "version": "1.0.77",
+  "version": "1.0.78",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: fix(android): resolve background location packets not sending and automate driver PiP mode trigger on admin start trip"
+  "releaseNotes": "Auto-build: feat: implement Open App remote driver app launch trigger from admin dashboard"
 }
