@@ -51,8 +51,19 @@ export default function AdminDashboardView({ tab: initialTab }: { tab?: string }
   const supabase = createBrowserSupabaseClient();
   const searchParams = useSearchParams();
   const router = useRouter();
-  const tab = searchParams.get('tab') || '';
+  const rawTab = searchParams.get('tab') || '';
   
+  const validTabs = ['buses', 'routes', 'drivers', 'parents', 'students', 'assignments', 'import', 'audit-logs', 'settings'];
+  const tab = validTabs.includes(rawTab) ? rawTab : '';
+  const isMainDashboard = !tab;
+
+  // Sanitize invalid tab parameter from URL automatically
+  useEffect(() => {
+    if (rawTab && !validTabs.includes(rawTab)) {
+      router.replace('/dashboard');
+    }
+  }, [rawTab, router]);
+
   // MFA states
   const [mfaEnabled, setMfaEnabled] = useState(false);
   const [mfaFactorId, setMfaFactorId] = useState<string | null>(null);
@@ -71,7 +82,7 @@ export default function AdminDashboardView({ tab: initialTab }: { tab?: string }
       return res.json();
     },
     refetchInterval: 15000,
-    enabled: !tab,
+    enabled: isMainDashboard,
   });
 
   // Verify MFA status on mount
