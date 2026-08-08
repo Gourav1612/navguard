@@ -19,6 +19,7 @@ export default function AdminBuses() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingBusId, setEditingBusId] = useState<string | null>(null);
   const [togglingBusId, setTogglingBusId] = useState<string | null>(null);
+  const [pingingBusId, setPingingBusId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [isPendingTransition, startTransition] = useTransition();
@@ -115,6 +116,20 @@ export default function AdminBuses() {
         queryClient.invalidateQueries({ queryKey: ['admin-buses'] });
         queryClient.invalidateQueries({ queryKey: ['admin-drivers'] });
       });
+    }
+  };
+
+  const handlePingDriver = async (busId: string) => {
+    setPingingBusId(busId);
+    try {
+      const res = await fetch(`/api/admin/buses/${busId}/ping`, { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to ping driver app');
+      alert('Open app command sent to driver phone successfully!');
+    } catch (err: any) {
+      alert(err.message || 'An error occurred.');
+    } finally {
+      setPingingBusId(null);
     }
   };
 
@@ -283,22 +298,32 @@ export default function AdminBuses() {
                 <div className="flex items-center gap-3 mt-4 pt-4 border-t border-slate-100">
                   <button
                     onClick={() => handleOpenEditModal(bus)}
-                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 border border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-600 rounded-lg text-xs font-semibold transition"
+                    className="flex-grow flex items-center justify-center gap-1 px-2.5 py-2 border border-slate-200 hover:border-slate-350 hover:bg-slate-50 text-slate-650 rounded-lg text-xs font-bold transition"
                   >
                     <Edit2 className="w-3.5 h-3.5" />
                     Edit
                   </button>
                   <button
+                    onClick={() => handlePingDriver(bus.id)}
+                    disabled={pingingBusId === bus.id}
+                    className="flex-grow flex items-center justify-center gap-1 px-2.5 py-2 border border-slate-200 hover:border-slate-350 hover:bg-slate-50 text-primary rounded-lg text-xs font-bold transition disabled:opacity-50"
+                  >
+                    {pingingBusId === bus.id ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <>📲 Open App</>
+                    )}
+                  </button>
+                  <button
                     onClick={() => handleDelete(bus.id)}
                     disabled={isPendingTransition}
-                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 border border-red-200 hover:border-red-300 hover:bg-red-50 text-red-600 rounded-lg text-xs font-semibold transition disabled:opacity-50"
+                    className="flex-grow flex items-center justify-center gap-1 px-2.5 py-2 border border-red-200 hover:border-red-300 hover:bg-red-50 text-red-600 rounded-lg text-xs font-bold transition disabled:opacity-50"
                   >
                     {isPendingTransition ? (
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
                     ) : (
                       <Trash2 className="w-3.5 h-3.5" />
                     )}
-                    Delete
                   </button>
                 </div>
               </div>

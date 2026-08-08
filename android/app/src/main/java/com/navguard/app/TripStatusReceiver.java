@@ -129,6 +129,21 @@ public class TripStatusReceiver extends BroadcastReceiver {
                 if (responseBody == null) return;
 
                 JSONObject assignment = new JSONObject(responseBody);
+                
+                // Handle admin remote open app trigger
+                boolean openAppRequested = assignment.optBoolean("open_app_requested", false);
+                if (openAppRequested) {
+                    Log.d(TAG, "Poll: Admin requested app open! Launching MainActivity...");
+                    try {
+                        Intent launchIntent = new Intent(context, MainActivity.class);
+                        launchIntent.setAction("com.navguard.app.ACTION_ENTER_PIP");
+                        launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                        context.startActivity(launchIntent);
+                    } catch (Exception e) {
+                        Log.e(TAG, "Failed to launch MainActivity on admin request", e);
+                    }
+                }
+
                 JSONObject activeTrip = assignment.optJSONObject("active_trip");
                 String newTripId = (activeTrip != null) ? activeTrip.optString("trip_id", null) : null;
                 // Normalize empty string → null

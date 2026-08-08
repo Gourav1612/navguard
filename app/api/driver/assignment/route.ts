@@ -21,6 +21,7 @@ export async function GET() {
           id,
           name,
           registration_plate,
+          open_app_requested_at,
           routes(
             id,
             name,
@@ -58,6 +59,20 @@ export async function GET() {
         route: null,
         active_trip: null,
       });
+    }
+
+    let openAppRequested = false;
+    if (busObj.open_app_requested_at) {
+      const requestedTime = new Date(busObj.open_app_requested_at).getTime();
+      const elapsed = Date.now() - requestedTime;
+      if (elapsed < 60000) {
+        openAppRequested = true;
+        // Acknowledge and clear it immediately
+        await supabase
+          .from('buses')
+          .update({ open_app_requested_at: null })
+          .eq('id', busObj.id);
+      }
     }
 
     // Bus must have a route assigned
@@ -142,6 +157,7 @@ export async function GET() {
             started_at: activeTrip.started_at,
           }
         : null,
+      open_app_requested: openAppRequested,
     });
   } catch (err: any) {
     return NextResponse.json(

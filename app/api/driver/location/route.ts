@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
     // Fetch bus details
     const { data: bus, error: busErr } = await adminSupabase
       .from('buses')
-      .select('id, name, school_id')
+      .select('id, name, school_id, open_app_requested_at')
       .eq('id', bus_id)
       .single();
 
@@ -69,6 +69,20 @@ export async function POST(req: NextRequest) {
     }
 
     const activeSchoolId = bus.school_id || driver.school_id || profile?.school_id;
+
+    let openAppRequested = false;
+    if (bus?.open_app_requested_at) {
+      const requestedTime = new Date(bus.open_app_requested_at).getTime();
+      const elapsed = Date.now() - requestedTime;
+      if (elapsed < 60000) {
+        openAppRequested = true;
+        // Acknowledge and clear it immediately
+        await adminSupabase
+          .from('buses')
+          .update({ open_app_requested_at: null })
+          .eq('id', bus.id);
+      }
+    }
     
     // Fetch active route assigned to this bus from routes table
     const { data: route } = await adminSupabase
@@ -228,6 +242,7 @@ export async function POST(req: NextRequest) {
         id: newLocation.id,
         recorded_at: newLocation.recorded_at,
         is_trip_active: isTripActive,
+        open_app_requested: openAppRequested,
       },
       { status: 201 }
     );
