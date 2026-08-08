@@ -1,5 +1,5 @@
 {
-  "version": "1.0.75",
+  "version": "1.0.76",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: fix(location): fix background packet drop & add 3-second continuous timer loop in LocationForegroundService, sync is_trip_active in LocationReceiver"
+  "releaseNotes": "Auto-build: fix: create assets and out directories before capacitor sync to prevent ENOENT in CI build"
 }
