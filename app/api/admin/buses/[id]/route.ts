@@ -93,36 +93,25 @@ export async function DELETE(
       );
     }
 
-    // Check if any driver is assigned to this bus
-    const { data: driverCheck } = await supabase
-      .from('drivers')
-      .select('id, user:user_profiles(full_name)')
-      .eq('bus_id', id)
-      .maybeSingle();
+    // 1. Unassign this bus from any routes
+    await supabase.from('routes').update({ bus_id: null }).eq('bus_id', id);
 
-    if (driverCheck) {
-      const driverName = (driverCheck.user as any)?.full_name || 'A driver';
-      return NextResponse.json(
-        { error: `Cannot delete bus because it is currently assigned to driver: ${driverName}. Unassign them first.`, code: 'ASSIGNED_TO_DRIVER' },
-        { status: 400 }
-      );
-    }
+    // 2. Unassign this bus from any drivers
+    await supabase.from('drivers').update({ bus_id: null }).eq('bus_id', id);
 
-    // Check if the bus has any associated trips to protect trip history integrity
-    const { data: tripCheck } = await supabase
-      .from('trips')
-      .select('id')
-      .eq('bus_id', id)
-      .limit(1)
-      .maybeSingle();
+    // 3. Unassign this bus from any student profiles
+    await supabase.from('student_profiles').update({ bus_id: null, stop_id: null }).eq('bus_id', id);
 
-    if (tripCheck) {
-      return NextResponse.json(
-        { error: 'Cannot delete bus because it is linked to active or historical trip logs.', code: 'ASSIGNED_TO_TRIP' },
-        { status: 400 }
-      );
-    }
+    // 4. Delete real-time telemetry records for this bus
+    await supabase.from('bus_locations').delete().eq('bus_id', id);
 
+    // 5. Unlink from active/historical trips
+    await supabase.from('trips').update({ bus_id: null }).eq('bus_id', id);
+
+    // 6. Clean up announcements referencing this bus
+    await supabase.from('announcements').delete().eq('bus_id', id);
+
+    // 7. Delete the bus record
     const { error: deleteErr } = await supabase
       .from('buses')
       .delete()
@@ -130,7 +119,7 @@ export async function DELETE(
 
     if (deleteErr) {
       return NextResponse.json(
-        { error: 'Failed to delete bus', code: 'SERVER_ERROR', details: deleteErr },
+        { error: `Failed to delete bus: ${deleteErr.message}`, code: 'SERVER_ERROR', details: deleteErr },
         { status: 500 }
       );
     }

@@ -45,13 +45,16 @@ export async function PATCH(
 
     const { name, bus_id, description, is_active, stops } = parsed.data;
 
+    // Convert empty string bus_id to null
+    const finalBusId = bus_id && typeof bus_id === 'string' && bus_id.trim() !== '' ? bus_id.trim() : null;
+
     // 1. Update route details
     const { data: updatedRoute, error: updateErr } = await supabase
       .from('routes')
       .update({
         name,
-        bus_id,
-        description,
+        bus_id: finalBusId,
+        description: description || null,
         is_active,
       })
       .eq('id', id)
@@ -68,6 +71,26 @@ export async function PATCH(
     // 2. If stops array is provided, update/insert/delete them dynamically
     if (stops !== undefined) {
       const keptStopIds = stops.map((s) => s.id).filter(Boolean) as string[];
+
+      // Unlink any student_profiles referencing stops about to be deleted
+      if (keptStopIds.length > 0) {
+        const { data: stopsToDelete } = await supabase
+          .from('stops')
+          .select('id')
+          .eq('route_id', id)
+          .not('id', 'in', `(${keptStopIds.join(',')})`);
+
+        if (stopsToDelete && stopsToDelete.length > 0) {
+          const deleteIds = stopsToDelete.map((s) => s.id);
+          await supabase.from('student_profiles').update({ stop_id: null }).in('stop_id', deleteIds);
+        }
+      } else {
+        const { data: allRouteStops } = await supabase.from('stops').select('id').eq('route_id', id);
+        if (allRouteStops && allRouteStops.length > 0) {
+          const deleteIds = allRouteStops.map((s) => s.id);
+          await supabase.from('student_profiles').update({ stop_id: null }).in('stop_id', deleteIds);
+        }
+      }
 
       // Delete stops that are no longer in the payload list
       const deleteQuery = supabase.from('stops').delete().eq('route_id', id);
@@ -204,21 +227,20 @@ export async function DELETE(
       );
     }
 
-    // Check if the route has any associated trips to protect trip history integrity
-    const { data: tripCheck } = await supabase
-      .from('trips')
-      .select('id')
-      .eq('route_id', id)
-      .limit(1)
-      .maybeSingle();
+    // 1. Unlink historical or active trips referencing this route
+    await supabase.from('trips').update({ route_id: null }).eq('route_id', id);
 
-    if (tripCheck) {
-      return NextResponse.json(
-        { error: 'Cannot delete route because it is linked to active or historical route trips.', code: 'ASSIGNED_TO_TRIP' },
-        { status: 400 }
-      );
+    // 2. Fetch all stops on this route and unlink any students assigned to them
+    const { data: routeStops } = await supabase.from('stops').select('id').eq('route_id', id);
+    if (routeStops && routeStops.length > 0) {
+      const stopIds = routeStops.map((s) => s.id);
+      await supabase.from('student_profiles').update({ stop_id: null }).in('stop_id', stopIds);
     }
 
+    // 3. Delete all stops for this route
+    await supabase.from('stops').delete().eq('route_id', id);
+
+    // 4. Delete the route itself
     const { error: deleteErr } = await supabase
       .from('routes')
       .delete()

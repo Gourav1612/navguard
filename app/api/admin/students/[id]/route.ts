@@ -48,8 +48,8 @@ export async function PATCH(
     const studentUpdates: any = {};
     if (grade !== undefined) studentUpdates.grade = grade;
     if (roll_number !== undefined) studentUpdates.roll_number = roll_number;
-    if (bus_id !== undefined) studentUpdates.bus_id = bus_id;
-    if (stop_id !== undefined) studentUpdates.stop_id = stop_id;
+    if (bus_id !== undefined) studentUpdates.bus_id = bus_id && typeof bus_id === 'string' && bus_id.trim() !== '' ? bus_id.trim() : null;
+    if (stop_id !== undefined) studentUpdates.stop_id = stop_id && typeof stop_id === 'string' && stop_id.trim() !== '' ? stop_id.trim() : null;
 
     if (Object.keys(studentUpdates).length > 0) {
       await adminClient

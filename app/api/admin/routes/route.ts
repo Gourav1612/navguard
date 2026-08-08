@@ -88,9 +88,9 @@ export async function POST(req: NextRequest) {
       .from('routes')
       .insert({
         school_id: profile.school_id,
-        bus_id: bus_id || null,
+        bus_id: bus_id && typeof bus_id === 'string' && bus_id.trim() !== '' ? bus_id.trim() : null,
         name,
-        description,
+        description: description || null,
         is_active,
       })
       .select()

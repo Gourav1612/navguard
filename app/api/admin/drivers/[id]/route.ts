@@ -44,12 +44,15 @@ export async function PATCH(
 
     const { full_name, phone, license_number, license_expiry, bus_id, is_active, password } = parsed.data;
 
+    // Convert empty string bus_id to null
+    const finalBusId = bus_id && typeof bus_id === 'string' && bus_id.trim() !== '' ? bus_id.trim() : null;
+
     // Check if the bus_id is already assigned to a different driver
-    if (bus_id !== undefined && bus_id !== null) {
+    if (finalBusId) {
       const { data: busTaken } = await adminClient
         .from('drivers')
         .select('id, user:user_profiles(full_name)')
-        .eq('bus_id', bus_id)
+        .eq('bus_id', finalBusId)
         .neq('id', id)
         .maybeSingle();
 
@@ -66,7 +69,7 @@ export async function PATCH(
     const driverUpdates: any = {};
     if (license_number !== undefined) driverUpdates.license_number = license_number;
     if (license_expiry !== undefined) driverUpdates.license_expiry = license_expiry;
-    if (bus_id !== undefined) driverUpdates.bus_id = bus_id;
+    if (bus_id !== undefined) driverUpdates.bus_id = finalBusId;
     if (is_active !== undefined) driverUpdates.is_active = is_active;
 
     if (Object.keys(driverUpdates).length > 0) {
@@ -158,48 +161,31 @@ export async function DELETE(
       );
     }
 
-    // Block deletion if driver is currently assigned to a bus
-    if (driver.bus_id) {
-      return NextResponse.json(
-        { error: 'Cannot delete driver because they are currently assigned to a bus. Unassign the bus first.', code: 'ASSIGNED_TO_BUS' },
-        { status: 400 }
-      );
-    }
+    // 1. Unassign driver from any bus
+    await adminClient.from('drivers').update({ bus_id: null }).eq('id', id);
 
-    // Block deletion if driver has any associated trips to preserve logs
-    const { data: tripCheck } = await adminClient
-      .from('trips')
-      .select('id')
-      .eq('driver_id', id)
-      .limit(1)
-      .maybeSingle();
+    // 2. Unlink driver from any historical or active trips
+    await adminClient.from('trips').update({ driver_id: null }).eq('driver_id', id);
 
-    if (tripCheck) {
-      return NextResponse.json(
-        { error: 'Cannot delete driver because they are linked to active or historical route trips.', code: 'ASSIGNED_TO_TRIP' },
-        { status: 400 }
-      );
-    }
+    // 3. Clean up any automated announcements posted by this driver to bypass foreign key constraints
+    await adminClient.from('announcements').delete().eq('created_by', driver.user_id);
 
-    // Clean up any automated announcements posted by this driver to bypass RESTRICT constraints
-    const { error: annDeleteErr } = await adminClient.from('announcements').delete().eq('created_by', driver.user_id);
-    if (annDeleteErr) {
+    // 4. Delete from drivers table
+    const { error: driverDelErr } = await adminClient.from('drivers').delete().eq('id', id);
+    if (driverDelErr) {
       return NextResponse.json(
-        { 
-          error: `Failed to clean up driver's announcements: ${annDeleteErr.message}`, 
-          code: 'SERVER_ERROR', 
-          details: annDeleteErr 
-        },
+        { error: `Failed to remove driver record: ${driverDelErr.message}`, code: 'SERVER_ERROR', details: driverDelErr },
         { status: 500 }
       );
     }
 
+    // 5. Delete user from auth (cascades to user_profiles)
     const { error: authDeleteErr } = await adminClient.auth.admin.deleteUser(driver.user_id);
     
     if (authDeleteErr) {
       return NextResponse.json(
         { 
-          error: `Failed to delete driver: ${authDeleteErr.message}. Ensure there are no active trips or assignments linked to this driver.`, 
+          error: `Failed to delete driver auth user: ${authDeleteErr.message}`, 
           code: 'SERVER_ERROR', 
           details: authDeleteErr 
         },
