@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { Loader2, Settings, MapPin, Globe, Save, Info, CheckCircle2, AlertTriangle, Link2, KeyRound, ShieldCheck, Lock, Eye, EyeOff, Send, Mail } from 'lucide-react';
 import dynamic from 'next/dynamic';
+import { SettingsSkeleton } from '@/components/ui/Skeleton';
 
 const LiveMap = dynamic(() => import('@/components/LiveMap').then((m) => m.LiveMap), {
   ssr: false,
@@ -266,12 +267,7 @@ export default function SettingsView() {
   };
 
   if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
-        <Loader2 className="w-8 h-8 text-primary animate-spin" />
-        <p className="text-slate-500 font-semibold text-sm">Loading settings panels...</p>
-      </div>
-    );
+    return <SettingsSkeleton />;
   }
 
   const mapStops = latitude !== null && longitude !== null ? [

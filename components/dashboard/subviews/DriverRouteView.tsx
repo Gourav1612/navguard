@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Loader2, Compass, MapPin, Navigation, AlertTriangle } from 'lucide-react';
 import dynamic from 'next/dynamic';
+import { MapTrackSkeleton } from '@/components/ui/Skeleton';
 
 const LiveMap = dynamic(() => import('@/components/LiveMap').then((m) => m.LiveMap), {
   ssr: false,
@@ -51,12 +52,7 @@ export default function DriverRoutePage() {
   }, []);
 
   if (isLoading) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[50vh] gap-3">
-        <Loader2 className="w-8 h-8 text-primary animate-spin" />
-        <p className="text-slate-500 font-semibold text-sm">Opening route maps...</p>
-      </div>
-    );
+    return <MapTrackSkeleton />;
   }
 
   if (error || !assignment) {

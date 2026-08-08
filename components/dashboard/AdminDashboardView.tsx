@@ -35,6 +35,7 @@ import AssignmentsView from './subviews/AssignmentsView';
 import ImportView from './subviews/ImportView';
 import AuditLogsView from './subviews/AuditLogsView';
 import SettingsView from './subviews/SettingsView';
+import { DashboardSkeleton } from '@/components/ui/Skeleton';
 
 // Load map dynamically to prevent build failures due to window/document checks during SSR
 const AdminMap = dynamic(() => import('@/components/AdminMap').then((m) => m.AdminMap), {
@@ -406,14 +407,8 @@ export default function AdminDashboardView({ tab: initialTab }: { tab?: string }
       return <SettingsView />;
   }
 
-  // Fallback to Main Stats Dashboard
   if (isLoading) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
-        <Loader2 className="w-8 h-8 text-primary animate-spin" />
-        <p className="text-slate-500 font-medium text-sm">Loading transport logs...</p>
-      </div>
-    );
+    return <DashboardSkeleton />;
   }
 
   if (error || !data) {

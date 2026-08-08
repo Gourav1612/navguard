@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 import { Loader2, Bus, MapPin, Calendar, Compass, AlertCircle, PhoneCall, AlertOctagon } from 'lucide-react';
 import { formatDateTime } from '@/lib/utils';
+import { StudentDashboardSkeleton } from '@/components/ui/Skeleton';
 
 // Import the tracking view (students can track using the parent map component!)
 import ParentTrackView from './subviews/ParentTrackView';
@@ -66,12 +67,7 @@ export default function StudentDashboardView({ tab }: { tab?: string }) {
   const loading = assignmentLoading || announcementsLoading;
 
   if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
-        <Loader2 className="w-8 h-8 text-[#5c3b99] animate-spin" />
-        <p className="text-slate-500 font-bold text-sm">Opening student portal...</p>
-      </div>
-    );
+    return <StudentDashboardSkeleton />;
   }
 
   if (assignmentError || !assignment) {

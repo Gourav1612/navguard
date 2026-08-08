@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useRouter, useParams } from 'next/navigation';
 import { Loader2, ArrowLeft, Clock, Navigation, RefreshCw, AlertTriangle } from 'lucide-react';
 import dynamic from 'next/dynamic';
+import { MapTrackSkeleton } from '@/components/ui/Skeleton';
 import { useState, useEffect } from 'react';
 import { getDistanceKm } from '@/lib/utils';
 
@@ -51,12 +52,7 @@ export default function ParentTrackPage({ busId: propBusId }: { busId?: string }
   });
 
   if (isLoading) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
-        <Loader2 className="w-8 h-8 text-primary animate-spin" />
-        <p className="text-slate-500 font-semibold text-sm">Opening live maps...</p>
-      </div>
-    );
+    return <MapTrackSkeleton />;
   }
 
   if (error || !trackData) {

@@ -1,6 +1,8 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
+import dynamic from 'next/dynamic';
+import { DashboardSkeleton } from '@/components/ui/Skeleton';
 import Link from 'next/link';
 import { useState } from 'react';
 import { 
@@ -231,9 +233,8 @@ export default function ParentDashboardView({ tab, busId }: { tab?: string; busI
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
-        <Loader2 className="w-8 h-8 text-[#5c3b99] animate-spin" />
-        <p className="text-slate-500 font-bold text-sm">Synchronizing your dashboard...</p>
+      <div className="max-w-6xl mx-auto p-4 lg:p-8">
+        <DashboardSkeleton />
       </div>
     );
   }

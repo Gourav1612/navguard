@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Loader2, Search, Bus, MapPin, Compass, AlertCircle, CheckCircle } from 'lucide-react';
 import dynamic from 'next/dynamic';
+import { AssignmentsSkeleton } from '@/components/ui/Skeleton';
 
 const LiveMap = dynamic(() => import('@/components/LiveMap').then((m) => m.LiveMap), {
   ssr: false,
@@ -124,12 +125,7 @@ export default function AdminAssignments() {
   );
 
   if (studentsLoading) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[50vh] gap-3">
-        <Loader2 className="w-8 h-8 text-primary animate-spin" />
-        <p className="text-slate-500 font-medium text-sm">Mapping routes linkages...</p>
-      </div>
-    );
+    return <AssignmentsSkeleton />;
   }
 
   return (

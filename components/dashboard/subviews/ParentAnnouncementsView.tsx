@@ -3,6 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { Loader2, Bell, Calendar, ShieldAlert } from 'lucide-react';
 import { formatDateTime } from '@/lib/utils';
+import { AnnouncementsSkeleton } from '@/components/ui/Skeleton';
 
 export default function ParentAnnouncements() {
   // Fetch parent announcements
@@ -16,12 +17,7 @@ export default function ParentAnnouncements() {
   });
 
   if (isLoading) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[50vh] gap-3">
-        <Loader2 className="w-8 h-8 text-primary animate-spin" />
-        <p className="text-slate-500 font-semibold text-sm">Opening bulletin...</p>
-      </div>
-    );
+    return <AnnouncementsSkeleton />;
   }
 
   if (error) {

@@ -7,6 +7,7 @@ import { Loader2, Radio, CheckCircle, Navigation, ShieldAlert, Users, XCircle, A
 import { Capacitor } from '@capacitor/core';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import dynamic from 'next/dynamic';
+import { MapTrackSkeleton } from '@/components/ui/Skeleton';
 import { LocationService, BackgroundGeolocation } from '@/lib/capacitor-plugins';
 
 const LiveMap = dynamic(() => import('@/components/LiveMap').then((m) => m.LiveMap), {
@@ -151,12 +152,7 @@ export default function DriverTripPage({
   };
 
   if (isLoading) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
-        <Loader2 className="w-8 h-8 text-primary animate-spin" />
-        <p className="text-slate-500 font-semibold text-sm">Opening trip details...</p>
-      </div>
-    );
+    return <MapTrackSkeleton />;
   }
 
   if (error || !assignment) {
