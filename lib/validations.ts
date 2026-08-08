@@ -31,15 +31,18 @@ export const StopSchema = z.object({
   stop_order: z.coerce.number().int().min(0),
 });
 
+export const PasswordSchema = z.string()
+  .min(8, 'Password must be at least 8 characters')
+  .regex(/^(?=.*[A-Z])(?=.*[0-9])(?=.*[^A-Za-z0-9])/, 'Password must contain at least one uppercase letter, one number, and one special character');
+
 export const CreateUserSchema = z.object({
   full_name: z.string().min(2, 'Name must be at least 2 characters').max(100),
   email: z.string().email('Enter a valid email address').max(254, 'Email must not exceed 254 characters'),
   phone: z.string().regex(/^\+?[1-9]\d{7,14}$/, 'Enter a valid phone number').optional().nullable(),
-  password: z.string()
-    .min(8, 'Password must be at least 8 characters')
-    .regex(/^(?=.*[A-Z])(?=.*[0-9])(?=.*[^A-Za-z0-9])/, 'Password must contain at least one uppercase letter, one number, and one special character'),
+  password: PasswordSchema,
   is_active: z.boolean().optional(),
 });
+
 
 // Driver details on top of CreateUserSchema
 export const CreateDriverSchema = CreateUserSchema.extend({

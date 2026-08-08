@@ -4,8 +4,8 @@
   "description": "School Transport Management & Live GPS Bus Tracking SaaS Platform",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#1d4ed8",
-  "theme_color": "#1d4ed8",
+  "background_color": "#5c3b99",
+  "theme_color": "#5c3b99",
   "orientation": "portrait-primary",
   "icons": [
     {

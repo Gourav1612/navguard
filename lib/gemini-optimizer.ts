@@ -1,4 +1,4 @@
-import { getDistanceMeters } from './utils';
+import { optimizeRouteStops } from './utils';
 
 /**
  * Optimizes route stops sequence using Gemini AI if GEMINI_API_KEY is configured.
@@ -30,10 +30,13 @@ Return the results in JSON format as an array of numbers representing the optimi
 Example output format: [0, 3, 1, 2]`;
 
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent`,
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': apiKey,
+        },
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: {
@@ -70,32 +73,7 @@ Example output format: [0, 3, 1, 2]`;
 }
 
 function localOptimize(stops: any[]) {
-  const optimized = [stops[0]];
-  const unvisited = [...stops.slice(1)];
-
-  let current = stops[0];
-  while (unvisited.length > 0) {
-    let nearestIdx = 0;
-    let minDistance = Infinity;
-
-    for (let i = 0; i < unvisited.length; i++) {
-      const dist = getDistanceMeters(
-        current.latitude,
-        current.longitude,
-        unvisited[i].latitude,
-        unvisited[i].longitude
-      );
-      if (dist < minDistance) {
-        minDistance = dist;
-        nearestIdx = i;
-      }
-    }
-
-    current = unvisited[nearestIdx];
-    optimized.push(current);
-    unvisited.splice(nearestIdx, 1);
-  }
-
+  const optimized = optimizeRouteStops(stops);
   return optimized.map((stop, idx) => ({
     ...stop,
     stop_order: idx,

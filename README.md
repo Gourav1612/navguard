@@ -33,9 +33,9 @@ Built using Next.js 15, TypeScript, Tailwind CSS, React Query, and Supabase, it 
 4. **Custom Access Token Hook (Important):** Ensure the `custom_access_token_hook` function is registered as your project's Auth Hook. In Supabase CLI, this is linked automatically. In the cloud dashboard, configure it under **Auth -> Hooks** to allow custom role claims (`role` and `school_id`) to be securely injected into user JWT sessions.
 
 ### 2. Environment Variables Configuration
-Copy `.env.example` to `.env.local` (for local development) or `.env` (for Docker production):
+Copy `.env.example` to `.env`:
 ```bash
-cp .env.example .env.local
+cp .env.example .env
 ```
 Provide your Supabase URL, Anon Key, Service Role Key (secret, server-side only), and App URL in the fields.
 

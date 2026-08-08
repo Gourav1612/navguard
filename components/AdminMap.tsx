@@ -336,8 +336,9 @@ export function AdminMap({ activeTrips = [], busesLocations = [] }: AdminMapProp
       .channel('admin-tracking-channel')
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'bus_locations' },
+        { event: '*', schema: 'public', table: 'bus_locations' },
         (payload: any) => {
+          if (payload.eventType === 'DELETE') return;
           const { bus_id, latitude, longitude, speed } = payload.new;
           
           // If we filtered by a specific bus, hide updates for others

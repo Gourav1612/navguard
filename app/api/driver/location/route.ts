@@ -2,20 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireRole } from '@/lib/auth-guard';
 import { createSupabaseServerClient, createAdminClient } from '@/lib/supabase/server';
 import { LocationSchema } from '@/lib/validations';
-
-function getDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 6371e3; // meters
-  const phi1 = (lat1 * Math.PI) / 180;
-  const phi2 = (lat2 * Math.PI) / 180;
-  const deltaPhi = ((lat2 - lat1) * Math.PI) / 180;
-  const deltaLambda = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
-    Math.cos(phi1) * Math.cos(phi2) *
-    Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-}
+import { getDistanceMeters } from '@/lib/utils';
 
 export async function POST(req: NextRequest) {
   const auth = await requireRole(['driver']);
@@ -80,7 +67,7 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
 
     if (lastLoc) {
-      const distFromLast = getDistance(
+      const distFromLast = getDistanceMeters(
         Number(lastLoc.latitude),
         Number(lastLoc.longitude),
         latitude,
@@ -151,7 +138,7 @@ export async function POST(req: NextRequest) {
       if (stops && stops.length > 0) {
         let minDistanceToRoute = Infinity;
         for (const stop of stops) {
-          const dist = getDistance(latitude, longitude, Number(stop.latitude), Number(stop.longitude));
+          const dist = getDistanceMeters(latitude, longitude, Number(stop.latitude), Number(stop.longitude));
           if (dist < minDistanceToRoute) {
             minDistanceToRoute = dist;
           }
@@ -178,23 +165,21 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 4. Update / Insert latest bus location in bus_locations table
-    await adminSupabase
-      .from('bus_locations')
-      .delete()
-      .eq('bus_id', bus_id);
-
+    // 4. Update / Insert latest bus location in bus_locations table using upsert
     const { data: newLocation, error: locErr } = await adminSupabase
       .from('bus_locations')
-      .insert({
-        bus_id,
-        trip_id: trip_id || null,
-        latitude,
-        longitude,
-        speed,
-        heading,
-        recorded_at: new Date().toISOString(),
-      })
+      .upsert(
+        {
+          bus_id,
+          trip_id: trip_id || null,
+          latitude,
+          longitude,
+          speed,
+          heading,
+          recorded_at: new Date().toISOString(),
+        },
+        { onConflict: 'bus_id' }
+      )
       .select('id, recorded_at')
       .single();
 

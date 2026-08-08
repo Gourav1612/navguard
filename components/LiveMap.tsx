@@ -403,12 +403,13 @@ export function LiveMap({
       .on(
         'postgres_changes',
         {
-          event: 'INSERT',
+          event: '*',
           schema: 'public',
           table: 'bus_locations',
           filter: `bus_id=eq.${busId}`,
         },
         (payload: any) => {
+          if (payload.eventType === 'DELETE') return;
           if (!showBus) return;
           const { latitude, longitude } = payload.new;
           const newPos = { latitude, longitude };

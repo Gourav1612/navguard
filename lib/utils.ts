@@ -49,6 +49,10 @@ export function getDistanceMeters(lat1: number, lon1: number, lat2: number, lon2
   return R * c; // in meters
 }
 
+export function getDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  return getDistanceMeters(lat1, lon1, lat2, lon2) / 1000;
+}
+
 export function parseGoogleMapsLink(url: string): { lat: number; lng: number; name?: string } | null {
   try {
     const decodedUrl = decodeURIComponent(url);

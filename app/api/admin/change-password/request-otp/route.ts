@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireRole } from '@/lib/auth-guard';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { sendVerificationEmail } from '@/lib/mail';
+import crypto from 'crypto';
 
 function maskEmail(email: string): string {
   const parts = email.split('@');
@@ -24,8 +25,8 @@ export async function POST() {
   }
 
   try {
-    // Generate 6-digit OTP
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    // Generate 6-digit OTP using secure randomInt
+    const otp = crypto.randomInt(100000, 1000000).toString();
     const expiry = Date.now() + 10 * 60 * 1000; // 10 minutes valid
 
     // Update user metadata in Supabase

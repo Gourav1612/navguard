@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { requireRole } from '@/lib/auth-guard';
 import { createSupabaseServerClient, createAdminClient } from '@/lib/supabase/server';
 
+import { PasswordSchema } from '@/lib/validations';
+
 export async function POST(request: Request) {
   const auth = await requireRole(['admin'], { skipMfa: true });
   if (auth.error) return auth.error;
@@ -19,9 +21,10 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!newPassword || newPassword.length < 6) {
+    const parsedPassword = PasswordSchema.safeParse(newPassword);
+    if (!parsedPassword.success) {
       return NextResponse.json(
-        { error: 'New password must be at least 6 characters long.' },
+        { error: parsedPassword.error.issues[0].message },
         { status: 400 }
       );
     }

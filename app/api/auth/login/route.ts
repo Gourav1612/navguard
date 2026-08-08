@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient, createAdminClient } from '@/lib/supabase/server';
 import { LoginSchema } from '@/lib/validations';
 import { sendVerificationEmail } from '@/lib/mail';
+import crypto from 'crypto';
 
 export async function POST(req: NextRequest) {
   try {
@@ -39,6 +40,17 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    if (fetchedUser) {
+      const attempts = Number(fetchedUser.user_metadata?.login_attempts || 0);
+      const isLocked = fetchedUser.user_metadata?.login_locked === true || attempts >= 5;
+      if (isLocked) {
+        return NextResponse.json(
+          { error: 'Account is locked due to too many failed login attempts. Please check your email for reset instructions.', code: 'UNAUTHORIZED' },
+          { status: 401 }
+        );
+      }
+    }
+
     // Use SSR server client so session cookies are automatically set via cookies headers
     const supabase = await createSupabaseServerClient();
     
@@ -63,6 +75,7 @@ export async function POST(req: NextRequest) {
           user_metadata: {
             ...fetchedUser.user_metadata,
             login_attempts: newAttempts,
+            login_locked: reachedLimit ? true : false,
             password_reset_token: resetToken,
             password_reset_token_expires: resetTokenExpires,
             password_reset_token_sent_at: reachedLimit && canSendEmail ? Date.now() : lastSentAt,
@@ -118,19 +131,14 @@ export async function POST(req: NextRequest) {
           }
 
           return NextResponse.json(
-            { error: 'Incorrect password (5 failed attempts). A password reset link has been sent to your registered email address.', code: 'UNAUTHORIZED' },
+            { error: 'Account is locked due to too many failed login attempts. Please check your email for reset instructions.', code: 'UNAUTHORIZED' },
             { status: 401 }
           );
         }
-
-        return NextResponse.json(
-          { error: `Incorrect password. Attempts remaining: ${5 - newAttempts}`, code: 'UNAUTHORIZED' },
-          { status: 401 }
-        );
       }
 
       return NextResponse.json(
-        { error: authError?.message || 'Unauthorized', code: 'UNAUTHORIZED' },
+        { error: 'Invalid email or password.', code: 'UNAUTHORIZED' },
         { status: 401 }
       );
     }

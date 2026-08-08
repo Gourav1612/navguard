@@ -335,12 +335,14 @@ export default function AdminDashboardView({ tab: initialTab }: { tab?: string }
       .on(
         'postgres_changes',
         {
-          event: 'INSERT',
+          event: '*',
           schema: 'public',
           table: 'bus_locations',
         },
-        () => {
-          refetch();
+        (payload: any) => {
+          if (payload.eventType !== 'DELETE') {
+            refetch();
+          }
         }
       )
       .subscribe();

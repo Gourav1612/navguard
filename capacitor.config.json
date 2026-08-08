@@ -1,10 +1,10 @@
 {
   "appId": "com.navguard.app",
   "appName": "NaviGuard",
-  "webDir": "public",
+  "webDir": "out",
   "server": {
     "url": "https://navguard-eight.vercel.app",
-    "cleartext": true,
+    "cleartext": false,
     "errorPath": "/error.html"
   }
 }

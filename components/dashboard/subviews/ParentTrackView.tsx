@@ -5,7 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { Loader2, ArrowLeft, Clock, Navigation, RefreshCw, AlertTriangle } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { useState, useEffect } from 'react';
-import { getDistanceKm } from '@/lib/eta';
+import { getDistanceKm } from '@/lib/utils';
 
 // Load map dynamically to prevent SSR failures
 const LiveMap = dynamic(() => import('@/components/LiveMap').then((m) => m.LiveMap), {

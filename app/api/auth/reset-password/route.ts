@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/server';
+import { PasswordSchema } from '@/lib/validations';
 
 export async function POST(request: Request) {
   try {
@@ -13,8 +14,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid or missing password reset token.' }, { status: 400 });
     }
 
-    if (!newPassword || newPassword.length < 6) {
-      return NextResponse.json({ error: 'New password must be at least 6 characters long.' }, { status: 400 });
+    const parsedPassword = PasswordSchema.safeParse(newPassword);
+    if (!parsedPassword.success) {
+      return NextResponse.json(
+        { error: parsedPassword.error.issues[0].message },
+        { status: 400 }
+      );
     }
 
     const cleanEmail = email.trim().toLowerCase();

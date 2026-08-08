@@ -31,7 +31,7 @@ d:\navigation system\
 │   ├── auth-guard.ts           # Server-side role auth helpers
 │   └── utils.ts                # Shared utility functions
 ├── proxy.ts                    # Next.js middleware (auth + MFA)
-└── .env.local                  # Supabase URL, keys, JWT secret
+└── .env                        # Supabase URL, keys, JWT secret
 ```
 
 ---
@@ -194,7 +194,7 @@ mindmap
 - **Trigger**: Every time a route is created (`POST /api/admin/routes`) or updated (`PATCH /api/admin/routes/[id]`)
 - **Primary**: Calls `gemini-2.5-flash` API with stop names/coords → asks AI to return optimal visit order
 - **Fallback**: Local Nearest-Neighbor TSP algorithm if Gemini key is missing or times out
-- **Env var needed**: `GEMINI_API_KEY` in `.env.local`
+- **Env var needed**: `GEMINI_API_KEY` in `.env`
 
 ### 📍 Live Location Tracking
 - **File**: `app/api/driver/location/route.ts`
@@ -235,7 +235,7 @@ mindmap
 
 ---
 
-## 🔧 Environment Variables (`.env.local`)
+## 🔧 Environment Variables (`.env`)
 
 ```env
 # Public (exposed to browser)
