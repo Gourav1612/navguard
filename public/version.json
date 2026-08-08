@@ -1,5 +1,5 @@
 {
-  "version": "1.0.78",
+  "version": "1.0.79",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: feat: implement Open App remote driver app launch trigger from admin dashboard"
+  "releaseNotes": "Auto-build: fix(android): bypass background activity launch restrictions on Android 14+ for driver app ping launcher"
 }
