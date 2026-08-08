@@ -4,24 +4,40 @@ import { createSupabaseServerClient, createAdminClient } from '@/lib/supabase/se
 import { CreateStudentSchema } from '@/lib/validations';
 
 // GET /api/admin/students
-export async function GET() {
+export async function GET(req: NextRequest) {
   const auth = await requireRole(['admin']);
   if (auth.error) return auth.error;
 
   const { profile } = auth;
   const supabase = await createSupabaseServerClient();
+  const { searchParams } = new URL(req.url);
+  const pageParam = searchParams.get('page') ? parseInt(searchParams.get('page')!, 10) : null;
+  const pageSizeParam = searchParams.get('pageSize') ? parseInt(searchParams.get('pageSize')!, 10) : 10;
+  const search = searchParams.get('search')?.trim() || '';
 
   try {
-    const { data: students, error } = await supabase
+    let query = supabase
       .from('student_profiles')
       .select(`
         *,
         bus:buses(id, name),
         stop:stops(id, name),
-        user:user_profiles(full_name, email, phone)
-      `)
+        user:user_profiles!inner(full_name, email, phone)
+      `, { count: 'exact' })
       .eq('school_id', profile.school_id)
       .order('created_at', { ascending: false });
+
+    if (search) {
+      query = query.or(`grade.ilike.%${search}%,roll_number.ilike.%${search}%,user.full_name.ilike.%${search}%`);
+    }
+
+    if (pageParam) {
+      const from = (pageParam - 1) * pageSizeParam;
+      const to = from + pageSizeParam - 1;
+      query = query.range(from, to);
+    }
+
+    const { data: students, count, error } = await query;
 
     if (error) {
       return NextResponse.json(
@@ -51,6 +67,17 @@ export async function GET() {
           : null,
       };
     });
+
+    if (pageParam) {
+      const totalCount = count ?? mapped.length;
+      return NextResponse.json({
+        data: mapped,
+        count: totalCount,
+        totalPages: Math.max(1, Math.ceil(totalCount / pageSizeParam)),
+        currentPage: pageParam,
+        pageSize: pageSizeParam,
+      });
+    }
 
     return NextResponse.json(mapped);
   } catch (err: any) {

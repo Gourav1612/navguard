@@ -4,15 +4,19 @@ import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { BusSchema } from '@/lib/validations';
 
 // GET /api/admin/buses
-export async function GET() {
+export async function GET(req: NextRequest) {
   const auth = await requireRole(['admin']);
   if (auth.error) return auth.error;
 
   const { profile } = auth;
   const supabase = await createSupabaseServerClient();
+  const { searchParams } = new URL(req.url);
+  const pageParam = searchParams.get('page') ? parseInt(searchParams.get('page')!, 10) : null;
+  const pageSizeParam = searchParams.get('pageSize') ? parseInt(searchParams.get('pageSize')!, 10) : 10;
+  const search = searchParams.get('search')?.trim() || '';
 
   try {
-    const { data: buses, error } = await supabase
+    let query = supabase
       .from('buses')
       .select(`
         *,
@@ -21,9 +25,21 @@ export async function GET() {
           user_profiles(full_name, phone)
         ),
         route:routes(id, name)
-      `)
+      `, { count: 'exact' })
       .eq('school_id', profile.school_id)
       .order('created_at', { ascending: false });
+
+    if (search) {
+      query = query.or(`name.ilike.%${search}%,registration_plate.ilike.%${search}%`);
+    }
+
+    if (pageParam) {
+      const from = (pageParam - 1) * pageSizeParam;
+      const to = from + pageSizeParam - 1;
+      query = query.range(from, to);
+    }
+
+    const { data: buses, count, error } = await query;
 
     if (error) {
       return NextResponse.json(
@@ -52,25 +68,29 @@ export async function GET() {
         registration_plate: bus.registration_plate,
         capacity: bus.capacity,
         status: bus.status,
-        is_trip_active: bus.is_trip_active === true || activeBusIdSet.has(bus.id),
+        created_at: bus.created_at,
+        is_trip_active: activeBusIdSet.has(bus.id),
         driver: driverObj
           ? {
               id: driverObj.id,
-              user: {
-                full_name: driverObj.user_profiles?.full_name || 'Unknown',
-                phone: driverObj.user_profiles?.phone || '',
-              },
+              full_name: (driverObj.user_profiles as any)?.full_name || 'Assigned Driver',
+              phone: (driverObj.user_profiles as any)?.phone || null,
             }
           : null,
-        route: routeObj
-          ? {
-              id: routeObj.id,
-              name: routeObj.name,
-            }
-          : null,
-        created_at: bus.created_at,
+        route: routeObj ? { id: routeObj.id, name: routeObj.name } : null,
       };
     });
+
+    if (pageParam) {
+      const totalCount = count ?? mapped.length;
+      return NextResponse.json({
+        data: mapped,
+        count: totalCount,
+        totalPages: Math.max(1, Math.ceil(totalCount / pageSizeParam)),
+        currentPage: pageParam,
+        pageSize: pageSizeParam,
+      });
+    }
 
     return NextResponse.json(mapped);
   } catch (err: any) {

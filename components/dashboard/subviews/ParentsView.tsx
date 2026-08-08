@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useOptimistic, useTransition } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -8,6 +8,8 @@ import { Plus, Edit2, Trash2, X, Loader2, AlertCircle, Mail, Phone, Users, Check
 import * as XLSX from 'xlsx';
 import { CreateParentSchema } from '@/lib/validations';
 import { z } from 'zod';
+import { deleteParentAction } from '@/app/actions/admin-pagination';
+import { PaginationControls } from '@/components/ui/PaginationControls';
 
 type ParentFormValues = z.infer<typeof CreateParentSchema>;
 
@@ -19,16 +21,27 @@ export default function AdminParents() {
   const [showPassword, setShowPassword] = useState(false);
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const [isPendingTransition, startTransition] = useTransition();
 
-  // Fetch parents
-  const { data: parents = [], isLoading: parentsLoading } = useQuery({
-    queryKey: ['admin-parents'],
+  // Fetch paginated parents
+  const { data: paginatedResult, isLoading: parentsLoading } = useQuery({
+    queryKey: ['admin-parents', page],
     queryFn: async () => {
-      const res = await fetch('/api/admin/parents');
+      const res = await fetch(`/api/admin/parents?page=${page}&pageSize=10`);
       if (!res.ok) throw new Error('Failed to fetch parents');
       return res.json();
     },
   });
+
+  const parentsList = paginatedResult?.data || (Array.isArray(paginatedResult) ? paginatedResult : []);
+  const totalPages = paginatedResult?.totalPages || 1;
+  const totalCount = paginatedResult?.count || parentsList.length;
+
+  const [optimisticParents, setOptimisticParents] = useOptimistic(
+    parentsList,
+    (current: any[], deletedId: string) => current.filter((p: any) => p.id !== deletedId)
+  );
 
   // Fetch students for checkboxes selection
   const { data: students = [] } = useQuery({
@@ -40,14 +53,14 @@ export default function AdminParents() {
     },
   });
 
-  const filteredParents = parents.filter((p: any) => 
+  const filteredParents = optimisticParents.filter((p: any) => 
     p.user?.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     p.user?.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     p.user?.phone?.includes(searchQuery)
   );
 
   const handleExportCSV = () => {
-    const exportData = filteredParents.map((parent: any) => ({
+    const exportData = (parentsList || []).map((parent: any) => ({
       'Parent Name': parent.user?.full_name || '',
       'Email Address': parent.user?.email || '',
       'Phone Number': parent.user?.phone || '',
@@ -67,7 +80,7 @@ export default function AdminParents() {
   };
 
   const handleExportXLSX = () => {
-    const exportData = filteredParents.map((parent: any) => ({
+    const exportData = (parentsList || []).map((parent: any) => ({
       'Parent Name': parent.user?.full_name || '',
       'Email Address': parent.user?.email || '',
       'Phone Number': parent.user?.phone || '',
@@ -167,22 +180,19 @@ export default function AdminParents() {
     },
   });
 
-  // Delete parent
-  const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const res = await fetch(`/api/admin/parents/${id}`, { method: 'DELETE' });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Failed to delete parent');
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-parents'] });
-    },
-    onError: (err: any) => {
-      alert(err.message);
-    },
-  });
+  // Optimistic server-action deletion
+  const handleDelete = (id: string) => {
+    if (confirm('Delete parent profile? This will unlink connected student profiles.')) {
+      startTransition(async () => {
+        setOptimisticParents(id);
+        const res = await deleteParentAction(id);
+        if (!res.success) {
+          alert(res.error || 'Failed to delete parent');
+        }
+        queryClient.invalidateQueries({ queryKey: ['admin-parents'] });
+      });
+    }
+  };
 
   const handleOpenAddModal = () => {
     setEditingParent(null);
@@ -213,12 +223,6 @@ export default function AdminParents() {
       student_ids: linkedIds,
     });
     setIsModalOpen(true);
-  };
-
-  const handleDelete = (id: string) => {
-    if (confirm('Delete this parent account registration? This clears parent dashboards access. Children registrations are untouched.')) {
-      deleteMutation.mutate(id);
-    }
   };
 
   const handleToggleStudent = (studentId: string) => {
@@ -311,7 +315,7 @@ export default function AdminParents() {
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3.5" />
         </div>
         <div className="text-xs font-bold text-slate-400">
-          Showing {filteredParents.length} of {parents.length} records
+          Showing {filteredParents.length} of {totalCount} records
         </div>
       </div>
 
@@ -423,10 +427,10 @@ export default function AdminParents() {
                   </button>
                   <button
                     onClick={() => handleDelete(parent.id)}
-                    disabled={deleteMutation.isPending}
+                    disabled={isPendingTransition}
                     className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 border border-red-100 hover:border-red-250 hover:bg-red-50/50 text-red-650 rounded-xl text-xs font-bold transition duration-200 disabled:opacity-50 cursor-pointer"
                   >
-                    {deleteMutation.isPending ? (
+                    {isPendingTransition ? (
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
                     ) : (
                       <Trash2 className="w-3.5 h-3.5 text-red-400" />
@@ -439,6 +443,16 @@ export default function AdminParents() {
           })}
         </div>
       )}
+
+      <PaginationControls
+        currentPage={page}
+        totalPages={totalPages}
+        totalCount={totalCount}
+        pageSize={10}
+        onPageChange={(p) => setPage(p)}
+        isPending={isPendingTransition}
+        itemLabel="registered parents"
+      />
 
       {/* Onboard / Edit Parent Modal */}
       {isModalOpen && (

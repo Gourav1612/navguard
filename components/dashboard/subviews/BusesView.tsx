@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useOptimistic, useTransition } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -8,6 +8,8 @@ import { Plus, Edit2, Trash2, X, Loader2, AlertCircle, RefreshCw } from 'lucide-
 import { Badge } from '@/components/Badge';
 import { BusSchema } from '@/lib/validations';
 import type { z } from 'zod';
+import { deleteBusAction } from '@/app/actions/admin-pagination';
+import { PaginationControls } from '@/components/ui/PaginationControls';
 
 type BusFormValues = z.infer<typeof BusSchema>;
 
@@ -17,16 +19,27 @@ export default function AdminBuses() {
   const [editingBusId, setEditingBusId] = useState<string | null>(null);
   const [togglingBusId, setTogglingBusId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [isPendingTransition, startTransition] = useTransition();
 
-  // Fetch buses list
-  const { data: buses = [], isLoading, error } = useQuery({
-    queryKey: ['admin-buses'],
+  // Fetch paginated buses list
+  const { data: paginatedResult, isLoading, error } = useQuery({
+    queryKey: ['admin-buses', page],
     queryFn: async () => {
-      const res = await fetch('/api/admin/buses');
+      const res = await fetch(`/api/admin/buses?page=${page}&pageSize=10`);
       if (!res.ok) throw new Error('Failed to fetch buses');
       return res.json();
     },
   });
+
+  const busesList = paginatedResult?.data || (Array.isArray(paginatedResult) ? paginatedResult : []);
+  const totalPages = paginatedResult?.totalPages || 1;
+  const totalCount = paginatedResult?.count || busesList.length;
+
+  const [optimisticBuses, setOptimisticBuses] = useOptimistic(
+    busesList,
+    (current: any[], deletedId: string) => current.filter((b: any) => b.id !== deletedId)
+  );
 
   const {
     register,
@@ -89,41 +102,41 @@ export default function AdminBuses() {
     },
   });
 
-  // Mutate delete
-  const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const res = await fetch(`/api/admin/buses/${id}`, { method: 'DELETE' });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Failed to delete bus');
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-buses'] });
-    },
-    onError: (err: any) => {
-      alert(err.message);
-    },
-  });
+  // Optimistic server-action deletion
+  const handleDelete = (id: string) => {
+    if (confirm('Are you sure you want to remove this bus record? This will unassign any routes, drivers, and students linked to this bus.')) {
+      startTransition(async () => {
+        setOptimisticBuses(id);
+        const res = await deleteBusAction(id);
+        if (!res.success) {
+          alert(res.error || 'Failed to delete bus');
+        }
+        queryClient.invalidateQueries({ queryKey: ['admin-buses'] });
+        queryClient.invalidateQueries({ queryKey: ['admin-drivers'] });
+      });
+    }
+  };
 
   // Mutate toggle trip (Admin Start / Stop Trip)
   const toggleTripMutation = useMutation({
     mutationFn: async ({ busId, action }: { busId: string; action: 'start' | 'end' }) => {
-      const res = await fetch('/api/admin/trips/toggle', {
+      const endpoint = action === 'start' ? '/api/admin/trips/start' : '/api/admin/trips/end';
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bus_id: busId, action }),
+        body: JSON.stringify({ bus_id: busId }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to toggle trip');
+      if (!res.ok) {
+        throw new Error(data.error || `Failed to ${action} trip`);
+      }
       return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-buses'] });
-      queryClient.invalidateQueries({ queryKey: ['admin-dashboard'] });
     },
     onError: (err: any) => {
-      alert(err.message);
+      alert(err.message || 'Action failed');
     },
   });
 
@@ -147,12 +160,6 @@ export default function AdminBuses() {
     setValue('capacity', bus.capacity);
     setValue('status', bus.status);
     setIsModalOpen(true);
-  };
-
-  const handleDelete = (id: string) => {
-    if (confirm('Are you sure you want to remove this bus? This action cannot be undone.')) {
-      deleteMutation.mutate(id);
-    }
   };
 
   const onSubmit = (values: BusFormValues) => {
@@ -193,7 +200,7 @@ export default function AdminBuses() {
       </div>
 
       {/* Grid List */}
-      {buses.length === 0 ? (
+      {optimisticBuses.length === 0 ? (
         <div className="bg-white border border-slate-150 rounded-2xl p-12 text-center max-w-sm mx-auto space-y-4">
           <div className="flex items-center justify-center w-12 h-12 bg-slate-50 border border-slate-200 rounded-full mx-auto text-slate-400">
             <Plus className="w-6 h-6" />
@@ -210,97 +217,109 @@ export default function AdminBuses() {
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {buses.map((bus: any) => (
-            <div
-              key={bus.id}
-              className="bg-white border border-slate-150 rounded-2xl p-6 shadow-sm flex flex-col justify-between hover:shadow-md transition duration-200"
-            >
-              <div>
-                <div className="flex items-start justify-between gap-4">
-                  <div className="space-y-1">
-                    <h3 className="font-bold text-slate-900 text-base">{bus.name}</h3>
-                    <span className="font-mono text-xs font-bold text-slate-500 bg-slate-50 border border-slate-150 px-2 py-0.5 rounded uppercase">
-                      {bus.registration_plate}
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {optimisticBuses.map((bus: any) => (
+              <div
+                key={bus.id}
+                className="bg-white border border-slate-150 rounded-2xl p-6 shadow-sm flex flex-col justify-between hover:shadow-md transition duration-200"
+              >
+                <div>
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="space-y-1">
+                      <h3 className="font-bold text-slate-900 text-base">{bus.name}</h3>
+                      <span className="font-mono text-xs font-bold text-slate-500 bg-slate-50 border border-slate-150 px-2 py-0.5 rounded uppercase">
+                        {bus.registration_plate}
+                      </span>
+                    </div>
+                    <Badge status={bus.status} />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 mt-6 text-xs border-y border-slate-100 py-4">
+                    <div>
+                      <span className="text-slate-400 font-bold block uppercase tracking-wider">Capacity</span>
+                      <span className="text-slate-800 font-extrabold text-sm block mt-1">{bus.capacity} Seats</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 font-bold block uppercase tracking-wider">Assigned Route</span>
+                      <span className="text-slate-800 font-semibold text-sm block mt-1 truncate">
+                        {bus.route?.name || 'Unassigned'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="mt-4">
+                    <span className="text-slate-400 font-bold block text-xs uppercase tracking-wider">Active Driver</span>
+                    <span className="text-slate-700 text-xs font-semibold block mt-1 truncate">
+                      {bus.driver?.user?.full_name ? (
+                        `${bus.driver.user.full_name} (${bus.driver.user.phone || 'No Phone'})`
+                      ) : (
+                        <span className="text-slate-400 italic">No driver assigned</span>
+                      )}
                     </span>
                   </div>
-                  <Badge status={bus.status} />
+                  <div className="mt-4 pt-3 border-t border-slate-100">
+                    <button
+                      onClick={() => {
+                        setTogglingBusId(bus.id);
+                        toggleTripMutation.mutate(
+                          { busId: bus.id, action: bus.is_trip_active ? 'end' : 'start' },
+                          { onSettled: () => setTogglingBusId(null) }
+                        );
+                      }}
+                      disabled={togglingBusId === bus.id}
+                      className={`w-full py-2.5 px-3 rounded-xl text-xs font-black uppercase tracking-wider transition flex items-center justify-center gap-1.5 cursor-pointer shadow-sm ${
+                        bus.is_trip_active
+                          ? 'bg-red-600 hover:bg-red-700 text-white shadow-red-500/20'
+                          : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20'
+                      }`}
+                    >
+                      {togglingBusId === bus.id ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : bus.is_trip_active ? (
+                        <>🛑 End Live Trip</>
+                      ) : (
+                        <>🚀 Start Live Trip</>
+                      )}
+                    </button>
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4 mt-6 text-xs border-y border-slate-100 py-4">
-                  <div>
-                    <span className="text-slate-400 font-bold block uppercase tracking-wider">Capacity</span>
-                    <span className="text-slate-800 font-extrabold text-sm block mt-1">{bus.capacity} Seats</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 font-bold block uppercase tracking-wider">Assigned Route</span>
-                    <span className="text-slate-800 font-semibold text-sm block mt-1 truncate">
-                      {bus.route?.name || 'Unassigned'}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="mt-4">
-                  <span className="text-slate-400 font-bold block text-xs uppercase tracking-wider">Active Driver</span>
-                  <span className="text-slate-700 text-xs font-semibold block mt-1 truncate">
-                    {bus.driver?.user?.full_name ? (
-                      `${bus.driver.user.full_name} (${bus.driver.user.phone || 'No Phone'})`
-                    ) : (
-                      <span className="text-slate-400 italic">No driver assigned</span>
-                    )}
-                  </span>
-                </div>
-                <div className="mt-4 pt-3 border-t border-slate-100">
+                <div className="flex items-center gap-3 mt-4 pt-4 border-t border-slate-100">
                   <button
-                    onClick={() => {
-                      setTogglingBusId(bus.id);
-                      toggleTripMutation.mutate(
-                        { busId: bus.id, action: bus.is_trip_active ? 'end' : 'start' },
-                        { onSettled: () => setTogglingBusId(null) }
-                      );
-                    }}
-                    disabled={togglingBusId === bus.id}
-                    className={`w-full py-2.5 px-3 rounded-xl text-xs font-black uppercase tracking-wider transition flex items-center justify-center gap-1.5 cursor-pointer shadow-sm ${
-                      bus.is_trip_active
-                        ? 'bg-red-600 hover:bg-red-700 text-white shadow-red-500/20'
-                        : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20'
-                    }`}
+                    onClick={() => handleOpenEditModal(bus)}
+                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 border border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-600 rounded-lg text-xs font-semibold transition"
                   >
-                    {togglingBusId === bus.id ? (
+                    <Edit2 className="w-3.5 h-3.5" />
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => handleDelete(bus.id)}
+                    disabled={isPendingTransition}
+                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 border border-red-200 hover:border-red-300 hover:bg-red-50 text-red-600 rounded-lg text-xs font-semibold transition disabled:opacity-50"
+                  >
+                    {isPendingTransition ? (
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    ) : bus.is_trip_active ? (
-                      <>🛑 End Live Trip</>
                     ) : (
-                      <>🚀 Start Live Trip</>
+                      <Trash2 className="w-3.5 h-3.5" />
                     )}
+                    Delete
                   </button>
                 </div>
               </div>
+            ))}
+          </div>
 
-              <div className="flex items-center gap-3 mt-4 pt-4 border-t border-slate-100">
-                <button
-                  onClick={() => handleOpenEditModal(bus)}
-                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 border border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-600 rounded-lg text-xs font-semibold transition"
-                >
-                  <Edit2 className="w-3.5 h-3.5" />
-                  Edit
-                </button>
-                <button
-                  onClick={() => handleDelete(bus.id)}
-                  disabled={deleteMutation.isPending}
-                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 border border-red-200 hover:border-red-300 hover:bg-red-50 text-red-600 rounded-lg text-xs font-semibold transition disabled:opacity-50"
-                >
-                  {deleteMutation.isPending ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <Trash2 className="w-3.5 h-3.5" />
-                  )}
-                  Delete
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
+          <PaginationControls
+            currentPage={page}
+            totalPages={totalPages}
+            totalCount={totalCount}
+            pageSize={10}
+            onPageChange={(p) => setPage(p)}
+            isPending={isPendingTransition}
+            itemLabel="fleet buses"
+          />
+        </>
       )}
 
       {/* Add / Edit Bus Modal */}

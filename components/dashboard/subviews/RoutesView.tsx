@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useOptimistic, useTransition } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -10,6 +10,8 @@ import { Badge } from '@/components/Badge';
 import { RouteSchema } from '@/lib/validations';
 import type { z } from 'zod';
 import { parseGoogleMapsLink, optimizeRouteStops } from '@/lib/utils';
+import { deleteRouteAction } from '@/app/actions/admin-pagination';
+import { PaginationControls } from '@/components/ui/PaginationControls';
 
 type RouteFormValues = z.infer<typeof RouteSchema>;
 
@@ -28,6 +30,8 @@ export default function AdminRoutes() {
   const [selectedRoute, setSelectedRoute] = useState<any | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [stopsList, setStopsList] = useState<any[]>([]);
+  const [page, setPage] = useState(1);
+  const [isPendingTransition, startTransition] = useTransition();
 
   // Add Stop fields state
   const [newStopName, setNewStopName] = useState('');
@@ -78,15 +82,24 @@ export default function AdminRoutes() {
     fetchDefaultSchool();
   }, []);
 
-  // Fetch routes
-  const { data: routes = [], isLoading: routesLoading } = useQuery({
-    queryKey: ['admin-routes'],
+  // Fetch paginated routes
+  const { data: paginatedResult, isLoading: routesLoading } = useQuery({
+    queryKey: ['admin-routes', page],
     queryFn: async () => {
-      const res = await fetch('/api/admin/routes');
+      const res = await fetch(`/api/admin/routes?page=${page}&pageSize=10`);
       if (!res.ok) throw new Error('Failed to fetch routes');
       return res.json();
     },
   });
+
+  const routesList = paginatedResult?.data || (Array.isArray(paginatedResult) ? paginatedResult : []);
+  const totalPages = paginatedResult?.totalPages || 1;
+  const totalCount = paginatedResult?.count || routesList.length;
+
+  const [optimisticRoutes, setOptimisticRoutes] = useOptimistic(
+    routesList,
+    (current: any[], deletedId: string) => current.filter((r: any) => r.id !== deletedId)
+  );
 
   // Fetch buses for assignment dropdown
   const { data: buses = [] } = useQuery({
@@ -176,23 +189,19 @@ export default function AdminRoutes() {
     },
   });
 
-  // Delete Route
-  const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const res = await fetch(`/api/admin/routes/${id}`, { method: 'DELETE' });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Failed to delete route');
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-routes'] });
-      if (selectedRoute?.id) setSelectedRoute(null);
-    },
-    onError: (err: any) => {
-      alert(err.message);
-    },
-  });
+  // Optimistic server-action deletion
+  const handleRouteDelete = (id: string) => {
+    if (confirm('Are you sure you want to remove this route? This will unassign any active trips and delete stops for this route.')) {
+      startTransition(async () => {
+        setOptimisticRoutes(id);
+        const res = await deleteRouteAction(id);
+        if (!res.success) {
+          alert(res.error || 'Failed to delete route');
+        }
+        queryClient.invalidateQueries({ queryKey: ['admin-routes'] });
+      });
+    }
+  };
 
   const handleOpenAddForm = () => {
     setSelectedRoute(null);
@@ -386,12 +395,6 @@ export default function AdminRoutes() {
     // Reset orders
     const resetOrder = updated.map((stop, i) => ({ ...stop, stop_order: i }));
     setStopsList(resetOrder);
-  };
-
-  const handleRouteDelete = (id: string) => {
-    if (confirm('Delete this route and all its stops?')) {
-      deleteMutation.mutate(id);
-    }
   };
 
   if (routesLoading) {
@@ -771,79 +774,114 @@ export default function AdminRoutes() {
         </div>
       ) : (
         /* Routes List View */
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {routes.map((route: any) => (
-            <div
-              key={route.id}
-              className="bg-white border border-slate-150 rounded-2xl p-6 shadow-sm hover:shadow-md transition duration-200 flex flex-col justify-between"
-            >
-              <div>
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <h3 className="font-bold text-slate-900 text-base flex items-center gap-1.5">
-                      <Route className="w-4 h-4 text-primary" />
-                      {route.name}
-                    </h3>
-                    <p className="text-xs text-slate-400 mt-1 font-medium">{route.description || 'No route description'}</p>
-                  </div>
-                  <Badge status={route.is_active ? 'active' : 'inactive'} />
-                </div>
-
-                <div className="mt-5 text-xs text-slate-600 space-y-2 border-t border-slate-100 pt-4">
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-slate-400">Bus Unit:</span>
-                    <span className="font-semibold text-slate-700 bg-slate-50 border border-slate-150 px-2 py-0.5 rounded">
-                      {route.bus?.name || 'Unassigned'}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-slate-400">Total Stops:</span>
-                    <span className="font-semibold text-slate-700">{route.stops?.length || 0} stops</span>
-                  </div>
-                </div>
-
-                {/* List stops inline briefly */}
-                {route.stops && route.stops.length > 0 && (
-                  <div className="mt-4 pt-3 border-t border-slate-50">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">Transit stops sequence:</span>
-                    <div className="flex flex-wrap gap-1.5">
-                      {route.stops.map((s: any, idx: number) => (
-                        <a
-                          key={s.id || idx}
-                          href={`https://www.google.com/maps/search/?api=1&query=${s.latitude},${s.longitude}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-[10px] font-bold text-slate-600 bg-slate-50 border border-slate-150 px-2 py-0.5 rounded hover:bg-primary/5 hover:text-primary hover:border-primary/30 transition flex items-center gap-1 cursor-pointer"
-                          title="View on Google Maps"
-                        >
-                          {idx + 1}. {s.name}
-                          <ExternalLink className="w-2.5 h-2.5 opacity-60" />
-                        </a>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex items-center gap-3 mt-6 pt-4 border-t border-slate-100">
-                <button
-                  onClick={() => handleOpenEditForm(route)}
-                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 border border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-600 rounded-lg text-xs font-semibold transition"
-                >
-                  <Edit2 className="w-3.5 h-3.5" />
-                  Edit Route Details
-                </button>
-                <button
-                  onClick={() => handleRouteDelete(route.id)}
-                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 border border-red-200 hover:border-red-300 hover:bg-red-50 text-red-600 rounded-lg text-xs font-semibold transition"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  Delete
-                </button>
-              </div>
+        optimisticRoutes.length === 0 ? (
+          <div className="bg-white border border-slate-150 rounded-2xl p-12 text-center max-w-sm mx-auto space-y-4">
+            <div className="flex items-center justify-center w-12 h-12 bg-slate-50 border border-slate-200 rounded-full mx-auto text-slate-400">
+              <Route className="w-6 h-6" />
             </div>
-          ))}
-        </div>
+            <div>
+              <h4 className="font-bold text-slate-800">No Fleet Routes</h4>
+              <p className="text-slate-500 text-xs mt-1">Get started by creating your first school transit route with automated stop points.</p>
+            </div>
+            <button
+              onClick={handleOpenAddForm}
+              className="px-4 py-2 bg-primary text-white text-xs font-semibold rounded-lg hover:bg-primary-dark transition"
+            >
+              Create Route
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {optimisticRoutes.map((route: any) => (
+                <div
+                  key={route.id}
+                  className="bg-white border border-slate-150 rounded-2xl p-6 shadow-sm hover:shadow-md transition duration-200 flex flex-col justify-between"
+                >
+                  <div>
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <h3 className="font-bold text-slate-900 text-base flex items-center gap-1.5">
+                          <Route className="w-4 h-4 text-primary" />
+                          {route.name}
+                        </h3>
+                        <p className="text-xs text-slate-400 mt-1 font-medium">{route.description || 'No route description'}</p>
+                      </div>
+                      <Badge status={route.is_active ? 'active' : 'inactive'} />
+                    </div>
+
+                    <div className="mt-5 text-xs text-slate-600 space-y-2 border-t border-slate-100 pt-4">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-slate-400">Bus Unit:</span>
+                        <span className="font-semibold text-slate-700 bg-slate-50 border border-slate-150 px-2 py-0.5 rounded">
+                          {route.bus?.name || 'Unassigned'}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-slate-400">Total Stops:</span>
+                        <span className="font-semibold text-slate-700">{route.stops?.length || 0} stops</span>
+                      </div>
+                    </div>
+
+                    {/* List stops inline briefly */}
+                    {route.stops && route.stops.length > 0 && (
+                      <div className="mt-4 pt-3 border-t border-slate-50">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">Transit stops sequence:</span>
+                        <div className="flex flex-wrap gap-1.5">
+                          {route.stops.map((s: any, idx: number) => (
+                            <a
+                              key={s.id || idx}
+                              href={`https://www.google.com/maps/search/?api=1&query=${s.latitude},${s.longitude}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[10px] font-bold text-slate-600 bg-slate-50 border border-slate-150 px-2 py-0.5 rounded hover:bg-primary/5 hover:text-primary hover:border-primary/30 transition flex items-center gap-1 cursor-pointer"
+                              title="View on Google Maps"
+                            >
+                              {idx + 1}. {s.name}
+                              <ExternalLink className="w-2.5 h-2.5 opacity-60" />
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-3 mt-6 pt-4 border-t border-slate-100">
+                    <button
+                      onClick={() => handleOpenEditForm(route)}
+                      className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 border border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-600 rounded-lg text-xs font-semibold transition"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                      Edit Route Details
+                    </button>
+                    <button
+                      onClick={() => handleRouteDelete(route.id)}
+                      disabled={isPendingTransition}
+                      className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 border border-red-200 hover:border-red-300 hover:bg-red-50 text-red-600 rounded-lg text-xs font-semibold transition disabled:opacity-50"
+                    >
+                      {isPendingTransition ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Trash2 className="w-3.5 h-3.5" />
+                      )}
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <PaginationControls
+              currentPage={page}
+              totalPages={totalPages}
+              totalCount={totalCount}
+              pageSize={10}
+              onPageChange={(p) => setPage(p)}
+              isPending={isPendingTransition}
+              itemLabel="transit routes"
+            />
+          </>
+        )
       )}
     </div>
   );

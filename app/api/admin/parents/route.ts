@@ -4,19 +4,23 @@ import { createSupabaseServerClient, createAdminClient } from '@/lib/supabase/se
 import { CreateParentSchema } from '@/lib/validations';
 
 // GET /api/admin/parents
-export async function GET() {
+export async function GET(req: NextRequest) {
   const auth = await requireRole(['admin']);
   if (auth.error) return auth.error;
 
   const { profile } = auth;
   const supabase = await createSupabaseServerClient();
+  const { searchParams } = new URL(req.url);
+  const pageParam = searchParams.get('page') ? parseInt(searchParams.get('page')!, 10) : null;
+  const pageSizeParam = searchParams.get('pageSize') ? parseInt(searchParams.get('pageSize')!, 10) : 10;
+  const search = searchParams.get('search')?.trim() || '';
 
   try {
-    const { data: parents, error } = await supabase
+    let query = supabase
       .from('parent_profiles')
       .select(`
         id,
-        user:user_profiles(full_name, email, phone),
+        user:user_profiles!inner(full_name, email, phone),
         links:parent_student_links(
           student:student_profiles(
             id,
@@ -24,9 +28,21 @@ export async function GET() {
             user:user_profiles(full_name)
           )
         )
-      `)
+      `, { count: 'exact' })
       .eq('school_id', profile.school_id)
       .order('created_at', { ascending: false });
+
+    if (search) {
+      query = query.ilike('user.full_name', `%${search}%`);
+    }
+
+    if (pageParam) {
+      const from = (pageParam - 1) * pageSizeParam;
+      const to = from + pageSizeParam - 1;
+      query = query.range(from, to);
+    }
+
+    const { data: parents, count, error } = await query;
 
     if (error) {
       return NextResponse.json(
@@ -63,6 +79,17 @@ export async function GET() {
         students,
       };
     });
+
+    if (pageParam) {
+      const totalCount = count ?? mapped.length;
+      return NextResponse.json({
+        data: mapped,
+        count: totalCount,
+        totalPages: Math.max(1, Math.ceil(totalCount / pageSizeParam)),
+        currentPage: pageParam,
+        pageSize: pageSizeParam,
+      });
+    }
 
     return NextResponse.json(mapped);
   } catch (err: any) {

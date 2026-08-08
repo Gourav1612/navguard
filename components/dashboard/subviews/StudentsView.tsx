@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useOptimistic, useTransition } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -9,6 +9,8 @@ import * as XLSX from 'xlsx';
 import { CreateStudentSchema } from '@/lib/validations';
 import { z } from 'zod';
 import { parseGoogleMapsLink } from '@/lib/utils';
+import { deleteStudentAction } from '@/app/actions/admin-pagination';
+import { PaginationControls } from '@/components/ui/PaginationControls';
 
 type StudentFormValues = z.infer<typeof CreateStudentSchema>;
 
@@ -19,6 +21,8 @@ export default function AdminStudents() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [selectedBusIdFilter, setSelectedBusIdFilter] = useState('');
+  const [page, setPage] = useState(1);
+  const [isPendingTransition, startTransition] = useTransition();
 
   // Custom Stop States
   const [isCustomStop, setIsCustomStop] = useState(false);
@@ -29,15 +33,24 @@ export default function AdminStudents() {
   const [customStopLat, setCustomStopLat] = useState('');
   const [customStopLng, setCustomStopLng] = useState('');
 
-  // Fetch students
-  const { data: students = [], isLoading: studentsLoading } = useQuery({
-    queryKey: ['admin-students'],
+  // Fetch paginated students
+  const { data: paginatedResult, isLoading: studentsLoading } = useQuery({
+    queryKey: ['admin-students', page],
     queryFn: async () => {
-      const res = await fetch('/api/admin/students');
+      const res = await fetch(`/api/admin/students?page=${page}&pageSize=10`);
       if (!res.ok) throw new Error('Failed to fetch students');
       return res.json();
     },
   });
+
+  const studentsList = paginatedResult?.data || (Array.isArray(paginatedResult) ? paginatedResult : []);
+  const totalPages = paginatedResult?.totalPages || 1;
+  const totalCount = paginatedResult?.count || studentsList.length;
+
+  const [optimisticStudents, setOptimisticStudents] = useOptimistic(
+    studentsList,
+    (current: any[], deletedId: string) => current.filter((s: any) => s.id !== deletedId)
+  );
 
   // Fetch buses for dropdown selector
   const { data: buses = [] } = useQuery({
@@ -106,21 +119,43 @@ export default function AdminStudents() {
   });
 
   // Watch bus_id to filter stops list dynamically in the dropdown
-  const watchedBusId = watch('bus_id');
-  // Find stops linked to route which is linked to watchedBusId
-  const assignedRoute = routes.find((r: any) => r.bus_id === watchedBusId);
-  const availableStops = assignedRoute?.stops || [];
+  const selectedBusId = watch('bus_id');
+  const assignedRoute = routes.find((r: any) => r.bus_id === selectedBusId);
+  const routeStops = assignedRoute?.stops || [];
 
-  // Create student
+  // Create mutation
   const createMutation = useMutation({
     mutationFn: async (values: StudentFormValues) => {
+      let finalStopId = values.stop_id;
+
+      if (isCustomStop && customStopName && customStopLat && customStopLng) {
+        if (!assignedRoute) {
+          throw new Error('Please select a bus that has an assigned route to attach custom stop');
+        }
+        const stopRes = await fetch('/api/admin/stops', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            route_id: assignedRoute.id,
+            name: customStopName,
+            address: customStopAddress || customStopName,
+            latitude: Number(customStopLat),
+            longitude: Number(customStopLng),
+            stop_order: (assignedRoute.stops?.length || 0) + 1,
+          }),
+        });
+        const stopData = await stopRes.json();
+        if (!stopRes.ok) throw new Error(stopData.error || 'Failed to create custom stop');
+        finalStopId = stopData.id;
+      }
+
       const res = await fetch('/api/admin/students', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(values),
+        body: JSON.stringify({ ...values, stop_id: finalStopId }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to create student');
+      if (!res.ok) throw new Error(data.error || 'Failed to enroll student');
       return data;
     },
     onSuccess: () => {
@@ -133,13 +168,36 @@ export default function AdminStudents() {
     },
   });
 
-  // Update student
+  // Update mutation
   const updateMutation = useMutation({
     mutationFn: async ({ id, values }: { id: string; values: Partial<StudentFormValues> }) => {
+      let finalStopId = values.stop_id;
+
+      if (isCustomStop && customStopName && customStopLat && customStopLng) {
+        if (!assignedRoute) {
+          throw new Error('Please select a bus that has an assigned route to attach custom stop');
+        }
+        const stopRes = await fetch('/api/admin/stops', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            route_id: assignedRoute.id,
+            name: customStopName,
+            address: customStopAddress || customStopName,
+            latitude: Number(customStopLat),
+            longitude: Number(customStopLng),
+            stop_order: (assignedRoute.stops?.length || 0) + 1,
+          }),
+        });
+        const stopData = await stopRes.json();
+        if (!stopRes.ok) throw new Error(stopData.error || 'Failed to create custom stop');
+        finalStopId = stopData.id;
+      }
+
       const res = await fetch(`/api/admin/students/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(values),
+        body: JSON.stringify({ ...values, stop_id: finalStopId }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to update student');
@@ -281,7 +339,7 @@ export default function AdminStudents() {
             address: customStopAddress,
             latitude: lat,
             longitude: lng,
-            stop_order: availableStops.length,
+            stop_order: routeStops.length,
           }),
         });
 
@@ -315,8 +373,8 @@ export default function AdminStudents() {
 
   // Filter student list
   const filteredStudents = selectedBusIdFilter
-    ? students.filter((s: any) => s.bus?.id === selectedBusIdFilter)
-    : students;
+    ? optimisticStudents.filter((s: any) => s.bus?.id === selectedBusIdFilter)
+    : optimisticStudents;
 
   const handleExportCSV = () => {
     const exportData = filteredStudents.map((student: any) => ({
@@ -490,9 +548,14 @@ export default function AdminStudents() {
                       </button>
                       <button
                         onClick={() => handleDelete(student.id)}
-                        className="inline-flex items-center justify-center p-2 border border-red-200 hover:border-red-300 hover:bg-red-50 text-red-650 rounded-lg transition"
+                        disabled={isPendingTransition}
+                        className="inline-flex items-center justify-center p-2 border border-red-200 hover:border-red-300 hover:bg-red-50 text-red-650 rounded-lg transition disabled:opacity-50"
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        {isPendingTransition ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <Trash2 className="w-3.5 h-3.5" />
+                        )}
                       </button>
                     </td>
                   </tr>
@@ -564,15 +627,31 @@ export default function AdminStudents() {
                 </button>
                 <button
                   onClick={() => handleDelete(student.id)}
-                  className="flex-1 flex items-center justify-center gap-1.5 py-2.5 border border-red-200 hover:border-red-300 hover:bg-red-50 text-red-650 rounded-xl text-xs font-bold transition"
+                  disabled={isPendingTransition}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2.5 border border-red-200 hover:border-red-300 hover:bg-red-50 text-red-650 rounded-xl text-xs font-bold transition disabled:opacity-50"
                 >
-                  <Trash2 className="w-3.5 h-3.5" /> Delete
+                  {isPendingTransition ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Trash2 className="w-3.5 h-3.5" />
+                  )}
+                  Delete
                 </button>
               </div>
             </div>
           ))
         )}
       </div>
+
+      <PaginationControls
+        currentPage={page}
+        totalPages={totalPages}
+        totalCount={totalCount}
+        pageSize={10}
+        onPageChange={(p) => setPage(p)}
+        isPending={isPendingTransition}
+        itemLabel="enrolled students"
+      />
 
       {/* Onboard / Edit Student Modal */}
       {isModalOpen && (
@@ -733,12 +812,12 @@ export default function AdminStudents() {
                     <div className="space-y-1 mt-3">
                       <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Assign Stop Location</label>
                       <select
-                        disabled={mutating || !watchedBusId}
+                        disabled={mutating || !selectedBusId}
                         className="block w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white text-slate-700 disabled:opacity-50"
                         {...register('stop_id')}
                       >
                         <option value="">Unassigned</option>
-                        {availableStops.map((stop: any) => (
+                        {routeStops.map((stop: any) => (
                           <option key={stop.id} value={stop.id}>
                             {stop.name} (Stop {stop.stop_order})
                           </option>

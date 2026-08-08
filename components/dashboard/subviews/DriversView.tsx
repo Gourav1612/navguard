@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useOptimistic, useTransition } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -11,6 +11,8 @@ import { CreateDriverSchema } from '@/lib/validations';
 import { z } from 'zod';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import dynamic from 'next/dynamic';
+import { deleteDriverAction } from '@/app/actions/admin-pagination';
+import { PaginationControls } from '@/components/ui/PaginationControls';
 
 const LiveMap = dynamic(() => import('@/components/LiveMap').then((m) => m.LiveMap), {
   ssr: false,
@@ -30,6 +32,8 @@ export default function AdminDrivers() {
   const [editingDriver, setEditingDriver] = useState<any | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [page, setPage] = useState(1);
+  const [isPendingTransition, startTransition] = useTransition();
 
   // Live Tracking Modal states
   const [trackingDriver, setTrackingDriver] = useState<any | null>(null);
@@ -73,15 +77,24 @@ export default function AdminDrivers() {
     }
   };
 
-  // Fetch drivers
-  const { data: drivers = [], isLoading: driversLoading } = useQuery({
-    queryKey: ['admin-drivers'],
+  // Fetch paginated drivers
+  const { data: paginatedResult, isLoading: driversLoading } = useQuery({
+    queryKey: ['admin-drivers', page],
     queryFn: async () => {
-      const res = await fetch('/api/admin/drivers');
+      const res = await fetch(`/api/admin/drivers?page=${page}&pageSize=10`);
       if (!res.ok) throw new Error('Failed to fetch drivers');
       return res.json();
     },
   });
+
+  const driversList = paginatedResult?.data || (Array.isArray(paginatedResult) ? paginatedResult : []);
+  const totalPages = paginatedResult?.totalPages || 1;
+  const totalCount = paginatedResult?.count || driversList.length;
+
+  const [optimisticDrivers, setOptimisticDrivers] = useOptimistic(
+    driversList,
+    (current: any[], deletedId: string) => current.filter((d: any) => d.id !== deletedId)
+  );
 
   // Fetch buses for assignment dropdown
   const { data: buses = [] } = useQuery({
@@ -162,7 +175,6 @@ export default function AdminDrivers() {
   // Update mutation
   const updateMutation = useMutation({
     mutationFn: async ({ id, values }: { id: string; values: Partial<DriverFormValues> }) => {
-      // For updates, the password is not required. Zod schema can be partial.
       const res = await fetch(`/api/admin/drivers/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -184,23 +196,20 @@ export default function AdminDrivers() {
     },
   });
 
-  // Delete mutation
-  const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const res = await fetch(`/api/admin/drivers/${id}`, { method: 'DELETE' });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Failed to delete driver');
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-drivers'] });
-      queryClient.invalidateQueries({ queryKey: ['admin-buses'] });
-    },
-    onError: (err: any) => {
-      alert(err.message);
-    },
-  });
+  // Optimistic server-action deletion
+  const handleDelete = (id: string) => {
+    if (confirm('Are you sure you want to remove this driver record? This action cannot be undone.')) {
+      startTransition(async () => {
+        setOptimisticDrivers(id);
+        const res = await deleteDriverAction(id);
+        if (!res.success) {
+          alert(res.error || 'Failed to delete driver');
+        }
+        queryClient.invalidateQueries({ queryKey: ['admin-drivers'] });
+        queryClient.invalidateQueries({ queryKey: ['admin-buses'] });
+      });
+    }
+  };
 
   const handleOpenAddModal = () => {
     setEditingDriver(null);
@@ -234,12 +243,6 @@ export default function AdminDrivers() {
     setIsModalOpen(true);
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm('Delete this driver account? All historical trip attachments will remain, but the driver profile will be wiped.')) {
-      deleteMutation.mutate(id);
-    }
-  };
-
   const onSubmit = (values: DriverFormValues) => {
     setErrorMessage(null);
     if (editingDriver) {
@@ -261,7 +264,7 @@ export default function AdminDrivers() {
   };
 
   const handleExportCSV = () => {
-    const exportData = drivers.map((driver: any) => ({
+    const exportData = (driversList || []).map((driver: any) => ({
       'Driver Name': driver.user?.full_name || '',
       'Email Address': driver.user?.email || '',
       'Phone Number': driver.user?.phone || '',
@@ -284,7 +287,7 @@ export default function AdminDrivers() {
   };
 
   const handleExportXLSX = () => {
-    const exportData = drivers.map((driver: any) => ({
+    const exportData = (driversList || []).map((driver: any) => ({
       'Driver Name': driver.user?.full_name || '',
       'Email Address': driver.user?.email || '',
       'Phone Number': driver.user?.phone || '',
@@ -356,7 +359,7 @@ export default function AdminDrivers() {
       </div>
 
       {/* Grid view */}
-      {drivers.length === 0 ? (
+      {optimisticDrivers.length === 0 ? (
         <div className="bg-white border border-slate-150 rounded-2xl p-12 text-center max-w-sm mx-auto space-y-4">
           <div className="flex items-center justify-center w-12 h-12 bg-slate-50 border border-slate-200 rounded-full mx-auto text-slate-400">
             <Plus className="w-6 h-6" />
@@ -373,94 +376,106 @@ export default function AdminDrivers() {
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {drivers.map((driver: any) => (
-            <div
-              key={driver.id}
-              className="bg-white border border-slate-150 rounded-2xl p-6 shadow-sm hover:shadow-md transition duration-200 flex flex-col justify-between"
-            >
-              <div>
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <h3 className="font-bold text-slate-900 text-base">{driver.user?.full_name}</h3>
-                    <p className="text-xs text-slate-400 flex items-center gap-1 mt-1">
-                      <Mail className="w-3.5 h-3.5" />
-                      {driver.user?.email}
-                    </p>
-                  </div>
-                  <button 
-                    onClick={() => toggleActiveState(driver)}
-                    className="focus:outline-none"
-                  >
-                    <Badge status={driver.is_active ? 'active' : 'inactive'} />
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4 mt-6 border-y border-slate-100 py-4 text-xs">
-                  <div className="space-y-0.5">
-                    <span className="text-slate-400 font-bold block uppercase tracking-wider">License Number</span>
-                    <span className="text-slate-700 font-mono font-bold">{driver.license_number}</span>
-                  </div>
-                  <div className="space-y-0.5">
-                    <span className="text-slate-400 font-bold block uppercase tracking-wider">License Expiration</span>
-                    <span className="text-slate-700 font-semibold flex items-center gap-1">
-                      <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                      {driver.license_expiry || 'No date set'}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-4 mt-4 text-xs">
-                  <div className="flex-1 flex items-center gap-2 bg-slate-50 border border-slate-150 p-2.5 rounded-xl">
-                    <Phone className="w-4 h-4 text-slate-400" />
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {optimisticDrivers.map((driver: any) => (
+              <div
+                key={driver.id}
+                className="bg-white border border-slate-150 rounded-2xl p-6 shadow-sm hover:shadow-md transition duration-200 flex flex-col justify-between"
+              >
+                <div>
+                  <div className="flex items-start justify-between gap-4">
                     <div>
-                      <span className="text-slate-400 font-bold block uppercase text-[9px] tracking-wider">Contact Phone</span>
-                      <span className="text-slate-700 font-semibold block">{driver.user?.phone || '—'}</span>
+                      <h3 className="font-bold text-slate-900 text-base">{driver.user?.full_name}</h3>
+                      <p className="text-xs text-slate-400 flex items-center gap-1 mt-1">
+                        <Mail className="w-3.5 h-3.5" />
+                        {driver.user?.email}
+                      </p>
                     </div>
+                    <button 
+                      onClick={() => toggleActiveState(driver)}
+                      className="focus:outline-none"
+                    >
+                      <Badge status={driver.is_active ? 'active' : 'inactive'} />
+                    </button>
                   </div>
-                  <div className="flex-1 flex items-center gap-2 bg-slate-50 border border-slate-150 p-2.5 rounded-xl">
-                    <Bus className="w-4 h-4 text-slate-400" />
-                    <div>
-                      <span className="text-slate-400 font-bold block uppercase text-[9px] tracking-wider">Shift Bus</span>
-                      <span className="text-slate-700 font-semibold block truncate">
-                        {driver.bus?.name || 'Unassigned'}
+
+                  <div className="grid grid-cols-2 gap-4 mt-6 border-y border-slate-100 py-4 text-xs">
+                    <div className="space-y-0.5">
+                      <span className="text-slate-400 font-bold block uppercase tracking-wider">License Number</span>
+                      <span className="text-slate-700 font-mono font-bold">{driver.license_number}</span>
+                    </div>
+                    <div className="space-y-0.5">
+                      <span className="text-slate-400 font-bold block uppercase tracking-wider">License Expiration</span>
+                      <span className="text-slate-700 font-semibold flex items-center gap-1">
+                        <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                        {driver.license_expiry || 'No date set'}
                       </span>
                     </div>
                   </div>
+
+                  <div className="flex items-center gap-4 mt-4 text-xs">
+                    <div className="flex-1 flex items-center gap-2 bg-slate-50 border border-slate-150 p-2.5 rounded-xl">
+                      <Phone className="w-4 h-4 text-slate-400" />
+                      <div>
+                        <span className="text-slate-400 font-bold block uppercase text-[9px] tracking-wider">Contact Phone</span>
+                        <span className="text-slate-700 font-semibold block">{driver.user?.phone || '—'}</span>
+                      </div>
+                    </div>
+                    <div className="flex-1 flex items-center gap-2 bg-slate-50 border border-slate-150 p-2.5 rounded-xl">
+                      <Bus className="w-4 h-4 text-slate-400" />
+                      <div>
+                        <span className="text-slate-400 font-bold block uppercase text-[9px] tracking-wider">Shift Bus</span>
+                        <span className="text-slate-700 font-semibold block truncate">
+                          {driver.bus?.name || 'Unassigned'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 mt-6 pt-4 border-t border-slate-100">
+                  <button
+                    onClick={() => handleTrackDriver(driver)}
+                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 border border-purple-250 hover:border-purple-350 hover:bg-purple-50 text-purple-650 rounded-lg text-xs font-semibold transition cursor-pointer"
+                  >
+                    <MapPin className="w-3.5 h-3.5 text-purple-500" />
+                    Track Location
+                  </button>
+                  <button
+                    onClick={() => handleOpenEditModal(driver)}
+                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 border border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-600 rounded-lg text-xs font-semibold transition"
+                  >
+                    <Edit2 className="w-3.5 h-3.5" />
+                    Edit details
+                  </button>
+                  <button
+                    onClick={() => handleDelete(driver.id)}
+                    disabled={isPendingTransition}
+                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 border border-red-200 hover:border-red-300 hover:bg-red-50 text-red-600 rounded-lg text-xs font-semibold transition disabled:opacity-50"
+                  >
+                    {isPendingTransition ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Trash2 className="w-3.5 h-3.5" />
+                    )}
+                    Delete
+                  </button>
                 </div>
               </div>
+            ))}
+          </div>
 
-              <div className="flex items-center gap-3 mt-6 pt-4 border-t border-slate-100">
-                <button
-                  onClick={() => handleTrackDriver(driver)}
-                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 border border-purple-250 hover:border-purple-350 hover:bg-purple-50 text-purple-650 rounded-lg text-xs font-semibold transition cursor-pointer"
-                >
-                  <MapPin className="w-3.5 h-3.5 text-purple-500" />
-                  Track Location
-                </button>
-                <button
-                  onClick={() => handleOpenEditModal(driver)}
-                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 border border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-600 rounded-lg text-xs font-semibold transition"
-                >
-                  <Edit2 className="w-3.5 h-3.5" />
-                  Edit details
-                </button>
-                <button
-                  onClick={() => handleDelete(driver.id)}
-                  disabled={deleteMutation.isPending}
-                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 border border-red-200 hover:border-red-300 hover:bg-red-50 text-red-600 rounded-lg text-xs font-semibold transition disabled:opacity-50"
-                >
-                  {deleteMutation.isPending ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <Trash2 className="w-3.5 h-3.5" />
-                  )}
-                  Delete
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
+          <PaginationControls
+            currentPage={page}
+            totalPages={totalPages}
+            totalCount={totalCount}
+            pageSize={10}
+            onPageChange={(p) => setPage(p)}
+            isPending={isPendingTransition}
+            itemLabel="registered drivers"
+          />
+        </>
       )}
 
       {/* Onboard / Edit Driver Modal */}

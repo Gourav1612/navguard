@@ -1,14 +1,15 @@
-'use client';
-
-import { useState } from 'react';
+import { useState, useTransition } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Loader2, ShieldAlert, History, Activity, Terminal, Trash2 } from 'lucide-react';
-import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { formatDateTime } from '@/lib/utils';
+import { getPaginatedAuditLogs } from '@/app/actions/admin-pagination';
+import { PaginationControls } from '@/components/ui/PaginationControls';
 
 export default function AdminAuditLogs() {
   const queryClient = useQueryClient();
   const [clearing, setClearing] = useState(false);
+  const [page, setPage] = useState(1);
+  const [isPendingTransition, startTransition] = useTransition();
 
   const handleClearLogs = async () => {
     if (!confirm('Are you sure you want to permanently delete all system audit logs? This cannot be undone.')) {
@@ -29,38 +30,17 @@ export default function AdminAuditLogs() {
     }
   };
 
-  const { data: logs = [], isLoading, error } = useQuery({
-    queryKey: ['admin-audit-logs'],
+  const { data: paginatedResult, isLoading, error } = useQuery({
+    queryKey: ['admin-audit-logs', page],
     queryFn: async () => {
-      const supabase = createBrowserSupabaseClient();
-      
-      const { data, error: queryErr } = await supabase
-        .from('audit_logs')
-        .select(`
-          id,
-          action,
-          table_name,
-          record_id,
-          ip_address,
-          created_at,
-          user:user_profiles(full_name, email)
-        `)
-        .order('created_at', { ascending: false })
-        .limit(100); // Limit to latest 100 entries for performance
-
-      if (queryErr) throw queryErr;
-      
-      // Map to normalize user fields
-      return (data || []).map((log: any) => {
-        const userObj = Array.isArray(log.user) ? log.user[0] : log.user;
-        return {
-          ...log,
-          user: userObj || null,
-        };
-      });
+      return await getPaginatedAuditLogs(page, 15);
     },
-    refetchInterval: 20000, // Poll logs every 20s
+    refetchInterval: 20000,
   });
+
+  const logs = paginatedResult?.data || [];
+  const totalPages = paginatedResult?.totalPages || 1;
+  const totalCount = paginatedResult?.count || logs.length;
 
   if (isLoading) {
     return (
@@ -172,6 +152,18 @@ export default function AdminAuditLogs() {
               )}
             </tbody>
           </table>
+        </div>
+
+        <div className="p-4 border-t border-slate-100">
+          <PaginationControls
+            currentPage={page}
+            totalPages={totalPages}
+            totalCount={totalCount}
+            pageSize={15}
+            onPageChange={(p) => setPage(p)}
+            isPending={isPendingTransition}
+            itemLabel="audit log entries"
+          />
         </div>
       </div>
     </div>
