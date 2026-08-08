@@ -161,16 +161,13 @@ export async function DELETE(
       );
     }
 
-    // 1. Unassign driver from any bus
-    await adminClient.from('drivers').update({ bus_id: null }).eq('id', id);
+    // 1. Delete any historical or active trips referencing this driver to satisfy ON DELETE RESTRICT
+    await adminClient.from('trips').delete().eq('driver_id', id);
 
-    // 2. Unlink driver from any historical or active trips
-    await adminClient.from('trips').update({ driver_id: null }).eq('driver_id', id);
-
-    // 3. Clean up any automated announcements posted by this driver to bypass foreign key constraints
+    // 2. Clean up any automated announcements posted by this driver to bypass foreign key constraints
     await adminClient.from('announcements').delete().eq('created_by', driver.user_id);
 
-    // 4. Delete from drivers table
+    // 3. Delete from drivers table
     const { error: driverDelErr } = await adminClient.from('drivers').delete().eq('id', id);
     if (driverDelErr) {
       return NextResponse.json(
