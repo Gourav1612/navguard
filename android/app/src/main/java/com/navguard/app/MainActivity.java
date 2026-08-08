@@ -22,6 +22,26 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(AppUpdatePlugin.class);
         super.onCreate(savedInstanceState);
 
+        // Wake up screen and show on lock screen for emergency safety pings
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+                setShowWhenLocked(true);
+                setTurnScreenOn(true);
+                android.app.KeyguardManager keyguardManager = (android.app.KeyguardManager) getSystemService(android.content.Context.KEYGUARD_SERVICE);
+                if (keyguardManager != null) {
+                    keyguardManager.requestDismissKeyguard(this, null);
+                }
+            } else {
+                getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED
+                        | android.view.WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD
+                        | android.view.WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
+                        | android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+            }
+            android.util.Log.d("MainActivity", "Successfully configured screen turn-on and unlock flags");
+        } catch (Exception e) {
+            android.util.Log.e("MainActivity", "Failed to configure wake/lock flags", e);
+        }
+
         // Disable WebView caching to ensure immediate updates from Vercel
         try {
             getBridge().getWebView().getSettings().setCacheMode(android.webkit.WebSettings.LOAD_NO_CACHE);
@@ -320,6 +340,16 @@ public class MainActivity extends BridgeActivity {
         }
 
         if (intent != null && "com.navguard.app.ACTION_ENTER_PIP".equals(intent.getAction())) {
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+                    setShowWhenLocked(true);
+                    setTurnScreenOn(true);
+                } else {
+                    getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED
+                            | android.view.WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON);
+                }
+            } catch (Exception ignored) {}
+
             android.content.SharedPreferences prefs = getSharedPreferences(
                     LocationForegroundService.PREFS_NAME,
                     android.content.Context.MODE_PRIVATE
