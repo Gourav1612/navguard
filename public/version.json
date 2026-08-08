@@ -1,5 +1,5 @@
 {
-  "version": "1.0.79",
+  "version": "1.0.80",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: fix(android): bypass background activity launch restrictions on Android 14+ for driver app ping launcher"
+  "releaseNotes": "Auto-build: feat(android): wake up screen and display app on top of lock screen when remotely pinged by admin for child safety"
 }
