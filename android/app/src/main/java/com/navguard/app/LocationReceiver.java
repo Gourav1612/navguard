@@ -119,13 +119,22 @@ public class LocationReceiver extends BroadcastReceiver {
             return;
         }
 
-        // Deduplication: skip if the foreground service already posted very recently
+        // Deduplication and Jitter filter
         long now = System.currentTimeMillis();
         if (now - LocationForegroundService.lastPostedTimeMs < 2500) {
             Log.d(TAG, "Receiver: skipping duplicate post (service posted recently)");
             return;
         }
+        if (LocationForegroundService.lastPostedLocation != null) {
+            float distance = location.distanceTo(LocationForegroundService.lastPostedLocation);
+            long timeSinceLastPost = now - LocationForegroundService.lastPostedTimeMs;
+            if (distance < 3.0f && timeSinceLastPost < 30000) {
+                Log.d(TAG, "Receiver: skipping post (bus stationary, moved " + distance + "m)");
+                return;
+            }
+        }
         LocationForegroundService.lastPostedTimeMs = now;
+        LocationForegroundService.lastPostedLocation = location;
 
         HttpURLConnection conn = null;
         try {
@@ -143,6 +152,7 @@ public class LocationReceiver extends BroadcastReceiver {
             conn.setRequestMethod("POST");
             conn.setRequestProperty("Content-Type", "application/json");
             conn.setRequestProperty("Authorization", "Bearer " + token);
+            conn.setRequestProperty("Connection", "Keep-Alive");
             conn.setDoOutput(true);
             conn.setConnectTimeout(10000);
             conn.setReadTimeout(10000);
@@ -185,6 +195,14 @@ public class LocationReceiver extends BroadcastReceiver {
                 } catch (Exception err) {
                     Log.e(TAG, "Error in LocationReceiver response handling", err);
                 }
+            }
+
+            // Always read error stream to release network resource for reuse
+            java.io.InputStream es = conn.getErrorStream();
+            if (es != null) {
+                byte[] buf = new byte[1024];
+                while (es.read(buf) > 0) {}
+                es.close();
             }
         } catch (Exception e) {
             Log.e(TAG, "Failed to post location to server", e);

@@ -45,6 +45,7 @@ public class LocationForegroundService extends Service {
     public static boolean isServiceRunning = false;
     // Used for cross-path deduplication (service callback + BroadcastReceiver run in parallel)
     public static volatile long lastPostedTimeMs = 0;
+    public static volatile Location lastPostedLocation = null;
     private static final long MIN_POST_INTERVAL_MS = 3000; // 3s minimum between posts
     private WindowManager windowManager;
     private View floatingView;
@@ -264,13 +265,22 @@ public class LocationForegroundService extends Service {
     }
 
     private void postLocationToServer(Location location) {
-        // Deduplication: skip if another path just posted within the interval
+        // Deduplication and Jitter filter
         long now = System.currentTimeMillis();
         if (now - lastPostedTimeMs < MIN_POST_INTERVAL_MS) {
             Log.d(TAG, "Service: skipping duplicate post (receiver already posted recently)");
             return;
         }
+        if (lastPostedLocation != null) {
+            float distance = location.distanceTo(lastPostedLocation);
+            long timeSinceLastPost = now - lastPostedTimeMs;
+            if (distance < 3.0f && timeSinceLastPost < 30000) {
+                Log.d(TAG, "Service: skipping post (bus stationary, moved " + distance + "m)");
+                return;
+            }
+        }
         lastPostedTimeMs = now;
+        lastPostedLocation = location;
 
         executor.execute(() -> {
             String token = null;
@@ -319,6 +329,7 @@ public class LocationForegroundService extends Service {
                 conn.setRequestMethod("POST");
                 conn.setRequestProperty("Content-Type", "application/json");
                 conn.setRequestProperty("Authorization", "Bearer " + token);
+                conn.setRequestProperty("Connection", "Keep-Alive");
                 conn.setDoOutput(true);
                 conn.setConnectTimeout(10000);
                 conn.setReadTimeout(10000);
@@ -371,6 +382,14 @@ public class LocationForegroundService extends Service {
                     } catch (Exception err) {
                         Log.e(TAG, "Error processing server telemetry response", err);
                     }
+                }
+
+                // Always read error stream to release network resource for reuse
+                java.io.InputStream es = conn.getErrorStream();
+                if (es != null) {
+                    byte[] buf = new byte[1024];
+                    while (es.read(buf) > 0) {}
+                    es.close();
                 }
             } catch (Exception e) {
                 Log.e(TAG, "Service: failed to post location to server", e);
