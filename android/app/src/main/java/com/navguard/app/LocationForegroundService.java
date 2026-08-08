@@ -196,6 +196,23 @@ public class LocationForegroundService extends Service {
             Log.e(TAG, "Failed to register location callback", e);
         }
 
+        // Also register with LocationReceiver via PendingIntent to survive process kill / background swipe
+        try {
+            Intent intent = new Intent(this, LocationReceiver.class);
+            PendingIntent pendingIntent = PendingIntent.getBroadcast(
+                    this,
+                    0,
+                    intent,
+                    PendingIntent.FLAG_UPDATE_CURRENT | (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ? PendingIntent.FLAG_MUTABLE : 0)
+            );
+            fusedLocationClient.requestLocationUpdates(locationRequest, pendingIntent);
+            Log.d(TAG, "Successfully requested location updates via BroadcastReceiver PendingIntent");
+        } catch (SecurityException e) {
+            Log.e(TAG, "Location permission not granted for BroadcastReceiver PendingIntent", e);
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to register BroadcastReceiver PendingIntent", e);
+        }
+
         // Start continuous 3-second background timer loop on HandlerThread
         startBackgroundTimerLoop();
 

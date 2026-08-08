@@ -197,6 +197,11 @@ public class MainActivity extends BridgeActivity {
                     android.content.Context.MODE_PRIVATE
             );
             boolean isDriver = prefs.getBoolean("is_driver", false);
+            android.content.Intent currentIntent = getIntent();
+            if (currentIntent != null && "com.navguard.app.ACTION_ENTER_PIP".equals(currentIntent.getAction())) {
+                prefs.edit().putBoolean("is_trip_active", true).apply();
+            }
+
             boolean isTripActive = prefs.getBoolean("is_trip_active", false);
 
             if (isDriver && !isTripActive && LocationForegroundService.isServiceRunning) {
@@ -312,6 +317,14 @@ public class MainActivity extends BridgeActivity {
                 finishAndRemoveTask();
             }
             return;
+        }
+
+        if (intent != null && "com.navguard.app.ACTION_ENTER_PIP".equals(intent.getAction())) {
+            android.content.SharedPreferences prefs = getSharedPreferences(
+                    LocationForegroundService.PREFS_NAME,
+                    android.content.Context.MODE_PRIVATE
+            );
+            prefs.edit().putBoolean("is_trip_active", true).apply();
         }
 
         checkAndEnterPipIfTripActive();
