@@ -1,5 +1,5 @@
 {
-  "version": "1.0.76",
+  "version": "1.0.77",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: fix: create assets and out directories before capacitor sync to prevent ENOENT in CI build"
+  "releaseNotes": "Auto-build: fix(android): resolve background location packets not sending and automate driver PiP mode trigger on admin start trip"
 }
