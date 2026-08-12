@@ -1,5 +1,5 @@
 {
-  "version": "1.0.80",
+  "version": "1.0.81",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: feat(android): wake up screen and display app on top of lock screen when remotely pinged by admin for child safety"
+  "releaseNotes": "Auto-build: chore: remove nginx.conf as SSL is managed via Cloudflare and implement final security audit fixes"
 }
