@@ -24,6 +24,7 @@ export async function POST(req: NextRequest) {
       .from('buses')
       .select('id, name, registration_plate, school_id')
       .eq('id', bus_id)
+      .eq('school_id', auth.profile.school_id)
       .maybeSingle();
 
     if (busErr || !bus) {

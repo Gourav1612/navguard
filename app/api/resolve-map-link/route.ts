@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { requireRole } from '@/lib/auth-guard';
 
 const ALLOWED_MAP_HOSTS = new Set([
   'google.com',
@@ -23,17 +23,8 @@ function isAllowedMapsUrl(value: string) {
 }
 
 export async function GET(req: NextRequest) {
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json(
-      { error: 'Unauthorized', code: 'UNAUTHORIZED' },
-      { status: 401 }
-    );
-  }
+  const auth = await requireRole(['admin', 'driver', 'parent', 'student']);
+  if (auth.error) return auth.error;
 
   const url = req.nextUrl.searchParams.get('url');
   if (!url) {

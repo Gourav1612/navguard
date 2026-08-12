@@ -10,10 +10,14 @@ function getAppOrigin() {
     process.env.APP_URL ||
     (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '');
 
+  if (!configuredUrl) {
+    throw new Error('NEXT_PUBLIC_APP_URL environment variable is required but not set');
+  }
+
   try {
     return new URL(configuredUrl).origin;
   } catch {
-    return 'https://navguard-eight.vercel.app';
+    throw new Error(`Invalid APP_URL config: ${configuredUrl}`);
   }
 }
 

@@ -23,8 +23,9 @@ export async function POST(req: NextRequest) {
     // 1. Fetch trip details and verify it exists
     const { data: trip, error: tripFetchErr } = await adminClient
       .from('trips')
-      .select('id, status')
+      .select('id, status, school_id')
       .eq('id', trip_id)
+      .eq('school_id', auth.profile.school_id)
       .maybeSingle();
 
     if (tripFetchErr || !trip) {
