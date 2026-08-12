@@ -95,44 +95,7 @@ public class LocationForegroundService extends Service {
         }
     }
 
-    @Override
-    public void onDestroy() {
-        isServiceRunning = false;
-        Log.d(TAG, "LocationForegroundService: onDestroy called — releasing locks and resources");
 
-        if (wakeLock != null && wakeLock.isHeld()) {
-            try {
-                wakeLock.release();
-            } catch (Exception ignored) {}
-        }
-        if (wifiLock != null && wifiLock.isHeld()) {
-            try {
-                wifiLock.release();
-            } catch (Exception ignored) {}
-        }
-
-        // Clean up location updates
-        if (fusedLocationClient != null && locationCallback != null) {
-            try {
-                fusedLocationClient.removeLocationUpdates(locationCallback);
-            } catch (Exception ignored) {}
-        }
-
-        // Clean up HandlerThread
-        if (locationHandlerThread != null) {
-            locationHandlerThread.quitSafely();
-        }
-
-        // Clean up TimerHandler runnable
-        if (timerHandler != null && timerRunnable != null) {
-            timerHandler.removeCallbacks(timerRunnable);
-        }
-
-        // Hide bubble overlay
-        hideFloatingBubble();
-
-        super.onDestroy();
-    }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
@@ -542,6 +505,16 @@ public class LocationForegroundService extends Service {
             }
         } catch (Exception e) {
             Log.e(TAG, "Failed to release WakeLock", e);
+        }
+
+        // Release WifiLock if held
+        try {
+            if (wifiLock != null && wifiLock.isHeld()) {
+                wifiLock.release();
+                Log.d(TAG, "Successfully released WifiLock");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to release WifiLock", e);
         }
 
         // Only stop location updates if the credentials file has been deleted (i.e. explicit stop by the driver)
