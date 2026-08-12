@@ -1,5 +1,5 @@
 {
-  "version": "1.0.81",
+  "version": "1.0.82",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: chore: remove nginx.conf as SSL is managed via Cloudflare and implement final security audit fixes"
+  "releaseNotes": "Auto-build: fix(android): resolve duplicate onDestroy compile error in LocationForegroundService"
 }
