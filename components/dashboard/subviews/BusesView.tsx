@@ -261,8 +261,8 @@ export default function AdminBuses() {
                   <div className="mt-4">
                     <span className="text-slate-400 font-bold block text-xs uppercase tracking-wider">Active Driver</span>
                     <span className="text-slate-700 text-xs font-semibold block mt-1 truncate">
-                      {bus.driver?.user?.full_name ? (
-                        `${bus.driver.user.full_name} (${bus.driver.user.phone || 'No Phone'})`
+                      {bus.driver?.full_name ? (
+                        `${bus.driver.full_name} (${bus.driver.phone || 'No Phone'})`
                       ) : (
                         <span className="text-slate-400 italic">No driver assigned</span>
                       )}
