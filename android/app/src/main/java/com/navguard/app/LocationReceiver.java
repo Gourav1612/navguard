@@ -136,93 +136,109 @@ public class LocationReceiver extends BroadcastReceiver {
         LocationForegroundService.lastPostedTimeMs = now;
         LocationForegroundService.lastPostedLocation = location;
 
-        HttpURLConnection conn = null;
-        try {
-            JSONObject json = new JSONObject();
-            json.put("bus_id", busId);
-            json.put("latitude", location.getLatitude());
-            json.put("longitude", location.getLongitude());
-            double speedKmh = location.hasSpeed() ? location.getSpeed() * 3.6 : 0;
-            json.put("speed", speedKmh);
-            json.put("heading", location.hasBearing() ? location.getBearing() : 0);
-            if (tripId != null && !tripId.isEmpty()) json.put("trip_id", tripId);
+        int attempt = 0;
+        boolean success = false;
+        while (attempt < 2 && !success) {
+            HttpURLConnection conn = null;
+            try {
+                JSONObject json = new JSONObject();
+                json.put("bus_id", busId);
+                json.put("latitude", location.getLatitude());
+                json.put("longitude", location.getLongitude());
+                double speedKmh = location.hasSpeed() ? location.getSpeed() * 3.6 : 0;
+                json.put("speed", speedKmh);
+                json.put("heading", location.hasBearing() ? location.getBearing() : 0);
+                if (tripId != null && !tripId.isEmpty()) json.put("trip_id", tripId);
 
-            URL url = new URL(serverUrl);
-            conn = (HttpURLConnection) url.openConnection();
-            conn.setRequestMethod("POST");
-            conn.setRequestProperty("Content-Type", "application/json");
-            conn.setRequestProperty("Authorization", "Bearer " + token);
-            conn.setRequestProperty("Connection", "Keep-Alive");
-            conn.setDoOutput(true);
-            conn.setConnectTimeout(10000);
-            conn.setReadTimeout(10000);
+                URL url = new URL(serverUrl);
+                conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("POST");
+                conn.setRequestProperty("Content-Type", "application/json");
+                conn.setRequestProperty("Authorization", "Bearer " + token);
+                conn.setRequestProperty("Connection", "Keep-Alive");
+                conn.setDoOutput(true);
+                conn.setConnectTimeout(8000);
+                conn.setReadTimeout(8000);
 
-            byte[] body = json.toString().getBytes("UTF-8");
-            conn.setFixedLengthStreamingMode(body.length);
-            OutputStream os = conn.getOutputStream();
-            os.write(body);
-            os.flush();
-            os.close();
+                byte[] body = json.toString().getBytes("UTF-8");
+                conn.setFixedLengthStreamingMode(body.length);
+                OutputStream os = conn.getOutputStream();
+                os.write(body);
+                os.flush();
+                os.close();
 
-            int responseCode = conn.getResponseCode();
-            Log.d(TAG, "Location posted to server. Response: " + responseCode);
-            if (responseCode == 200 || responseCode == 201) {
-                try {
-                    java.io.BufferedReader inReader = new java.io.BufferedReader(new java.io.InputStreamReader(conn.getInputStream()));
-                    StringBuilder respBuilder = new StringBuilder();
-                    String lineStr;
-                    while ((lineStr = inReader.readLine()) != null) {
-                        respBuilder.append(lineStr);
-                    }
-                    inReader.close();
-                    JSONObject respJson = new JSONObject(respBuilder.toString());
-                    
-                    // Handle admin remote open app trigger
-                    boolean openAppRequested = respJson.optBoolean("open_app_requested", false);
-                    if (openAppRequested) {
-                        Log.d(TAG, "Receiver: Admin requested app open via telemetry! Launching MainActivity...");
-                        try {
-                            Intent launchIntent = new Intent(context, MainActivity.class);
-                            launchIntent.setAction("com.navguard.app.ACTION_ENTER_PIP");
-                            launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-                            startActivityWithBackgroundPrivileges(context, launchIntent);
-                        } catch (Exception e) {
-                            Log.e(TAG, "Failed to launch MainActivity on admin telemetry request", e);
+                int responseCode = conn.getResponseCode();
+                if (responseCode == 401) {
+                    Log.e(TAG, "Receiver: AUTH FAILED (401) — skipping retry");
+                    success = true;
+                } else if (responseCode == 200 || responseCode == 201) {
+                    Log.d(TAG, "Receiver: location posted to server on attempt " + (attempt + 1) + ". Response: " + responseCode);
+                    success = true;
+                    try {
+                        java.io.BufferedReader inReader = new java.io.BufferedReader(new java.io.InputStreamReader(conn.getInputStream()));
+                        StringBuilder respBuilder = new StringBuilder();
+                        String lineStr;
+                        while ((lineStr = inReader.readLine()) != null) {
+                            respBuilder.append(lineStr);
                         }
-                    }
-
-                    boolean isTripActiveServer = respJson.optBoolean("is_trip_active", false);
-
-                    android.content.SharedPreferences prefs = context.getSharedPreferences(LocationForegroundService.PREFS_NAME, Context.MODE_PRIVATE);
-                    boolean wasTripActive = prefs.getBoolean("is_trip_active", false);
-
-                    if (isTripActiveServer != wasTripActive) {
-                        prefs.edit().putBoolean("is_trip_active", isTripActiveServer).apply();
-                        Log.d(TAG, "LocationReceiver: synced is_trip_active to " + isTripActiveServer);
-                        Intent serviceIntent = new Intent(context, LocationForegroundService.class);
-                        serviceIntent.setAction(isTripActiveServer ? "START_TRIP_PIP" : "STOP_TRIP_PIP");
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                            context.startForegroundService(serviceIntent);
-                        } else {
-                            context.startService(serviceIntent);
+                        inReader.close();
+                        JSONObject respJson = new JSONObject(respBuilder.toString());
+                        
+                        // Handle admin remote open app trigger
+                        boolean openAppRequested = respJson.optBoolean("open_app_requested", false);
+                        if (openAppRequested) {
+                            Log.d(TAG, "Receiver: Admin requested app open via telemetry! Launching MainActivity...");
+                            try {
+                                Intent launchIntent = new Intent(context, MainActivity.class);
+                                launchIntent.setAction("com.navguard.app.ACTION_ENTER_PIP");
+                                launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                                startActivityWithBackgroundPrivileges(context, launchIntent);
+                            } catch (Exception e) {
+                                Log.e(TAG, "Failed to launch MainActivity on admin telemetry request", e);
+                            }
                         }
+
+                        boolean isTripActiveServer = respJson.optBoolean("is_trip_active", false);
+
+                        android.content.SharedPreferences prefs = context.getSharedPreferences(LocationForegroundService.PREFS_NAME, Context.MODE_PRIVATE);
+                        boolean wasTripActive = prefs.getBoolean("is_trip_active", false);
+
+                        if (isTripActiveServer != wasTripActive) {
+                            prefs.edit().putBoolean("is_trip_active", isTripActiveServer).apply();
+                            Log.d(TAG, "LocationReceiver: synced is_trip_active to " + isTripActiveServer);
+                            Intent serviceIntent = new Intent(context, LocationForegroundService.class);
+                            serviceIntent.setAction(isTripActiveServer ? "START_TRIP_PIP" : "STOP_TRIP_PIP");
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                context.startForegroundService(serviceIntent);
+                            } else {
+                                context.startService(serviceIntent);
+                            }
+                        }
+                    } catch (Exception err) {
+                        Log.e(TAG, "Error in LocationReceiver response handling", err);
                     }
-                } catch (Exception err) {
-                    Log.e(TAG, "Error in LocationReceiver response handling", err);
+                } else {
+                    Log.w(TAG, "Receiver: Server returned non-ok status: " + responseCode);
                 }
-            }
 
-            // Always read error stream to release network resource for reuse
-            java.io.InputStream es = conn.getErrorStream();
-            if (es != null) {
-                byte[] buf = new byte[1024];
-                while (es.read(buf) > 0) {}
-                es.close();
+                // Always read error stream to release network resource for reuse
+                java.io.InputStream es = conn.getErrorStream();
+                if (es != null) {
+                    byte[] buf = new byte[1024];
+                    while (es.read(buf) > 0) {}
+                    es.close();
+                }
+            } catch (Exception e) {
+                attempt++;
+                Log.e(TAG, "Receiver: failed to post location on attempt " + attempt + " (" + e.getMessage() + ")");
+                if (attempt < 2) {
+                    try {
+                        Thread.sleep(200); // Short sleep before retry
+                    } catch (InterruptedException ignored) {}
+                }
+            } finally {
+                if (conn != null) conn.disconnect();
             }
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to post location to server", e);
-        } finally {
-            if (conn != null) conn.disconnect();
         }
     }
 

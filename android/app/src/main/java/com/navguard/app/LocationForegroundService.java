@@ -52,6 +52,7 @@ public class LocationForegroundService extends Service {
 
     private FusedLocationProviderClient fusedLocationClient;
     private android.os.PowerManager.WakeLock wakeLock;
+    private android.net.wifi.WifiManager.WifiLock wifiLock;
     private LocationCallback locationCallback;
     // Dedicated background thread for location callbacks — never throttled by Android main looper
     private android.os.HandlerThread locationHandlerThread;
@@ -81,6 +82,56 @@ public class LocationForegroundService extends Service {
         } catch (Exception e) {
             Log.e(TAG, "Failed to acquire WakeLock", e);
         }
+
+        try {
+            android.net.wifi.WifiManager wm = (android.net.wifi.WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+            if (wm != null) {
+                wifiLock = wm.createWifiLock(android.net.wifi.WifiManager.WIFI_MODE_FULL_HIGH_PERF, "NaviGuard::WifiLock");
+                wifiLock.acquire();
+                Log.d(TAG, "Successfully acquired WifiLock for background tracking");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to acquire WifiLock", e);
+        }
+    }
+
+    @Override
+    public void onDestroy() {
+        isServiceRunning = false;
+        Log.d(TAG, "LocationForegroundService: onDestroy called — releasing locks and resources");
+
+        if (wakeLock != null && wakeLock.isHeld()) {
+            try {
+                wakeLock.release();
+            } catch (Exception ignored) {}
+        }
+        if (wifiLock != null && wifiLock.isHeld()) {
+            try {
+                wifiLock.release();
+            } catch (Exception ignored) {}
+        }
+
+        // Clean up location updates
+        if (fusedLocationClient != null && locationCallback != null) {
+            try {
+                fusedLocationClient.removeLocationUpdates(locationCallback);
+            } catch (Exception ignored) {}
+        }
+
+        // Clean up HandlerThread
+        if (locationHandlerThread != null) {
+            locationHandlerThread.quitSafely();
+        }
+
+        // Clean up TimerHandler runnable
+        if (timerHandler != null && timerRunnable != null) {
+            timerHandler.removeCallbacks(timerRunnable);
+        }
+
+        // Hide bubble overlay
+        hideFloatingBubble();
+
+        super.onDestroy();
     }
 
     @Override
@@ -330,103 +381,117 @@ public class LocationForegroundService extends Service {
                 return;
             }
 
-            HttpURLConnection conn = null;
-            try {
-                JSONObject json = new JSONObject();
-                json.put("bus_id", busId);
-                json.put("latitude", location.getLatitude());
-                json.put("longitude", location.getLongitude());
-                double speedKmh = location.hasSpeed() ? location.getSpeed() * 3.6 : 0;
-                json.put("speed", speedKmh);
-                json.put("heading", location.hasBearing() ? location.getBearing() : 0);
-                if (tripId != null && !tripId.isEmpty()) json.put("trip_id", tripId);
+            int attempt = 0;
+            boolean success = false;
+            while (attempt < 3 && !success) {
+                HttpURLConnection conn = null;
+                try {
+                    JSONObject json = new JSONObject();
+                    json.put("bus_id", busId);
+                    json.put("latitude", location.getLatitude());
+                    json.put("longitude", location.getLongitude());
+                    double speedKmh = location.hasSpeed() ? location.getSpeed() * 3.6 : 0;
+                    json.put("speed", speedKmh);
+                    json.put("heading", location.hasBearing() ? location.getBearing() : 0);
+                    if (tripId != null && !tripId.isEmpty()) json.put("trip_id", tripId);
 
-                URL url = new URL(serverUrl);
-                conn = (HttpURLConnection) url.openConnection();
-                conn.setRequestMethod("POST");
-                conn.setRequestProperty("Content-Type", "application/json");
-                conn.setRequestProperty("Authorization", "Bearer " + token);
-                conn.setRequestProperty("Connection", "Keep-Alive");
-                conn.setDoOutput(true);
-                conn.setConnectTimeout(10000);
-                conn.setReadTimeout(10000);
+                    URL url = new URL(serverUrl);
+                    conn = (HttpURLConnection) url.openConnection();
+                    conn.setRequestMethod("POST");
+                    conn.setRequestProperty("Content-Type", "application/json");
+                    conn.setRequestProperty("Authorization", "Bearer " + token);
+                    conn.setRequestProperty("Connection", "Keep-Alive");
+                    conn.setDoOutput(true);
+                    conn.setConnectTimeout(8000);
+                    conn.setReadTimeout(8000);
 
-                byte[] body = json.toString().getBytes("UTF-8");
-                conn.setFixedLengthStreamingMode(body.length);
-                OutputStream os = conn.getOutputStream();
-                os.write(body);
-                os.flush();
-                os.close();
+                    byte[] body = json.toString().getBytes("UTF-8");
+                    conn.setFixedLengthStreamingMode(body.length);
+                    OutputStream os = conn.getOutputStream();
+                    os.write(body);
+                    os.flush();
+                    os.close();
 
-                int responseCode = conn.getResponseCode();
-                if (responseCode == 401) {
-                    Log.e(TAG, "Service: AUTH FAILED (401) — token may be expired, need refresh");
-                } else if (responseCode == 200 || responseCode == 201) {
-                    Log.d(TAG, "Service: location posted to server. Response: " + responseCode);
-                    try {
-                        java.io.BufferedReader inReader = new java.io.BufferedReader(new java.io.InputStreamReader(conn.getInputStream()));
-                        StringBuilder respBuilder = new StringBuilder();
-                        String lineStr;
-                        while ((lineStr = inReader.readLine()) != null) {
-                            respBuilder.append(lineStr);
-                        }
-                        inReader.close();
-                        JSONObject respJson = new JSONObject(respBuilder.toString());
-                        
-                        // Handle admin remote open app trigger
-                        boolean openAppRequested = respJson.optBoolean("open_app_requested", false);
-                        if (openAppRequested) {
-                            Log.d(TAG, "Service: Admin requested app open via telemetry! Launching MainActivity...");
-                            try {
-                                Intent launchIntent = new Intent(LocationForegroundService.this, MainActivity.class);
-                                launchIntent.setAction("com.navguard.app.ACTION_ENTER_PIP");
-                                launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-                                startActivityWithBackgroundPrivileges(launchIntent);
-                            } catch (Exception e) {
-                                Log.e(TAG, "Failed to launch MainActivity on admin telemetry request", e);
+                    int responseCode = conn.getResponseCode();
+                    if (responseCode == 401) {
+                        Log.e(TAG, "Service: AUTH FAILED (401) — token may be expired, need refresh");
+                        success = true; // Auth failed, no point in retrying
+                    } else if (responseCode == 200 || responseCode == 201) {
+                        Log.d(TAG, "Service: location posted to server on attempt " + (attempt + 1) + ". Response: " + responseCode);
+                        success = true;
+                        try {
+                            java.io.BufferedReader inReader = new java.io.BufferedReader(new java.io.InputStreamReader(conn.getInputStream()));
+                            StringBuilder respBuilder = new StringBuilder();
+                            String lineStr;
+                            while ((lineStr = inReader.readLine()) != null) {
+                                respBuilder.append(lineStr);
                             }
-                        }
-
-                        boolean isTripActiveServer = respJson.optBoolean("is_trip_active", false);
-
-                        android.content.SharedPreferences prefs = getSharedPreferences(PREFS_NAME, android.content.Context.MODE_PRIVATE);
-                        boolean wasTripActive = prefs.getBoolean("is_trip_active", false);
-
-                        if (isTripActiveServer != wasTripActive) {
-                            prefs.edit().putBoolean("is_trip_active", isTripActiveServer).apply();
-                            Log.d(TAG, "Service: synced is_trip_active from server to " + isTripActiveServer);
-                            if (isTripActiveServer) {
-                                // Admin initiated trip! Show floating bubble & launch MainActivity into PiP automatically
-                                showFloatingBubble();
-                                Intent pipIntent = new Intent(LocationForegroundService.this, MainActivity.class);
-                                pipIntent.setAction("com.navguard.app.ACTION_ENTER_PIP");
-                                pipIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
-                                startActivityWithBackgroundPrivileges(pipIntent);
-                            } else {
-                                // Admin completed trip! Hide floating bubble & close PiP
-                                hideFloatingBubble();
-                                Intent exitIntent = new Intent(LocationForegroundService.this, MainActivity.class);
-                                exitIntent.setAction("com.navguard.app.ACTION_EXIT_PIP");
-                                exitIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-                                startActivityWithBackgroundPrivileges(exitIntent);
+                            inReader.close();
+                            JSONObject respJson = new JSONObject(respBuilder.toString());
+                            
+                            // Handle admin remote open app trigger
+                            boolean openAppRequested = respJson.optBoolean("open_app_requested", false);
+                            if (openAppRequested) {
+                                Log.d(TAG, "Service: Admin requested app open via telemetry! Launching MainActivity...");
+                                try {
+                                    Intent launchIntent = new Intent(LocationForegroundService.this, MainActivity.class);
+                                    launchIntent.setAction("com.navguard.app.ACTION_ENTER_PIP");
+                                    launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                                    startActivityWithBackgroundPrivileges(launchIntent);
+                                } catch (Exception e) {
+                                    Log.e(TAG, "Failed to launch MainActivity on admin telemetry request", e);
+                                }
                             }
+
+                            boolean isTripActiveServer = respJson.optBoolean("is_trip_active", false);
+
+                            android.content.SharedPreferences prefs = getSharedPreferences(PREFS_NAME, android.content.Context.MODE_PRIVATE);
+                            boolean wasTripActive = prefs.getBoolean("is_trip_active", false);
+
+                            if (isTripActiveServer != wasTripActive) {
+                                prefs.edit().putBoolean("is_trip_active", isTripActiveServer).apply();
+                                Log.d(TAG, "Service: synced is_trip_active from server to " + isTripActiveServer);
+                                if (isTripActiveServer) {
+                                    // Admin initiated trip! Show floating bubble & launch MainActivity into PiP automatically
+                                    showFloatingBubble();
+                                    Intent pipIntent = new Intent(LocationForegroundService.this, MainActivity.class);
+                                    pipIntent.setAction("com.navguard.app.ACTION_ENTER_PIP");
+                                    pipIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
+                                    startActivityWithBackgroundPrivileges(pipIntent);
+                                } else {
+                                    // Admin completed trip! Hide floating bubble & close PiP
+                                    hideFloatingBubble();
+                                    Intent exitIntent = new Intent(LocationForegroundService.this, MainActivity.class);
+                                    exitIntent.setAction("com.navguard.app.ACTION_EXIT_PIP");
+                                    exitIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                                    startActivityWithBackgroundPrivileges(exitIntent);
+                                }
+                            }
+                        } catch (Exception err) {
+                            Log.e(TAG, "Error processing server telemetry response", err);
                         }
-                    } catch (Exception err) {
-                        Log.e(TAG, "Error processing server telemetry response", err);
+                    } else {
+                        Log.w(TAG, "Service: Server returned non-ok status: " + responseCode);
                     }
-                }
 
-                // Always read error stream to release network resource for reuse
-                java.io.InputStream es = conn.getErrorStream();
-                if (es != null) {
-                    byte[] buf = new byte[1024];
-                    while (es.read(buf) > 0) {}
-                    es.close();
+                    // Always read error stream to release network resource for reuse
+                    java.io.InputStream es = conn.getErrorStream();
+                    if (es != null) {
+                        byte[] buf = new byte[1024];
+                        while (es.read(buf) > 0) {}
+                        es.close();
+                    }
+                } catch (Exception e) {
+                    attempt++;
+                    Log.e(TAG, "Service: failed to post location on attempt " + attempt + " (" + e.getMessage() + ")");
+                    if (attempt < 3) {
+                        try {
+                            Thread.sleep(500); // Wait 500ms before retrying to let network radio wake up
+                        } catch (InterruptedException ignored) {}
+                    }
+                } finally {
+                    if (conn != null) conn.disconnect();
                 }
-            } catch (Exception e) {
-                Log.e(TAG, "Service: failed to post location to server", e);
-            } finally {
-                if (conn != null) conn.disconnect();
             }
         });
     }
