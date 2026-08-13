@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { bus_id, trip_id, latitude, longitude, speed, heading } = parsed.data;
+    const { bus_id, trip_id, latitude, longitude, speed, heading, location_name } = parsed.data;
 
     // 1. Fetch driver profile & bus details
     const { data: driver, error: driverErr } = await supabase
@@ -200,6 +200,39 @@ export async function POST(req: NextRequest) {
             });
           }
         }
+      }
+    }
+
+    // 3.5. TRANSIT UPDATE (passed a place name, once per minute)
+    if (location_name && location_name.trim()) {
+      const userMetadata = user.user_metadata || {};
+      const lastTransitAlert = Number(userMetadata.last_transit_alert_at || 0);
+      const canSendTransitAlert = Date.now() - lastTransitAlert >= 55000; // ~1-minute cooldown
+
+      if (canSendTransitAlert && activeSchoolId) {
+        const busLabel = bus?.name || bus_id;
+        
+        // 1. Create announcement for parents
+        await adminSupabase.from('announcements').insert({
+          school_id: activeSchoolId,
+          bus_id: bus_id,
+          title: '🚌 Bus Transit Update',
+          body: `Bus "${busLabel}" has just passed near ${location_name}.`,
+          target_role: 'parent',
+        });
+
+        // 2. Create notification for admin
+        await adminSupabase.from('notifications').insert({
+          school_id: activeSchoolId,
+          title: '🚌 Bus Transit Update',
+          message: `Bus "${busLabel}" has just passed near ${location_name}.`,
+          type: 'general',
+        });
+
+        // 3. Update cooldown
+        await adminSupabase.auth.admin.updateUserById(user.id, {
+          user_metadata: { ...userMetadata, last_transit_alert_at: Date.now() },
+        });
       }
     }
 

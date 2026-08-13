@@ -93,6 +93,7 @@ export const LocationSchema = z.object({
     .max(INDIA_BOUNDS.lng.max, 'Longitude must be between 68.0 and 97.4 (India bounds)'),
   speed: z.coerce.number().min(0).max(200).default(0),
   heading: z.coerce.number().min(0).max(360).default(0),
+  location_name: z.string().optional().nullable(),
 });
 
 export const LoginSchema = z.object({
