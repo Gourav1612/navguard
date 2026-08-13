@@ -441,8 +441,7 @@ public class LocationForegroundService extends Service {
                                 prefs.edit().putBoolean("is_trip_active", isTripActiveServer).apply();
                                 Log.d(TAG, "Service: synced is_trip_active from server to " + isTripActiveServer);
                                 if (isTripActiveServer) {
-                                    // Admin initiated trip! Show floating bubble & launch MainActivity into PiP automatically
-                                    showFloatingBubble();
+                                    // Admin initiated trip! Launch MainActivity into PiP automatically
                                     Intent pipIntent = new Intent(LocationForegroundService.this, MainActivity.class);
                                     pipIntent.setAction("com.navguard.app.ACTION_ENTER_PIP");
                                     pipIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);

@@ -452,19 +452,29 @@ public class MainActivity extends BridgeActivity {
     }
 
     private void checkAndTriggerBubble() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && isInPictureInPictureMode()) {
-            return; // In PiP mode — PiP handles background presentation
-        }
-        android.content.SharedPreferences prefs = getSharedPreferences(
-                LocationForegroundService.PREFS_NAME,
-                android.content.Context.MODE_PRIVATE
-        );
-        boolean isDriver = prefs.getBoolean("is_driver", false);
-        java.io.File credsFile = new java.io.File(getFilesDir(), "tracking_credentials.json");
+        new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && isInPictureInPictureMode()) {
+                    return; // In PiP mode — PiP handles background presentation
+                }
+                android.content.SharedPreferences prefs = getSharedPreferences(
+                        LocationForegroundService.PREFS_NAME,
+                        android.content.Context.MODE_PRIVATE
+                );
+                boolean isDriver = prefs.getBoolean("is_driver", false);
+                boolean isTripActive = prefs.getBoolean("is_trip_active", false);
+                java.io.File credsFile = new java.io.File(getFilesDir(), "tracking_credentials.json");
 
-        if (isDriver || credsFile.exists()) {
-            triggerBubbleShow();
-        }
+                // Only show bubble if:
+                // 1. User is a driver or credentials exist
+                // 2. AND the trip is NOT active (standby mode warning when app/PiP is closed)
+                if ((isDriver || credsFile.exists()) && !isTripActive) {
+                    triggerBubbleShow();
+                }
+            } catch (Exception e) {
+                android.util.Log.e("MainActivity", "Error in checkAndTriggerBubble", e);
+            }
+        }, 500);
     }
 
     private void triggerBubbleShow() {
