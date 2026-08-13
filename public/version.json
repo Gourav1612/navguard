@@ -1,5 +1,5 @@
 {
-  "version": "1.0.82",
+  "version": "1.0.83",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: fix(android): resolve duplicate onDestroy compile error in LocationForegroundService"
+  "releaseNotes": "Auto-build: fix(android): reduce background trip status poll interval to 12s for faster remote launch"
 }
