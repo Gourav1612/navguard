@@ -1,5 +1,5 @@
 {
-  "version": "1.0.84",
+  "version": "1.0.85",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: fix(android): resolve missing java.util.List import compile error"
+  "releaseNotes": "Auto-build: fix(android): resolve picture-in-picture and floating bubble timing/overlap conflicts"
 }
