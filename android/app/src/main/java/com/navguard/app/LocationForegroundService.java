@@ -350,7 +350,7 @@ public class LocationForegroundService extends Service {
             if (nowTime - lastGeocodeTimeMs >= 60000) {
                 try {
                     android.location.Geocoder geocoder = new android.location.Geocoder(LocationForegroundService.this, java.util.Locale.getDefault());
-                    List<android.location.Address> addresses = geocoder.getFromLocation(location.getLatitude(), location.getLongitude(), 1);
+                    java.util.List<android.location.Address> addresses = geocoder.getFromLocation(location.getLatitude(), location.getLongitude(), 1);
                     if (addresses != null && !addresses.isEmpty()) {
                         android.location.Address addr = addresses.get(0);
                         // Construct a place name (e.g. "Green Park" or "New Link Road")
