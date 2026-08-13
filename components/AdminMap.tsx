@@ -1,5 +1,11 @@
 'use client';
 
+declare global {
+  interface Window {
+    pingBusApp?: (busId: string) => Promise<void>;
+  }
+}
+
 import { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
@@ -49,6 +55,25 @@ function calculateDistanceKm(lat1: number, lon1: number, lat2: number, lon2: num
 }
 
 export function AdminMap({ activeTrips = [], busesLocations = [] }: AdminMapProps) {
+  useEffect(() => {
+    window.pingBusApp = async (busId: string) => {
+      try {
+        const res = await fetch(`/api/admin/buses/${busId}/ping`, { method: 'POST' });
+        if (res.ok) {
+          alert('Open App request sent successfully!');
+        } else {
+          const data = await res.json();
+          alert(`Failed to send request: ${data.error || 'Unknown error'}`);
+        }
+      } catch (err) {
+        alert('Failed to connect to server');
+      }
+    };
+    return () => {
+      delete window.pingBusApp;
+    };
+  }, []);
+
   const mapRef = useRef<L.Map | null>(null);
   // Track markers by busId
   const markersRef = useRef<Record<string, L.Marker>>({});
@@ -319,7 +344,7 @@ export function AdminMap({ activeTrips = [], busesLocations = [] }: AdminMapProp
               ${nearestStopInfo}
               <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Driver:</span> ${bus.driver_name}</div>
               <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Speed:</span> ${is_stale ? '0.0' : speed.toFixed(1)} km/h</div>
-              <div class="pt-2 border-t border-slate-100 mt-2">
+              <div class="pt-2 border-t border-slate-100 mt-2 space-y-1">
                 <a 
                   href="https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}" 
                   target="_blank" 
@@ -328,6 +353,12 @@ export function AdminMap({ activeTrips = [], busesLocations = [] }: AdminMapProp
                 >
                   📍 Open Location
                 </a>
+                <button 
+                  onclick="window.pingBusApp('${bus.bus_id}')"
+                  class="inline-flex items-center justify-center w-full px-2 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 text-[10px] font-bold rounded-lg transition-all text-center border-0 cursor-pointer"
+                >
+                  📱 Open App
+                </button>
               </div>
             </div>
           `);
@@ -344,7 +375,7 @@ export function AdminMap({ activeTrips = [], busesLocations = [] }: AdminMapProp
               ${nearestStopInfo}
               <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Driver:</span> ${bus.driver_name}</div>
               <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Speed:</span> ${is_stale ? '0.0' : speed.toFixed(1)} km/h</div>
-              <div class="pt-2 border-t border-slate-100 mt-2">
+              <div class="pt-2 border-t border-slate-100 mt-2 space-y-1">
                 <a 
                   href="https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}" 
                   target="_blank" 
@@ -353,6 +384,12 @@ export function AdminMap({ activeTrips = [], busesLocations = [] }: AdminMapProp
                 >
                   📍 Open Location
                 </a>
+                <button 
+                  onclick="window.pingBusApp('${bus.bus_id}')"
+                  class="inline-flex items-center justify-center w-full px-2 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 text-[10px] font-bold rounded-lg transition-all text-center border-0 cursor-pointer"
+                >
+                  📱 Open App
+                </button>
               </div>
             </div>
           `);
@@ -426,7 +463,7 @@ export function AdminMap({ activeTrips = [], busesLocations = [] }: AdminMapProp
                 ${nearestStopInfo}
                 <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Driver:</span> ${driverName}</div>
                 <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Speed:</span> ${Number(speed || 0).toFixed(1)} km/h</div>
-                <div class="pt-2 border-t border-slate-100 mt-2">
+                <div class="pt-2 border-t border-slate-100 mt-2 space-y-1">
                   <a 
                     href="https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}" 
                     target="_blank" 
@@ -435,6 +472,12 @@ export function AdminMap({ activeTrips = [], busesLocations = [] }: AdminMapProp
                   >
                     📍 Open Location
                   </a>
+                  <button 
+                    onclick="window.pingBusApp('${bus_id}')"
+                    class="inline-flex items-center justify-center w-full px-2 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 text-[10px] font-bold rounded-lg transition-all text-center border-0 cursor-pointer"
+                  >
+                    📱 Open App
+                  </button>
                 </div>
               </div>
             `);
@@ -451,7 +494,7 @@ export function AdminMap({ activeTrips = [], busesLocations = [] }: AdminMapProp
                 ${nearestStopInfo}
                 <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Driver:</span> ${driverName}</div>
                 <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Speed:</span> ${Number(speed || 0).toFixed(1)} km/h</div>
-                <div class="pt-2 border-t border-slate-100 mt-2">
+                <div class="pt-2 border-t border-slate-100 mt-2 space-y-1">
                   <a 
                     href="https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}" 
                     target="_blank" 
@@ -460,6 +503,12 @@ export function AdminMap({ activeTrips = [], busesLocations = [] }: AdminMapProp
                   >
                     📍 Open Location
                   </a>
+                  <button 
+                    onclick="window.pingBusApp('${bus_id}')"
+                    class="inline-flex items-center justify-center w-full px-2 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 text-[10px] font-bold rounded-lg transition-all text-center border-0 cursor-pointer"
+                  >
+                    📱 Open App
+                  </button>
                 </div>
               </div>
             `);
