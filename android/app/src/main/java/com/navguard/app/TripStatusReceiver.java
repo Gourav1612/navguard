@@ -38,7 +38,7 @@ public class TripStatusReceiver extends BroadcastReceiver {
     public static final String ACTION_POLL_TRIP = "com.navguard.app.ACTION_POLL_TRIP";
     public static final String CHANNEL_ID_TRIP   = "naviguard_trip_status_channel";
     private static final String TAG = "NaviGuardTripPoll";
-    private static final int POLL_INTERVAL_MS    = 30_000; // 30 seconds
+    private static final int POLL_INTERVAL_MS    = 12_000; // 12 seconds
     public  static final int POLL_REQUEST_CODE   = 9002;
     private static final int NOTIF_TRIP_START    = 2001;
     private static final int NOTIF_TRIP_END      = 2002;
