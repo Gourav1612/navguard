@@ -1,5 +1,5 @@
 {
-  "version": "1.0.83",
+  "version": "1.0.84",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: fix(android): reduce background trip status poll interval to 12s for faster remote launch"
+  "releaseNotes": "Auto-build: fix(android): resolve missing java.util.List import compile error"
 }
