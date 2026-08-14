@@ -83,6 +83,13 @@ export default function ParentDashboardView({ tab, busId }: { tab?: string; busI
   const [submittingStop, setSubmittingStop] = useState(false);
   const [isLoadingLink, setIsLoadingLink] = useState(false);
 
+  // Feedback / Delay Alert states
+  const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
+  const [feedbackStudentId, setFeedbackStudentId] = useState('');
+  const [feedbackReason, setFeedbackReason] = useState('');
+  const [feedbackMessage, setFeedbackMessage] = useState('');
+  const [submittingFeedback, setSubmittingFeedback] = useState(false);
+
   const handleImportGoogleMapsLink = async () => {
     if (!googleMapsLink) return;
     setIsLoadingLink(true);
@@ -166,6 +173,41 @@ export default function ParentDashboardView({ tab, busId }: { tab?: string; busI
       alert(err.message || 'An error occurred.');
     } finally {
       setSubmittingStop(false);
+    }
+  };
+
+  const handleFeedbackSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!feedbackStudentId || !feedbackReason || !feedbackMessage.trim()) return;
+
+    setSubmittingFeedback(true);
+    try {
+      const res = await fetch('/api/parent/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          student_id: feedbackStudentId,
+          reason: feedbackReason,
+          message: feedbackMessage.trim(),
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to submit feedback');
+      }
+
+      alert('Alert reported to admin successfully! The transport desk has been notified in real-time.');
+      setIsFeedbackModalOpen(false);
+
+      // Reset values
+      setFeedbackStudentId('');
+      setFeedbackReason('');
+      setFeedbackMessage('');
+    } catch (err: any) {
+      alert(err.message || 'An error occurred.');
+    } finally {
+      setSubmittingFeedback(false);
     }
   };
 
@@ -647,7 +689,7 @@ export default function ParentDashboardView({ tab, busId }: { tab?: string; busI
                 <ChevronRight className="w-4 h-4 text-slate-400" />
               </button>
               <button 
-                onClick={() => alert("Feedback submission saved! Thank you for helping us improve safety.")}
+                onClick={() => setIsFeedbackModalOpen(true)}
                 className="flex items-center justify-between p-3.5 bg-slate-50 border border-slate-150 hover:bg-slate-100 hover:border-slate-200 rounded-2xl transition text-left cursor-pointer w-full"
               >
                 <span>Report Delay / Feedbacks</span>
@@ -777,6 +819,92 @@ export default function ParentDashboardView({ tab, busId }: { tab?: string; busI
                 >
                   {submittingStop && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                   Register Stop
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Report Delay / Feedback Modal */}
+      {isFeedbackModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div 
+            className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" 
+            onClick={() => setIsFeedbackModalOpen(false)} 
+          />
+          <div className="bg-white border border-slate-150 rounded-3xl p-6 shadow-xl relative z-10 max-w-md w-full animate-in fade-in zoom-in-95 duration-200 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="font-extrabold text-[#1e1b4b] text-base">Report Delay / Submit Feedback</h3>
+              <button 
+                onClick={() => setIsFeedbackModalOpen(false)}
+                className="p-1 rounded-md hover:bg-slate-100 text-slate-400 hover:text-slate-650"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleFeedbackSubmit} className="space-y-4">
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Select Child *</label>
+                <select
+                  required
+                  value={feedbackStudentId}
+                  onChange={(e) => setFeedbackStudentId(e.target.value)}
+                  className="block w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs bg-white focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-500 font-semibold"
+                >
+                  <option value="">-- Choose child profile --</option>
+                  {children.map((c: any) => (
+                    <option key={c.id} value={c.id}>
+                      {c.full_name} ({c.grade})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Reason *</label>
+                <select
+                  required
+                  value={feedbackReason}
+                  onChange={(e) => setFeedbackReason(e.target.value)}
+                  className="block w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs bg-white focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-500 font-semibold"
+                >
+                  <option value="">-- Select reason --</option>
+                  <option value="Bus is Delayed">Bus is Delayed</option>
+                  <option value="Driver Not Responding">Driver Not Responding</option>
+                  <option value="Route Issue / Deviation">Route Issue / Deviation</option>
+                  <option value="General Feedback / Issue">General Feedback / Issue</option>
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Details / Message *</label>
+                <textarea
+                  required
+                  rows={4}
+                  value={feedbackMessage}
+                  onChange={(e) => setFeedbackMessage(e.target.value)}
+                  placeholder="Describe the issue or delay in detail (e.g. Bus is 15 mins late)..."
+                  className="block w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-500 font-medium leading-relaxed resize-none"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsFeedbackModalOpen(false)}
+                  className="px-4 py-2 border border-slate-200 text-slate-500 rounded-xl text-xs font-bold hover:bg-slate-50 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingFeedback}
+                  className="px-4.5 py-2 bg-[#5c3b99] hover:bg-[#432775] text-white text-xs font-bold rounded-xl disabled:opacity-50 flex items-center gap-1.5 cursor-pointer shadow"
+                >
+                  {submittingFeedback && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  Submit Alert
                 </button>
               </div>
             </form>
