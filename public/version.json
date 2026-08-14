@@ -1,5 +1,5 @@
 {
-  "version": "1.0.85",
+  "version": "1.0.86",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: fix(android): resolve picture-in-picture and floating bubble timing/overlap conflicts"
+  "releaseNotes": "Auto-build: fix(android): make background location foreground service notification 100% silent and non-intrusive"
 }
