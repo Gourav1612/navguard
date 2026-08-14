@@ -187,19 +187,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 2. Search for student profile
-    const { data: studentProfiles, error: studentErr } = await supabase
+    // 2. Search for student profile (use adminClient to bypass parent RLS limitations during verification)
+    const { data: studentProfiles, error: studentErr } = await adminClient
       .from('student_profiles')
       .select(`
         id,
+        grade,
         user:user_profiles (
           id,
           full_name,
           school_id
         )
       `)
-      .eq('roll_number', roll_number)
-      .eq('grade', grade);
+      .eq('roll_number', roll_number.trim());
 
     if (studentErr || !studentProfiles) {
       return NextResponse.json(
@@ -208,13 +208,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Find the student matching name and school_id
+    // Find the student matching name, school_id, and grade (case-insensitive & trimmed)
     const matchedStudent = studentProfiles.find((sp: any) => {
       const u = sp.user;
       return (
         u &&
+        u.school_id === parentProfile.school_id &&
         u.full_name.toLowerCase().trim() === name.toLowerCase().trim() &&
-        u.school_id === parentProfile.school_id
+        (sp.grade || '').toLowerCase().trim() === grade.toLowerCase().trim()
       );
     });
 
