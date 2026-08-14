@@ -37,7 +37,6 @@ import { parseGoogleMapsLink } from '@/lib/utils';
 import { useQueryClient } from '@tanstack/react-query';
 
 // Import subviews
-import ParentAnnouncementsView from './subviews/ParentAnnouncementsView';
 import ParentTrackView from './subviews/ParentTrackView';
 
 export default function ParentDashboardView({ tab, busId }: { tab?: string; busId?: string }) {
@@ -226,21 +225,8 @@ export default function ParentDashboardView({ tab, busId }: { tab?: string; busI
   const children = parentData.children || [];
   const school = parentData.school;
 
-  // Fetch parent announcements for dashboard preview
-  const { data: announcements = [], isLoading: announcementsLoading } = useQuery({
-    queryKey: ['parent-announcements'],
-    queryFn: async () => {
-      const res = await fetch('/api/parent/announcements');
-      if (!res.ok) throw new Error('Failed to fetch announcements');
-      return res.json();
-    },
-    enabled: !tab, // Only load if viewing main dashboard tab
-  });
-
   // Handle Dynamic Tab Routing
   switch (tab) {
-    case 'announcements':
-      return <ParentAnnouncementsView />;
     case 'live-map':
       return <ParentLiveMapView />;
     case 'track':
@@ -285,7 +271,7 @@ export default function ParentDashboardView({ tab, busId }: { tab?: string; busI
     }
   };
 
-  const loading = childrenLoading || announcementsLoading;
+  const loading = childrenLoading;
 
   if (loading) {
     return (
@@ -612,34 +598,7 @@ export default function ParentDashboardView({ tab, busId }: { tab?: string; busI
         {/* Right Column (33% Width) - Notices, Helpdesk & Options */}
         <div className="space-y-8">
           
-          {/* School Announcements bulletin board */}
-          <div className="space-y-4">
-            <h3 className="text-xs font-extrabold text-slate-400 uppercase tracking-widest block pl-1">Latest Bulletins</h3>
-            
-            {announcements.length === 0 ? (
-              <div className="bg-white border border-slate-150 rounded-3xl p-8 text-center text-slate-400 text-xs font-bold shadow-sm">
-                📢 No notice board bulletins posted.
-              </div>
-            ) : (
-              <div className="space-y-4 max-h-[360px] overflow-y-auto pr-1">
-                {announcements.map((item: any) => (
-                  <div key={item.id} className="bg-white border border-slate-150 rounded-3xl p-4.5 shadow-sm space-y-2 hover:shadow-md transition-all duration-200">
-                    <h4 className="font-extrabold text-slate-800 text-xs flex items-center gap-1.5">
-                      <span className="p-0.5 bg-amber-50 text-amber-600 rounded text-[10px]">📢</span>
-                      {item.title}
-                    </h4>
-                    <p className="text-slate-600 text-[11px] leading-relaxed font-semibold">
-                      {item.body}
-                    </p>
-                    <span className="text-[8px] text-slate-400 font-bold block pt-1.5 border-t border-slate-50 flex items-center gap-1">
-                      <Calendar className="w-3 h-3" />
-                      Posted {new Date(item.created_at).toLocaleDateString()}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+
 
           {/* Helpdesk Emergency Contacts Helpline */}
           <div className="bg-gradient-to-br from-[#351e56] to-[#1a0e2b] text-white rounded-3xl p-6 space-y-4 shadow-md">
