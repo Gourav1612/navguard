@@ -1,0 +1,17 @@
+node_modules
+.next
+.git
+.github
+.agents
+.env
+*.apk
+*.log
+scratch/
+Dockerfile
+docker-compose.yml
+README.md
+walkthrough.md
+task.md
+naviguard_mindmap.md
+naviguard_import_demo.csv
+files/
