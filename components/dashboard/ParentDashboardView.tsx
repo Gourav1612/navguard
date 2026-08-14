@@ -855,7 +855,7 @@ export default function ParentDashboardView({ tab, busId }: { tab?: string; busI
                 >
                   <option value="">-- Choose child profile --</option>
                   {children.map((c: any) => (
-                    <option key={c.id} value={c.id}>
+                    <option key={c.student_id} value={c.student_id}>
                       {c.full_name} ({c.grade})
                     </option>
                   ))}
