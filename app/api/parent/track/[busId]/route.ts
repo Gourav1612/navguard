@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireRole } from '@/lib/auth-guard';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { createSupabaseServerClient, createAdminClient } from '@/lib/supabase/server';
 import { calculateETA } from '@/lib/eta';
 
 export async function GET(
@@ -12,14 +12,14 @@ export async function GET(
 
   const { user, profile } = auth;
   const { busId } = await params;
-  const supabase = await createSupabaseServerClient();
+  const adminClient = createAdminClient();
 
   try {
     let childStop = null;
 
     if (profile?.role === 'student') {
       // 1. Fetch student's own profile and check bus alignment
-      const { data: student, error: studentErr } = await supabase
+      const { data: student, error: studentErr } = await adminClient
         .from('student_profiles')
         .select(`
           id,
@@ -46,7 +46,7 @@ export async function GET(
       childStop = Array.isArray(student.stop) ? student.stop[0] : student.stop;
     } else {
       // 1. Fetch parent profile
-      const { data: parent, error: parentErr } = await supabase
+      const { data: parent, error: parentErr } = await adminClient
         .from('parent_profiles')
         .select('id')
         .eq('user_id', user.id)
@@ -60,7 +60,7 @@ export async function GET(
       }
 
       // 2. Fetch linked student assigned to this bus unit (authorization check)
-      const { data: links, error: linksErr } = await supabase
+      const { data: links, error: linksErr } = await adminClient
         .from('parent_student_links')
         .select(`
           student:student_profiles(
@@ -86,7 +86,7 @@ export async function GET(
     }
 
     // 3. Get active trip details for this bus
-    const { data: activeTrip } = await supabase
+    const { data: activeTrip } = await adminClient
       .from('trips')
       .select('id, route_id')
       .eq('bus_id', busId)
@@ -105,7 +105,7 @@ export async function GET(
     }
 
     // 4. Fetch route stops list
-    const { data: route } = await supabase
+    const { data: route } = await adminClient
       .from('routes')
       .select(`
         stops(
@@ -130,7 +130,7 @@ export async function GET(
       }));
 
     // 5. Fetch latest bus coordinate log
-    const { data: latestLoc } = await supabase
+    const { data: latestLoc } = await adminClient
       .from('bus_locations')
       .select('latitude, longitude, speed, heading, recorded_at')
       .eq('bus_id', busId)

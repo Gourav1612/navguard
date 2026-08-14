@@ -112,6 +112,7 @@ export function BottomNav({ children }: { children: React.ReactNode }) {
     parent: [
       { name: 'Home', href: '/dashboard', icon: Home },
       { name: 'Alerts', href: '/dashboard?tab=announcements', icon: Bell },
+      { name: 'Live Map', href: '/dashboard?tab=live-map', icon: Map },
     ],
     student: [
       { name: 'Home', href: '/dashboard', icon: Home },

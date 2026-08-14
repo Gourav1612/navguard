@@ -4,6 +4,16 @@ import { useQuery } from '@tanstack/react-query';
 import dynamic from 'next/dynamic';
 import { DashboardSkeleton } from '@/components/ui/Skeleton';
 import Link from 'next/link';
+
+const AdminMap = dynamic(() => import('@/components/AdminMap').then((m) => m.AdminMap), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-[450px] bg-slate-100 border border-slate-200 rounded-2xl flex items-center justify-center text-slate-400 font-medium">
+      <Loader2 className="w-8 h-8 text-slate-400 animate-spin mr-3" />
+      Loading Map Module...
+    </div>
+  ),
+});
 import { useState } from 'react';
 import { 
   Loader2, 
@@ -189,6 +199,8 @@ export default function ParentDashboardView({ tab, busId }: { tab?: string; busI
   switch (tab) {
     case 'announcements':
       return <ParentAnnouncementsView />;
+    case 'live-map':
+      return <ParentLiveMapView />;
     case 'track':
       return <ParentTrackView busId={busId} />;
   }
@@ -769,6 +781,64 @@ export default function ParentDashboardView({ tab, busId }: { tab?: string; busI
               </div>
             </form>
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ParentLiveMapView() {
+  const { data: mapData, isLoading, error } = useQuery({
+    queryKey: ['parent-map-data'],
+    queryFn: async () => {
+      const res = await fetch('/api/parent/map-data');
+      if (!res.ok) throw new Error('Failed to fetch live map data');
+      return res.json();
+    },
+    refetchInterval: 10000, // Poll coordinates every 10s
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
+        <Loader2 className="w-8 h-8 text-[#5c3b99] animate-spin" />
+        <p className="text-slate-500 font-bold text-sm">Loading live map data...</p>
+      </div>
+    );
+  }
+
+  if (error || !mapData) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[50vh] text-center px-4 space-y-3">
+        <div className="p-4 bg-red-50 border border-red-200 rounded-2xl text-red-800 text-xs font-semibold max-w-sm">
+          Failed to load live tracking map. Ensure your internet connection is active.
+        </div>
+      </div>
+    );
+  }
+
+  const { busesLocations = [], activeTrips = [] } = mapData;
+
+  return (
+    <div className="space-y-6 animate-in fade-in duration-300">
+      <div>
+        <h2 className="text-2xl font-black text-slate-900 tracking-tight">Live Fleet Map</h2>
+        <p className="text-slate-500 text-sm font-medium">Track your child's assigned transit vehicles real-time on the map.</p>
+      </div>
+
+      {busesLocations.length === 0 ? (
+        <div className="bg-white border border-slate-150 rounded-2xl p-10 text-center space-y-3">
+          <div className="w-12 h-12 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-center mx-auto text-slate-400">
+            🚌
+          </div>
+          <h4 className="font-bold text-slate-800 text-sm">No Active Vehicles</h4>
+          <p className="text-slate-500 text-xs leading-relaxed max-w-xs mx-auto">
+            You do not have any linked student profiles assigned to a transport bus, or the assigned buses are currently idle.
+          </p>
+        </div>
+      ) : (
+        <div className="bg-white border border-slate-150 rounded-2xl overflow-hidden shadow-sm p-4">
+          <AdminMap busesLocations={busesLocations} activeTrips={activeTrips} />
         </div>
       )}
     </div>

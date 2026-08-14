@@ -1,19 +1,20 @@
 import { NextResponse } from 'next/server';
 import { requireRole } from '@/lib/auth-guard';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { createSupabaseServerClient, createAdminClient } from '@/lib/supabase/server';
 
 export async function GET() {
   const auth = await requireRole(['parent']);
   if (auth.error) return auth.error;
 
-  const { user, profile } = auth;
-  const supabase = await createSupabaseServerClient();
+  const { user } = auth;
+  const adminClient = createAdminClient();
 
   try {
-    // 1. Fetch parent's linked student bus_ids
-    const { data: parentRaw } = await supabase
+    // 1. Fetch parent's school_id and linked student bus_ids (using adminClient to bypass RLS)
+    const { data: parentRaw } = await adminClient
       .from('parent_profiles')
       .select(`
+        school_id,
         links:parent_student_links(
           student:student_profiles(bus_id)
         )
@@ -21,15 +22,19 @@ export async function GET() {
       .eq('user_id', user.id)
       .maybeSingle();
 
+    if (!parentRaw) {
+      return NextResponse.json([]);
+    }
+
     const parentBusIds = (parentRaw?.links || [])
       .map((l: any) => l.student?.bus_id)
       .filter(Boolean);
 
     // 2. Query announcements matching school_id AND (bus_id IS NULL OR bus_id IN parentBusIds)
-    let query = supabase
+    let query = adminClient
       .from('announcements')
       .select('id, bus_id, title, body, created_at')
-      .eq('school_id', profile.school_id)
+      .eq('school_id', parentRaw.school_id)
       .in('target_role', ['all', 'parent'])
       .order('created_at', { ascending: false });
 
