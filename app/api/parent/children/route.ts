@@ -11,11 +11,15 @@ export async function GET() {
   const adminClient = createAdminClient();
 
   try {
-    // 1. Fetch parent profile and linked student profiles nested (using adminClient to bypass RLS limitations)
+    // 1. Fetch parent profile, school details, and linked student profiles nested (using adminClient to bypass RLS limitations)
     const { data: parentRaw, error: parentErr } = await adminClient
       .from('parent_profiles')
       .select(`
         id,
+        school:schools(
+          contact_email,
+          contact_phone
+        ),
         links:parent_student_links(
           student:student_profiles(
             id,
@@ -136,8 +140,21 @@ export async function GET() {
       })
     );
 
-    // Filter out null values in map output
-    return NextResponse.json(mapped.filter((item) => item !== null));
+    const schoolObj = parentRaw.school ? (Array.isArray(parentRaw.school) ? parentRaw.school[0] : parentRaw.school) : null;
+
+    // Filter out null values in map output and return alongside school contact info
+    return NextResponse.json({
+      children: mapped.filter((item) => item !== null),
+      school: schoolObj
+        ? {
+            contact_email: schoolObj.contact_email || 'transport@school.edu',
+            contact_phone: schoolObj.contact_phone || '+91 98765 43210',
+          }
+        : {
+            contact_email: 'transport@school.edu',
+            contact_phone: '+91 98765 43210',
+          }
+    });
   } catch (err: any) {
     return NextResponse.json(
       { error: err.message || 'Internal server error', code: 'SERVER_ERROR' },

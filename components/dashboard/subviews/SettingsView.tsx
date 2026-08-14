@@ -24,6 +24,8 @@ export default function SettingsView() {
   const [schoolId, setSchoolId] = useState<string | null>(null);
   const [schoolName, setSchoolName] = useState('');
   const [schoolAddress, setSchoolAddress] = useState('');
+  const [schoolEmail, setSchoolEmail] = useState('');
+  const [schoolPhone, setSchoolPhone] = useState('');
   const [latitude, setLatitude] = useState<number | null>(null);
   const [longitude, setLongitude] = useState<number | null>(null);
 
@@ -159,6 +161,8 @@ export default function SettingsView() {
           if (school) {
             setSchoolName(school.name || '');
             setSchoolAddress(school.address || '');
+            setSchoolEmail(school.contact_email || '');
+            setSchoolPhone(school.contact_phone || '');
             if (school.latitude !== undefined && school.latitude !== null) {
               setLatitude(Number(school.latitude));
             } else {
@@ -250,6 +254,8 @@ export default function SettingsView() {
         .update({
           name: schoolName,
           address: schoolAddress,
+          contact_email: schoolEmail,
+          contact_phone: schoolPhone,
           latitude,
           longitude,
         })
@@ -336,6 +342,32 @@ export default function SettingsView() {
                 placeholder="Enter campus address"
                 className="w-full px-4 py-3 bg-slate-50 border border-slate-200 focus:border-purple-500 rounded-xl text-sm font-medium focus:outline-none transition"
               />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Helpline Phone Number</label>
+                <input
+                  type="text"
+                  required
+                  value={schoolPhone}
+                  onChange={(e) => setSchoolPhone(e.target.value)}
+                  placeholder="e.g. +91 98765 43210"
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 focus:border-purple-500 rounded-xl text-sm font-medium focus:outline-none transition"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Support Desk Email</label>
+                <input
+                  type="email"
+                  required
+                  value={schoolEmail}
+                  onChange={(e) => setSchoolEmail(e.target.value)}
+                  placeholder="e.g. transport@school.edu"
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 focus:border-purple-500 rounded-xl text-sm font-medium focus:outline-none transition"
+                />
+              </div>
             </div>
 
             {/* Coordinates Input Tab selection */}

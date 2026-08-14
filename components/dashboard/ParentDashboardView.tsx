@@ -160,8 +160,8 @@ export default function ParentDashboardView({ tab, busId }: { tab?: string; busI
     }
   };
 
-  // Fetch linked children list
-  const { data: children = [], isLoading: childrenLoading, error: childrenError } = useQuery({
+  // Fetch linked children list and school contact settings
+  const { data: parentData = { children: [], school: null }, isLoading: childrenLoading, error: childrenError } = useQuery({
     queryKey: ['parent-children'],
     queryFn: async () => {
       const res = await fetch('/api/parent/children');
@@ -171,6 +171,9 @@ export default function ParentDashboardView({ tab, busId }: { tab?: string; busI
     refetchInterval: 15000, // Poll children status every 15s
     enabled: !tab, // Only poll children if viewing main dashboard tab
   });
+
+  const children = parentData.children || [];
+  const school = parentData.school;
 
   // Fetch parent announcements for dashboard preview
   const { data: announcements = [], isLoading: announcementsLoading } = useQuery({
@@ -623,7 +626,7 @@ export default function ParentDashboardView({ tab, busId }: { tab?: string; busI
             
             <div className="space-y-3 pt-2 text-xs font-semibold">
               <a 
-                href="tel:+919876543210" 
+                href={`tel:${(school?.contact_phone || '+91 98765 43210').replace(/\s+/g, '')}`} 
                 className="flex items-center gap-3 p-3 bg-white/10 hover:bg-white/15 rounded-2xl border border-white/10 transition duration-200 cursor-pointer"
               >
                 <div className="p-1.5 bg-[#5c3b99] rounded-lg text-white">
@@ -631,12 +634,12 @@ export default function ParentDashboardView({ tab, busId }: { tab?: string; busI
                 </div>
                 <div>
                   <span className="text-[9px] text-purple-300 block font-bold">HELPLINE COORDINATOR</span>
-                  <span className="text-white text-xs">+91 98765 43210</span>
+                  <span className="text-white text-xs">{school?.contact_phone || '+91 98765 43210'}</span>
                 </div>
               </a>
 
               <a 
-                href="mailto:transport@sunriseschool.edu" 
+                href={`mailto:${school?.contact_email || 'transport@school.edu'}`} 
                 className="flex items-center gap-3 p-3 bg-white/10 hover:bg-white/15 rounded-2xl border border-white/10 transition duration-200 cursor-pointer"
               >
                 <div className="p-1.5 bg-[#5c3b99] rounded-lg text-white">
@@ -644,7 +647,7 @@ export default function ParentDashboardView({ tab, busId }: { tab?: string; busI
                 </div>
                 <div>
                   <span className="text-[9px] text-purple-300 block font-bold">SUPPORT DESK EMAIL</span>
-                  <span className="text-white text-xs truncate block max-w-[170px]">transport@school.edu</span>
+                  <span className="text-white text-xs truncate block max-w-[170px]">{school?.contact_email || 'transport@school.edu'}</span>
                 </div>
               </a>
             </div>
