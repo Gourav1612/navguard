@@ -2,7 +2,7 @@
 
 NaviGuard AI is a production-ready, multi-role School Transport Management & Live GPS Tracking SaaS Platform designed to bring visibility, safety, and operational efficiency to student transportation. 
 
-Built using Next.js 15, TypeScript, Tailwind CSS, React Query, and Supabase, it provides tailor-made interfaces for Administrators, Bus Drivers, Parents, and Students.
+Built using Next.js 15, TypeScript, Tailwind CSS, React Query, and Supabase, it provides interfaces tailored for Administrators, Bus Drivers, Parents, and Students.
 
 ---
 
@@ -16,6 +16,50 @@ Built using Next.js 15, TypeScript, Tailwind CSS, React Query, and Supabase, it 
 - **Realtime Services:** Supabase Realtime (change-data-capture channels)
 - **Maps & Location:** Leaflet.js + OpenStreetMap (browser-bound tile layering)
 - **Deployment:** Docker, Docker Compose, Nginx Reverse Proxy
+- **Mobile Wrapper:** Capacitor.js (Cross-platform Android / iOS shell)
+
+---
+
+## 📁 Project Directory Structure
+
+```text
+├── android/                   # Capacitor Native Android App
+│   ├── app/src/main/java/...  # LocationForegroundService.java (silent background tracking service)
+│   └── ...
+├── app/                       # Next.js 15 App Router (Backend APIs & Pages)
+│   ├── actions/               # Server Actions (MFA management, admin pagination/operations)
+│   ├── admin/                 # Admin Dashboard Pages (MFA Setup, Fleet commands, Audit logs)
+│   ├── api/                   # REST API Endpoints
+│   │   ├── admin/             # Admin API routes (buses, drivers, trips, settings configuration)
+│   │   ├── driver/            # Driver API routes (telemetry insertion, trip control, passed stops)
+│   │   ├── parent/            # Parent API routes (children list, feedback submission)
+│   │   ├── student/           # Student API routes (bus tracking)
+│   │   └── auth/              # Authentication & user profile API endpoints
+│   ├── driver/                # Driver portal screens
+│   ├── parent/                # Parent portal screens (live maps)
+│   ├── student/               # Student portal screens
+│   ├── login/                 # Login & MFA authentication challenges
+│   ├── dashboard/             # Unified portal entry point
+│   ├── layout.tsx             # Global layout wrapper
+│   └── page.tsx               # Redirection router
+├── components/                # React Reusable Views & Core Components
+│   ├── dashboard/             # Dashboard Layout Views (AdminDashboardView, ParentDashboardView, etc.)
+│   │   └── subviews/          # Specific sub-views (SettingsView, AssignmentsView, ImportView)
+│   ├── ui/                    # Base UI elements (Modals, skeletons, forms)
+│   ├── AdminMap.tsx           # Leaflet telemetry map (with driver phone calling links)
+│   └── BottomNav.tsx          # Mobile portal bottom navigation (MFA and role routing)
+├── lib/                       # Utility & Shared Helper Functions
+│   ├── supabase/              # Browser & Server database initialization clients
+│   ├── auth-guard.ts          # Server-side authentication and role check middleware
+│   └── utils.ts               # Map coordinate parsers and helper modules
+├── public/                    # Static Assets (Version configs, icons, and APK download files)
+├── scripts/                   # Native build configurations
+├── supabase/                  # Database schema migrations
+│   └── consolidated_database_schema.sql # Core SQL schema seed and RLS policies
+├── tsconfig.json              # TypeScript compilation rules
+├── Dockerfile                 # Standalone multi-stage Next.js builder configuration
+└── docker-compose.yml         # Containerized production runtime orchestrator
+```
 
 ---
 
@@ -58,7 +102,7 @@ NaviGuard AI is pre-configured for containerized deployment:
 
 1. **Verify your `.env` configuration:** Ensure the `.env` file in the root directory contains your live production values.
 2. **Build and Run Containers:**
-   Launch the Next.js web application and Nginx reverse proxy containers:
+   Launch the Next.js web application and Nginx reverse proxy containers. Build-time arguments are automatically configured inside the Dockerfile to embed the client-side Supabase credentials:
    ```bash
    docker-compose up --build -d
    ```
@@ -75,7 +119,7 @@ All seed accounts are initialized with the password `TempPass@123` for testing:
 
 | User Role | Username / Email | Key Features |
 |-----------|------------------|--------------|
-| **Admin** | `admin@sunriseschool.edu` | Dashboard metrics, Fleet Map, CRUD on buses, routes (stops builder), parent/student profiles, assignments panel, system audit logs. |
-| **Driver** | `driver@school.edu` | Assigned bus/route details, "Start Trip" geolocator trigger, live stops checklist with assigned student rosters, "End Trip" trigger. |
-| **Parent** | `priya@gmail.com` | Linked children profiles selector card, active bus live map tracker, dynamic path ETA remaining updates, announcements. |
-| **Student**| `raghav@school.edu` | Personal assigned bus details, live ETA counter, route map visualizer, announcements panel. |
+| **Admin** | `admin@sunriseschool.edu` | Dashboard metrics, Fleet Map, CRUD on buses, routes (stops builder), parent/student profiles, assignments panel, system settings, system audit logs. |
+| **Driver**| `driver@school.edu` | Assigned bus/route details, "Start Trip" geolocator trigger, live stops checklist with assigned student rosters, "End Trip" trigger. |
+| **Parent**| `priya@gmail.com` | Linked children profiles card, active bus live map tracker with clickable driver phone calling links, dynamic path ETA remaining updates, real-time delay alert reporting to admin. |
+| **Student**| `raghav@school.edu` | Personal assigned bus details, live ETA counter, route map visualizer. |
