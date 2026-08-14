@@ -58,7 +58,7 @@ export async function GET() {
       .select(`
         id,
         bus_id,
-        user:user_profiles(full_name)
+        user:user_profiles(full_name, phone)
       `)
       .in('bus_id', busIds)
       .eq('is_active', true);
@@ -107,6 +107,7 @@ export async function GET() {
         is_active: !!activeTrip,
         trip_id: activeTrip ? activeTrip.id : null,
         driver_name: driver?.user ? (Array.isArray(driver.user) ? driver.user[0].full_name : driver.user.full_name) : 'Unassigned',
+        driver_phone: driver?.user ? (Array.isArray(driver.user) ? driver.user[0].phone : driver.user.phone) : null,
         route_name: activeTrip?.route ? (Array.isArray(activeTrip.route) ? activeTrip.route[0].name : activeTrip.route.name) : 'No Active Route',
         latest_location: loc
           ? {

@@ -26,25 +26,13 @@ export async function GET() {
       return NextResponse.json([]);
     }
 
-    const parentBusIds = (parentRaw?.links || [])
-      .map((l: any) => l.student?.bus_id)
-      .filter(Boolean);
-
-    // 2. Query announcements matching school_id AND (bus_id IS NULL OR bus_id IN parentBusIds)
-    let query = adminClient
+    // 2. Query announcements matching school_id and target role
+    const { data: announcements, error } = await adminClient
       .from('announcements')
-      .select('id, bus_id, title, body, created_at')
+      .select('id, title, body, created_at')
       .eq('school_id', parentRaw.school_id)
       .in('target_role', ['all', 'parent'])
       .order('created_at', { ascending: false });
-
-    if (parentBusIds.length > 0) {
-      query = query.or(`bus_id.is.null,bus_id.in.(${parentBusIds.join(',')})`);
-    } else {
-      query = query.is('bus_id', null);
-    }
-
-    const { data: announcements, error } = await query;
 
     if (error) {
       return NextResponse.json(

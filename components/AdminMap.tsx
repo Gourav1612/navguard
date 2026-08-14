@@ -17,6 +17,7 @@ interface BusLocation {
   is_active: boolean;
   trip_id: string | null;
   driver_name: string;
+  driver_phone?: string | null;
   route_name: string;
   latest_location: {
     latitude: number;
@@ -328,6 +329,7 @@ export function AdminMap({ activeTrips = [], busesLocations = [] }: AdminMapProp
         const safeBusName = escapeHtml(bus.bus_name);
         const safeRouteName = escapeHtml(bus.route_name);
         const safeDriverName = escapeHtml(bus.driver_name);
+        const safeDriverPhone = bus.driver_phone ? escapeHtml(bus.driver_phone) : '';
         const safeSpeed = Number(speed || 0).toFixed(1);
         
         if (marker) {
@@ -342,7 +344,7 @@ export function AdminMap({ activeTrips = [], busesLocations = [] }: AdminMapProp
               <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Status:</span> ${bus.is_active ? (is_stale ? '⚠️ Offline / GPS Lost' : 'Active Trip') : 'Inactive'}</div>
               <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Route:</span> ${bus.route_name}</div>
               ${nearestStopInfo}
-              <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Driver:</span> ${bus.driver_name}</div>
+              <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Driver:</span> ${bus.driver_name} ${safeDriverPhone ? `(<a href="tel:${safeDriverPhone}" class="text-purple-600 hover:underline font-bold">${safeDriverPhone}</a>)` : ''}</div>
               <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Speed:</span> ${is_stale ? '0.0' : speed.toFixed(1)} km/h</div>
               <div class="pt-2 border-t border-slate-100 mt-2 space-y-1">
                 <a 
@@ -373,7 +375,7 @@ export function AdminMap({ activeTrips = [], busesLocations = [] }: AdminMapProp
               <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Status:</span> ${bus.is_active ? (is_stale ? '⚠️ Offline / GPS Lost' : 'Active Trip') : 'Inactive'}</div>
               <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Route:</span> ${bus.route_name}</div>
               ${nearestStopInfo}
-              <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Driver:</span> ${bus.driver_name}</div>
+              <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Driver:</span> ${bus.driver_name} ${safeDriverPhone ? `(<a href="tel:${safeDriverPhone}" class="text-purple-600 hover:underline font-bold">${safeDriverPhone}</a>)` : ''}</div>
               <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Speed:</span> ${is_stale ? '0.0' : speed.toFixed(1)} km/h</div>
               <div class="pt-2 border-t border-slate-100 mt-2 space-y-1">
                 <a 
@@ -426,6 +428,8 @@ export function AdminMap({ activeTrips = [], busesLocations = [] }: AdminMapProp
           const isActive = matchingBus ? matchingBus.is_active : false;
           const routeName = matchingBus ? matchingBus.route_name : 'Assigned Route';
           const driverName = matchingBus ? matchingBus.driver_name : 'Assigned Driver';
+          const driverPhone = matchingBus ? (matchingBus as any).driver_phone : null;
+          const safeDriverPhone = driverPhone ? escapeHtml(driverPhone) : '';
 
           // Find nearest stop info
           let nearestStopInfo = '';
@@ -461,7 +465,7 @@ export function AdminMap({ activeTrips = [], busesLocations = [] }: AdminMapProp
                 <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Status:</span> ${isActive ? 'Active Trip' : 'Inactive'}</div>
                 <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Route:</span> ${routeName}</div>
                 ${nearestStopInfo}
-                <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Driver:</span> ${driverName}</div>
+                <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Driver:</span> ${driverName} ${safeDriverPhone ? `(<a href="tel:${safeDriverPhone}" class="text-purple-600 hover:underline font-bold">${safeDriverPhone}</a>)` : ''}</div>
                 <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Speed:</span> ${Number(speed || 0).toFixed(1)} km/h</div>
                 <div class="pt-2 border-t border-slate-100 mt-2 space-y-1">
                   <a 
@@ -492,7 +496,7 @@ export function AdminMap({ activeTrips = [], busesLocations = [] }: AdminMapProp
                 <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Status:</span> ${isActive ? 'Active Trip' : 'Inactive'}</div>
                 <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Route:</span> ${routeName}</div>
                 ${nearestStopInfo}
-                <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Driver:</span> ${driverName}</div>
+                <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Driver:</span> ${driverName} ${safeDriverPhone ? `(<a href="tel:${safeDriverPhone}" class="text-purple-600 hover:underline font-bold">${safeDriverPhone}</a>)` : ''}</div>
                 <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Speed:</span> ${Number(speed || 0).toFixed(1)} km/h</div>
                 <div class="pt-2 border-t border-slate-100 mt-2 space-y-1">
                   <a 

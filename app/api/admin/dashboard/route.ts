@@ -54,7 +54,7 @@ export async function GET() {
       .select(`
         id,
         buses (id, name, registration_plate),
-        drivers (id, user_profiles (full_name)),
+        drivers (id, user_profiles (full_name, phone)),
         routes (id, name, stops (id, name, stop_order, latitude, longitude))
       `)
       .eq('school_id', profile.school_id)
@@ -167,14 +167,18 @@ export async function GET() {
         return busObj.id === bus.id;
       });
 
+      const driverObj = activeTrip?.drivers ? (Array.isArray(activeTrip.drivers) ? activeTrip.drivers[0] : activeTrip.drivers) : null;
+      const routeObj = activeTrip?.routes ? (Array.isArray(activeTrip.routes) ? activeTrip.routes[0] : activeTrip.routes) : null;
+
       return {
         bus_id: bus.id,
         bus_name: bus.name,
         registration_plate: bus.registration_plate,
         is_active: !!activeTrip,
         trip_id: activeTrip?.id || null,
-        driver_name: activeTrip?.drivers?.user_profiles?.full_name || 'Inactive',
-        route_name: activeTrip?.routes?.name || 'No Active Route',
+        driver_name: driverObj?.user_profiles?.full_name || 'Inactive',
+        driver_phone: driverObj?.user_profiles?.phone || null,
+        route_name: routeObj?.name || 'No Active Route',
         latest_location: (() => {
           if (!locationData) return null;
           const recTime = new Date(locationData.recorded_at).getTime();
