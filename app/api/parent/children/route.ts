@@ -8,11 +8,11 @@ export async function GET() {
   if (auth.error) return auth.error;
 
   const { user } = auth;
-  const supabase = await createSupabaseServerClient();
+  const adminClient = createAdminClient();
 
   try {
-    // 1. Fetch parent profile and linked student profiles nested
-    const { data: parentRaw, error: parentErr } = await supabase
+    // 1. Fetch parent profile and linked student profiles nested (using adminClient to bypass RLS limitations)
+    const { data: parentRaw, error: parentErr } = await adminClient
       .from('parent_profiles')
       .select(`
         id,
@@ -55,8 +55,8 @@ export async function GET() {
         let driverUser = null;
 
         if (busObj?.id) {
-          // Fetch assigned driver profile for this bus
-          const { data: driverObj } = await supabase
+          // Fetch assigned driver profile for this bus (using adminClient to bypass RLS)
+          const { data: driverObj } = await adminClient
             .from('drivers')
             .select(`
               id,
@@ -72,7 +72,7 @@ export async function GET() {
           }
 
           // Fetch active trip
-          const { data: activeTrip } = await supabase
+          const { data: activeTrip } = await adminClient
             .from('trips')
             .select('id')
             .eq('bus_id', busObj.id)
@@ -83,7 +83,7 @@ export async function GET() {
             activeTripId = activeTrip.id;
 
             // Fetch latest bus coordinate from bus_locations
-            const { data: locationObj } = await supabase
+            const { data: locationObj } = await adminClient
               .from('bus_locations')
               .select('latitude, longitude, speed, recorded_at')
               .eq('bus_id', busObj.id)
