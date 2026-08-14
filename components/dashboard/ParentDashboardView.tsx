@@ -19,7 +19,6 @@ import {
   ChevronRight, 
   PhoneCall, 
   Mail, 
-  BookOpen, 
   ShieldCheck, 
   AlertTriangle,
   X
@@ -553,35 +552,6 @@ export default function ParentDashboardView({ tab, busId }: { tab?: string; busI
                 </div>
               </form>
             )}
-          </div>
-
-          {/* Workflow Guide Info Card */}
-          <div className="bg-[#f6f5fa] border border-[#e8e6f0] rounded-3xl p-6 space-y-4">
-            <h4 className="text-xs font-extrabold text-[#1e1b4b] uppercase tracking-widest flex items-center gap-2">
-              <BookOpen className="w-4.5 h-4.5 text-purple-600" /> NaviGuard Safety Workflow
-            </h4>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-center">
-              <div className="bg-white border border-slate-150 p-3 rounded-2xl shadow-3xs space-y-1.5">
-                <span className="w-6 h-6 rounded-full bg-purple-50 text-[#5c3b99] font-bold text-xs flex items-center justify-center mx-auto">1</span>
-                <span className="font-extrabold text-[10px] text-slate-800 block">Bus Departure</span>
-                <p className="text-[9px] text-slate-400 font-semibold leading-tight">Driver starts route trip logged in</p>
-              </div>
-              <div className="bg-white border border-slate-150 p-3 rounded-2xl shadow-3xs space-y-1.5">
-                <span className="w-6 h-6 rounded-full bg-purple-50 text-[#5c3b99] font-bold text-xs flex items-center justify-center mx-auto">2</span>
-                <span className="font-extrabold text-[10px] text-slate-800 block">Live Feed</span>
-                <p className="text-[9px] text-slate-405 font-semibold leading-tight">Pulsing coordinate feeds stream to parent</p>
-              </div>
-              <div className="bg-white border border-slate-150 p-3 rounded-2xl shadow-3xs space-y-1.5">
-                <span className="w-6 h-6 rounded-full bg-purple-50 text-[#5c3b99] font-bold text-xs flex items-center justify-center mx-auto">3</span>
-                <span className="font-extrabold text-[10px] text-slate-800 block">Boarding Alerts</span>
-                <p className="text-[9px] text-slate-405 font-semibold leading-tight">Notifications sent as students log in</p>
-              </div>
-              <div className="bg-white border border-slate-150 p-3 rounded-2xl shadow-3xs space-y-1.5">
-                <span className="w-6 h-6 rounded-full bg-purple-50 text-[#5c3b99] font-bold text-xs flex items-center justify-center mx-auto">4</span>
-                <span className="font-extrabold text-[10px] text-slate-800 block">Destination</span>
-                <p className="text-[9px] text-slate-405 font-semibold leading-tight">Trip closes on safe campus arrival</p>
-              </div>
-            </div>
           </div>
         </div>
 
