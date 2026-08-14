@@ -39,7 +39,7 @@ import com.google.android.gms.location.Priority;
 
 public class LocationForegroundService extends Service {
     private static final String TAG = "NaviGuardLocService";
-    public static final String CHANNEL_ID = "naviguard_location_channel";
+    public static final String CHANNEL_ID = "naviguard_location_channel_silent";
     public static final String PREFS_NAME = "NaviGuardTracking";
 
     public static boolean isServiceRunning = false;
@@ -497,22 +497,26 @@ public class LocationForegroundService extends Service {
                 .setSmallIcon(android.R.drawable.ic_menu_mylocation)
                 .setContentIntent(pendingIntent)
                 .setOngoing(true)
-                .setPriority(NotificationCompat.PRIORITY_LOW)
+                .setPriority(NotificationCompat.PRIORITY_MIN)
+                .setSilent(true)
                 .build();
     }
 
     private void createNotificationChannel() {
-        NotificationChannel channel = new NotificationChannel(
-                CHANNEL_ID,
-                "NaviGuard Location Tracking",
-                NotificationManager.IMPORTANCE_DEFAULT
-        );
-        channel.setDescription("Keeps bus location tracking active during a school trip.");
-        channel.enableVibration(true);
-        channel.setVibrationPattern(new long[]{100, 200, 300, 400, 500});
-        NotificationManager manager = getSystemService(NotificationManager.class);
-        if (manager != null) {
-            manager.createNotificationChannel(channel);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel(
+                    CHANNEL_ID,
+                    "NaviGuard Location Tracking",
+                    NotificationManager.IMPORTANCE_MIN
+            );
+            channel.setDescription("Keeps bus location tracking active silently during a school trip.");
+            channel.enableVibration(false);
+            channel.setVibrationPattern(null);
+            channel.setSound(null, null);
+            NotificationManager manager = getSystemService(NotificationManager.class);
+            if (manager != null) {
+                manager.createNotificationChannel(channel);
+            }
         }
     }
 
