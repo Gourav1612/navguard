@@ -73,6 +73,16 @@ export async function GET() {
       .select('id, name, registration_plate')
       .eq('school_id', profile.school_id);
 
+    // Fetch all drivers with their assigned buses and user profiles in a single query
+    const { data: allDrivers } = await supabase
+      .from('drivers')
+      .select(`
+        bus_id,
+        user_profiles(full_name, phone)
+      `)
+      .eq('school_id', profile.school_id)
+      .eq('is_active', true);
+
     const busIds = (allBuses || []).map((b: any) => b.id);
 
     // Fetch all location records in a single batch query!
@@ -167,7 +177,9 @@ export async function GET() {
         return busObj.id === bus.id;
       });
 
-      const driverObj = activeTrip?.drivers ? (Array.isArray(activeTrip.drivers) ? activeTrip.drivers[0] : activeTrip.drivers) : null;
+      const tripDriverObj = activeTrip?.drivers ? (Array.isArray(activeTrip.drivers) ? activeTrip.drivers[0] : activeTrip.drivers) : null;
+      const busDriverObj = (allDrivers || []).find((d: any) => d.bus_id === bus.id);
+      const driverUser = tripDriverObj?.user_profiles || busDriverObj?.user_profiles;
       const routeObj = activeTrip?.routes ? (Array.isArray(activeTrip.routes) ? activeTrip.routes[0] : activeTrip.routes) : null;
 
       return {
@@ -176,8 +188,8 @@ export async function GET() {
         registration_plate: bus.registration_plate,
         is_active: !!activeTrip,
         trip_id: activeTrip?.id || null,
-        driver_name: driverObj?.user_profiles?.full_name || 'Inactive',
-        driver_phone: driverObj?.user_profiles?.phone || null,
+        driver_name: driverUser?.full_name || 'Unassigned',
+        driver_phone: driverUser?.phone || null,
         route_name: routeObj?.name || 'No Active Route',
         latest_location: (() => {
           if (!locationData) return null;
