@@ -3,6 +3,9 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 export async function proxy(request: NextRequest) {
+  // Log request method and path to stdout for visibility in production docker logs
+  console.log(`[${request.method}] ${request.nextUrl.pathname}${request.nextUrl.search || ''}`);
+
   let response = NextResponse.next({
     request: {
       headers: request.headers,
@@ -147,5 +150,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|api/).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
 };
