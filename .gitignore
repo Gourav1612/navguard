@@ -58,6 +58,5 @@ Dockerfile
 docker-compose.yml
 
 # Capacitor configuration generated from env
-capacitor.config.json
 
 

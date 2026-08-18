@@ -1,0 +1,10 @@
+{
+  "appId": "com.navguard.app",
+  "appName": "NaviGuard",
+  "webDir": "out",
+  "server": {
+    "url": "https://navguard-eight.vercel.app",
+    "cleartext": false,
+    "errorPath": "/error.html"
+  }
+}
