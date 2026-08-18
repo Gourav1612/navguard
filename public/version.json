@@ -1,5 +1,5 @@
 {
-  "version": "1.0.86",
+  "version": "1.0.87",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: fix(android): make background location foreground service notification 100% silent and non-intrusive"
+  "releaseNotes": "Auto-build: Update server URL in capacitor.config.json"
 }
