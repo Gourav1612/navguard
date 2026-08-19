@@ -21,7 +21,7 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SSH_PORT }}
           script: |
-            cd /apps/naviguard
+            cd apps/naviguard
             # 1. Pull the latest code changes from origin
             git pull origin main
             
