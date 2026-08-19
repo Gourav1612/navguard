@@ -1,5 +1,5 @@
 {
-  "version": "1.0.87",
+  "version": "1.0.1",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: Update server URL in capacitor.config.json"
+  "releaseNotes": "Auto-build: Update build.gradle"
 }
