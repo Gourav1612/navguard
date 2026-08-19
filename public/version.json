@@ -1,5 +1,5 @@
 {
-  "version": "1.0.0",
+  "version": "1.0.1",
   "apkUrl": "/NaviGuard.apk",
   "releaseNotes": "Auto-build: fix(android): make background location foreground service notification 100% silent and non-intrusive"
 }
