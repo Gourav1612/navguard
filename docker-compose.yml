@@ -1,14 +1,6 @@
 version: '3.8'
 
 services:
-  config-generator:
-    image: node:20-alpine
-    container_name: naviguard-config-generator
-    volumes:
-      - .:/app
-    working_dir: /app
-    command: node scripts/generate-capacitor-config.js
-
   web:
     build:
       context: .
@@ -34,7 +26,5 @@ services:
       - NODE_ENV=production
     env_file:
       - .env
-    depends_on:
-      config-generator:
-        condition: service_completed_successfully
+
 
