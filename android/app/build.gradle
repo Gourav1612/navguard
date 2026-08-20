@@ -1,5 +1,5 @@
 apply plugin: 'com.android.application'
-// NaviGuard — Fresh Production Build
+// NaviGuard — Fresh Production Build with Automated CI/CD
 
 android {
     namespace = "com.navguard.app"
