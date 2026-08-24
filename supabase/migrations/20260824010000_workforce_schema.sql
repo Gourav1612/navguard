@@ -273,3 +273,15 @@ SELECT cron.schedule(
     '0 * * * *', -- runs at minute 0 of every hour
     $$ SELECT public.cleanup_old_audit_logs(); $$
 );
+
+-- Sync existing auth users to profiles so they can log in immediately
+INSERT INTO public.user_profiles (id, email, full_name, role, is_active)
+SELECT 
+    id, 
+    email, 
+    COALESCE(raw_user_meta_data->>'full_name', email), 
+    COALESCE(raw_user_meta_data->>'role', 'admin'),
+    TRUE
+FROM auth.users
+ON CONFLICT (id) DO NOTHING;
+
