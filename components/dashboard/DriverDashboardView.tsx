@@ -95,7 +95,7 @@ export default function DriverDashboardView({ tab }: { tab?: string }) {
       setIsDownloading(true);
       setDownloadProgress(0);
 
-      const apkUrl = 'https://navguard-eight.vercel.app/NaviGuard.apk';
+      const apkUrl = `${process.env.NEXT_PUBLIC_APP_URL || window.location.origin}/NaviGuard.apk`;
       await AppUpdatePlugin.downloadAndInstallApk({ url: apkUrl });
     } catch (err: any) {
       alert('Update failed: ' + err.message);

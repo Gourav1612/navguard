@@ -95,7 +95,7 @@ export default function AppUpdateNotifier() {
         setDownloadProgress(Math.round(data.progress * 100));
       });
 
-      const apkUrl = `${window.location.origin}/NaviGuard.apk`;
+      const apkUrl = `${process.env.NEXT_PUBLIC_APP_URL || window.location.origin}/NaviGuard.apk`;
       
       try {
         await AppUpdatePlugin.downloadAndInstallApk({ url: apkUrl });
