@@ -51,7 +51,7 @@ export default function MfaChallengeClient() {
 
         // If user session is already verified (AAL2), skip challenge and go to unified dashboard
         if (mfaData && mfaData.currentLevel === 'aal2') {
-          router.replace('/dashboard');
+          window.location.href = '/dashboard';
           return;
         }
 
@@ -116,7 +116,7 @@ export default function MfaChallengeClient() {
       localStorage.removeItem('mfa_failed_attempts');
 
       // Redirect to dynamic Command Dashboard
-      router.push('/dashboard');
+      window.location.href = '/dashboard';
     } catch (err: any) {
       const currentAttempts = Number(localStorage.getItem('mfa_failed_attempts') || '0') + 1;
       localStorage.setItem('mfa_failed_attempts', String(currentAttempts));
