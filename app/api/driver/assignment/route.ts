@@ -90,7 +90,7 @@ export async function GET() {
     if (!routeRaw) {
       return NextResponse.json({
         driver: { id: driverRaw.id, license_number: driverRaw.license_number },
-        bus: { id: busObj.id, name: busObj.name, registration_plate: busObj.registration_plate },
+        bus: { id: busObj.id, name: busObj.name, registration_plate: busObj.registration_plate, location_interval: busObj.location_interval },
         route: null,
         active_trip: activeTrip ? { trip_id: activeTrip.id, status: activeTrip.status, started_at: activeTrip.started_at } : null,
       });
