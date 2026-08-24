@@ -3,7 +3,7 @@
   "appName": "NaviGuard",
   "webDir": "out",
   "server": {
-    "url": "https://naviguard.in",
+    "url": "https://navguard-eight.vercel.app",
     "cleartext": false,
     "errorPath": "/error.html"
   }
