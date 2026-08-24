@@ -126,7 +126,10 @@ BEGIN
         NEW.id,
         NEW.email,
         COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.email),
-        COALESCE(NEW.raw_user_meta_data->>'role', 'worker'),
+        CASE 
+            WHEN COALESCE(NEW.raw_user_meta_data->>'role', '') IN ('admin', 'manager', 'supervisor', 'worker') THEN NEW.raw_user_meta_data->>'role'
+            ELSE 'worker'
+        END,
         (NEW.raw_user_meta_data->>'plant_id')::uuid,
         (NEW.raw_user_meta_data->>'supervisor_id')::uuid,
         COALESCE((NEW.raw_user_meta_data->>'location_interval')::integer, 10)
@@ -280,7 +283,10 @@ SELECT
     id, 
     email, 
     COALESCE(raw_user_meta_data->>'full_name', email), 
-    COALESCE(raw_user_meta_data->>'role', 'admin'),
+    CASE 
+        WHEN COALESCE(raw_user_meta_data->>'role', '') IN ('admin', 'manager', 'supervisor', 'worker') THEN raw_user_meta_data->>'role'
+        ELSE 'worker'
+    END,
     TRUE
 FROM auth.users
 ON CONFLICT (id) DO NOTHING;
