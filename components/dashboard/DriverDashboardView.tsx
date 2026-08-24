@@ -168,7 +168,7 @@ export default function DriverDashboardView({ tab }: { tab?: string }) {
     const activeTrip = assignment?.active_trip;
 
     const now = Date.now();
-    const GPS_INTERVAL_MS = 5000; // Throttle to post every 5 seconds
+    const GPS_INTERVAL_MS = (bus.location_interval || 5) * 1000; // Throttle to post based on bus config
     if (now - lastSentRef.current < GPS_INTERVAL_MS) return;
     lastSentRef.current = now;
 
@@ -264,12 +264,34 @@ export default function DriverDashboardView({ tab }: { tab?: string }) {
     };
   }, [assignment?.bus?.id, queryClient]);
 
+  // Real-time listener for buses table to sync Admin location interval changes instantly (<100ms)
+  useEffect(() => {
+    const bus = assignment?.bus;
+    if (!bus?.id) return;
+
+    const channel = supabaseClient
+      .channel('driver-buses-realtime-sync')
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'buses', filter: `id=eq.${bus.id}` },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['driver-assignment'] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabaseClient.removeChannel(channel);
+    };
+  }, [assignment?.bus?.id, queryClient]);
+
   // Initialize Geolocation Tracking Watcher globally when bus is assigned
   useEffect(() => {
     const bus = assignment?.bus;
     if (!bus) return;
 
-    // Set up interval to post location every 5 seconds regardless of coordinate changes (forces continuous heartbeat)
+    const gpsIntervalMs = (bus.location_interval || 5) * 1000;
+    // Set up interval to post location regardless of coordinate changes (forces continuous heartbeat)
     const intervalId = setInterval(async () => {
       if (lastPositionRef.current) {
         await postDriverLocation(
@@ -279,7 +301,7 @@ export default function DriverDashboardView({ tab }: { tab?: string }) {
           lastPositionRef.current.heading
         );
       }
-    }, 5000);
+    }, gpsIntervalMs);
 
     if (Capacitor.isNativePlatform()) {
       setGpsStatus('searching');

@@ -21,6 +21,7 @@ export async function GET() {
           id,
           name,
           registration_plate,
+          location_interval,
           open_app_requested_at,
           routes(
             id,
@@ -143,7 +144,7 @@ export async function GET() {
 
     return NextResponse.json({
       driver: { id: driverRaw.id, license_number: driverRaw.license_number },
-      bus: { id: busObj.id, name: busObj.name, registration_plate: busObj.registration_plate },
+      bus: { id: busObj.id, name: busObj.name, registration_plate: busObj.registration_plate, location_interval: busObj.location_interval },
       route: {
         id: routeRaw.id,
         name: routeRaw.name,

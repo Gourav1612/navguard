@@ -5,6 +5,7 @@ export const BusSchema = z.object({
   registration_plate: z.string().min(1, 'Registration plate is required').max(20),
   capacity: z.coerce.number().int().min(1, 'Capacity must be at least 1').max(150, 'Capacity cannot exceed 150'),
   status: z.enum(['active', 'inactive', 'maintenance']).optional().default('inactive'),
+  location_interval: z.coerce.number().int().min(1, 'Interval must be at least 1 second').max(3600, 'Interval cannot exceed 3600 seconds (1 hour)').default(5),
 });
 
 export const RouteSchema = z.object({

@@ -68,6 +68,7 @@ export async function GET(req: NextRequest) {
         registration_plate: bus.registration_plate,
         capacity: bus.capacity,
         status: bus.status,
+        location_interval: bus.location_interval,
         created_at: bus.created_at,
         is_trip_active: activeBusIdSet.has(bus.id),
         driver: driverObj
@@ -120,7 +121,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { name, registration_plate, capacity, status } = parsed.data;
+    const { name, registration_plate, capacity, status, location_interval } = parsed.data;
 
     // Check for duplicate plate in this school
     const { data: duplicate } = await supabase
@@ -144,6 +145,7 @@ export async function POST(req: NextRequest) {
         registration_plate,
         capacity,
         status,
+        location_interval,
       })
       .select()
       .single();

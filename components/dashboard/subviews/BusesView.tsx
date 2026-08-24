@@ -163,6 +163,7 @@ export default function AdminBuses() {
       registration_plate: '',
       capacity: 30,
       status: 'inactive',
+      location_interval: 5,
     });
     setIsModalOpen(true);
   };
@@ -174,6 +175,7 @@ export default function AdminBuses() {
     setValue('registration_plate', bus.registration_plate);
     setValue('capacity', bus.capacity);
     setValue('status', bus.status);
+    setValue('location_interval', bus.location_interval || 5);
     setIsModalOpen(true);
   };
 
@@ -247,8 +249,8 @@ export default function AdminBuses() {
 
                   <div className="grid grid-cols-2 gap-4 mt-6 text-xs border-y border-slate-100 py-4">
                     <div>
-                      <span className="text-slate-400 font-bold block uppercase tracking-wider">Capacity</span>
-                      <span className="text-slate-800 font-extrabold text-sm block mt-1">{bus.capacity} Seats</span>
+                      <span className="text-slate-400 font-bold block uppercase tracking-wider">Capacity / Interval</span>
+                      <span className="text-slate-800 font-extrabold text-sm block mt-1">{bus.capacity} Seats / {bus.location_interval || 5}s</span>
                     </div>
                     <div>
                       <span className="text-slate-400 font-bold block uppercase tracking-wider">Assigned Route</span>
@@ -434,6 +436,22 @@ export default function AdminBuses() {
                     <option value="maintenance">Maintenance</option>
                   </select>
                 </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Location Update Interval (Seconds) *</label>
+                <input
+                  type="number"
+                  disabled={mutating}
+                  placeholder="e.g. 5"
+                  className={`block w-full px-3.5 py-2.5 border rounded-xl text-sm transition focus:outline-none focus:ring-2 ${
+                    errors.location_interval
+                      ? 'border-red-300 focus:ring-red-200'
+                      : 'border-slate-200 focus:ring-primary/20 focus:border-primary'
+                  }`}
+                  {...register('location_interval', { valueAsNumber: true })}
+                />
+                {errors.location_interval && <p className="text-red-500 text-xs mt-1 font-semibold">{errors.location_interval.message}</p>}
               </div>
 
               <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100 mt-6">
