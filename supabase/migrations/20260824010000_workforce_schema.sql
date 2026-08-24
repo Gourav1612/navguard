@@ -285,3 +285,8 @@ SELECT
 FROM auth.users
 ON CONFLICT (id) DO NOTHING;
 
+-- Enforce Gaurav's account to admin role explicitly
+UPDATE public.user_profiles 
+SET role = 'admin' 
+WHERE email = 'gauravbalchandani@gmail.com';
+
