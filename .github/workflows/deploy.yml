@@ -30,4 +30,6 @@ jobs:
             
             # 3. Clean up unused builder layers to save disk space
             docker image prune -f
+            docker container prune
+            docker builder prune
 
