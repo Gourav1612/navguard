@@ -180,11 +180,11 @@ export function Sidebar() {
         {user ? (
           <div className="flex items-center gap-3 mb-4 px-2">
             <div className="flex items-center justify-center w-9 h-9 bg-white/10 border border-white/10 rounded-full text-white shadow-sm font-bold text-sm">
-              {user.full_name.charAt(0)}
+              {user.full_name ? user.full_name.charAt(0) : 'U'}
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-bold truncate leading-none text-white">
-                {user.full_name}
+                {user.full_name || 'User'}
               </p>
               <span className="text-[10px] text-purple-300/70 font-mono block mt-1.5 truncate">
                 {user.email}
@@ -296,10 +296,10 @@ export function Sidebar() {
             {user && (
               <div className="flex items-center gap-3 px-2">
                 <div className="flex items-center justify-center w-8 h-8 bg-white/10 border border-white/10 rounded-full text-white shadow-sm font-bold text-sm">
-                  {user.full_name.charAt(0)}
+                  {user.full_name ? user.full_name.charAt(0) : 'U'}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold truncate leading-none text-white">{user.full_name}</p>
+                  <p className="text-sm font-bold truncate leading-none text-white">{user.full_name || 'User'}</p>
                   <span className="text-[10px] text-purple-300/70 font-mono block mt-1 truncate">{user.email}</span>
                 </div>
               </div>
