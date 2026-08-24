@@ -1,36 +1,42 @@
 'use client';
 
-declare global {
-  interface Window {
-    pingBusApp?: (busId: string) => Promise<void>;
-  }
-}
-
 import { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 
-interface BusLocation {
-  bus_id: string;
-  bus_name: string;
-  registration_plate: string;
-  is_active: boolean;
-  trip_id: string | null;
-  driver_name: string;
-  driver_phone?: string | null;
-  route_name: string;
-  latest_location: {
-    latitude: number;
-    longitude: number;
-    speed: number;
-    heading: number;
-    recorded_at: string;
+interface Plant {
+  id: string;
+  name: string;
+  code: string;
+  latitude: number;
+  longitude: number;
+  radius_meters: number;
+  address?: string;
+}
+
+interface TelemetryPoint {
+  id: string;
+  latitude: number;
+  longitude: number;
+  speed: number;
+  heading: number;
+  accuracy: number;
+  battery_level: number;
+  is_tracking: boolean;
+  recorded_at: string;
+  user: {
+    id: string;
+    full_name: string;
+    role: string;
+    plant_id: string;
+    supervisor_name?: string | null;
   } | null;
 }
 
 interface AdminMapProps {
-  activeTrips?: any[];
-  busesLocations?: BusLocation[];
+  plants?: Plant[];
+  locations?: TelemetryPoint[];
+  selectedPlantId?: string;
 }
 
 function escapeHtml(value: unknown) {
@@ -42,79 +48,35 @@ function escapeHtml(value: unknown) {
     .replace(/'/g, '&#039;');
 }
 
-// Haversine distance calculator helper
-function calculateDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 6371; // Earth's radius in km
-  const dLat = (lat2 - lat1) * (Math.PI / 180);
-  const dLon = (lon2 - lon1) * (Math.PI / 180);
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
-    Math.sin(dLon / 2) * Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-}
-
-export function AdminMap({ activeTrips = [], busesLocations = [] }: AdminMapProps) {
-  useEffect(() => {
-    window.pingBusApp = async (busId: string) => {
-      try {
-        const res = await fetch(`/api/admin/buses/${busId}/ping`, { method: 'POST' });
-        if (res.ok) {
-          alert('Open App request sent successfully!');
-        } else {
-          const data = await res.json();
-          alert(`Failed to send request: ${data.error || 'Unknown error'}`);
-        }
-      } catch (err) {
-        alert('Failed to connect to server');
-      }
-    };
-    return () => {
-      delete window.pingBusApp;
-    };
-  }, []);
-
+export function AdminMap({ plants = [], locations = [], selectedPlantId = 'all' }: AdminMapProps) {
   const mapRef = useRef<L.Map | null>(null);
-  // Track markers by busId
+  // Track markers by userId
   const markersRef = useRef<Record<string, L.Marker>>({});
-  // Track route layers (lines/stops) for cleanup
-  const routeLayersRef = useRef<L.Layer[]>([]);
+  // Track plant circles by plantId
+  const plantCirclesRef = useRef<Record<string, L.Layer[]>>({});
 
-  const [filterBusId, setFilterBusId] = useState<string>('all');
-  const prevFilterBusIdRef = useRef<string>('all');
-
-  // Centering map on select bus changes (preserving user's current zoom level unless filter selection changes)
+  // Centering map when selected plant changes
   useEffect(() => {
-    if (filterBusId !== 'all' && mapRef.current) {
-      const selectedBus = busesLocations.find((b) => b.bus_id === filterBusId);
-      if (selectedBus?.latest_location) {
-        const filterChanged = prevFilterBusIdRef.current !== filterBusId;
-        const currentZoom = filterChanged ? 15 : (mapRef.current.getZoom() || 15);
+    if (selectedPlantId !== 'all' && mapRef.current) {
+      const selectedPlant = plants.find((p) => p.id === selectedPlantId);
+      if (selectedPlant && selectedPlant.latitude && selectedPlant.longitude) {
         mapRef.current.setView(
-          [selectedBus.latest_location.latitude, selectedBus.latest_location.longitude],
-          currentZoom,
+          [Number(selectedPlant.latitude), Number(selectedPlant.longitude)],
+          15,
           { animate: true }
         );
       }
     }
-    prevFilterBusIdRef.current = filterBusId;
-  }, [filterBusId, busesLocations]);
+  }, [selectedPlantId, plants]);
 
-  // 1. Initialize Leaflet Map exactly once on mount
+  // 1. Initialize Leaflet Map
   useEffect(() => {
-    console.log("AdminMap: First effect mounting...");
-    // Default center to Jaipur or first active bus
-    let center: L.LatLngExpression = [26.9124, 75.7873];
-    const busesWithLocation = busesLocations.filter((b) => b.latest_location);
-    if (busesWithLocation.length > 0 && busesWithLocation[0].latest_location) {
-      center = [
-        busesWithLocation[0].latest_location.latitude,
-        busesWithLocation[0].latest_location.longitude,
-      ];
+    let center: L.LatLngExpression = [26.9124, 75.7873]; // Jaipur default
+    if (plants.length > 0 && plants[0].latitude && plants[0].longitude) {
+      center = [Number(plants[0].latitude), Number(plants[0].longitude)];
     }
 
-    const map = L.map('admin-map', { zoomControl: true }).setView(center, 13);
+    const map = L.map('admin-map', { zoomControl: true }).setView(center, 12);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© OpenStreetMap contributors',
     }).addTo(map);
@@ -129,394 +91,211 @@ export function AdminMap({ activeTrips = [], busesLocations = [] }: AdminMapProp
     if (container) resizeObserver.observe(container);
 
     return () => {
-      console.log("AdminMap: First effect unmounting (map cleanup)...");
       resizeObserver.disconnect();
       map.remove();
       mapRef.current = null;
     };
-  }, []); // Run ONLY once on mount
+  }, []);
 
-  // 2. Sync markers and listen to Supabase realtime events on the mounted map (preserves zoom level)
+  // 2. Sync Plants and markers
   useEffect(() => {
-    console.log("AdminMap: Second effect running due to busesLocations change...", busesLocations);
     const map = mapRef.current;
-    if (!map) {
-      console.log("AdminMap: Second effect skipped, map is not initialized yet");
-      return;
-    }
+    if (!map) return;
 
-    // Clear old route layers
-    routeLayersRef.current.forEach((layer) => layer.remove());
-    routeLayersRef.current = [];
+    // Render Plants
+    Object.values(plantCirclesRef.current).forEach((layers) => layers.forEach((l) => l.remove()));
+    plantCirclesRef.current = {};
 
-    // Filter active trips based on selection
-    const filteredTrips = filterBusId === 'all'
-      ? activeTrips
-      : activeTrips.filter((t) => t.bus?.id === filterBusId);
+    plants.forEach((plant) => {
+      if (!plant.latitude || !plant.longitude) return;
+      const isFiltered = selectedPlantId === 'all' || selectedPlantId === plant.id;
+      if (!isFiltered) return;
 
-    // Helper function to draw actual road route using OSRM with straight-line fallback
-    function drawRoadRoute(coords: [number, number][], routeColor: string) {
-      if (coords.length < 2) return;
-      const leafletMap = map;
-      if (!leafletMap) return;
-      const osrmCoords = coords.map(([lat, lng]) => `${lng},${lat}`).join(';');
-      const url = `https://router.project-osrm.org/route/v1/driving/${osrmCoords}?overview=full&geometries=geojson`;
+      const position: L.LatLngExpression = [Number(plant.latitude), Number(plant.longitude)];
 
-      fetch(url)
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.code === 'Ok' && data.routes?.[0]?.geometry?.coordinates) {
-            const roadCoords = data.routes[0].geometry.coordinates.map(
-              ([lng, lat]: [number, number]) => [lat, lng] as L.LatLngExpression
-            );
-            const routePolyline = L.polyline(roadCoords, {
-              color: routeColor,
-              weight: 6,
-              opacity: 0.8,
-            }).addTo(leafletMap);
-            routeLayersRef.current.push(routePolyline);
-          } else {
-            // Fallback to dashed line
-            const routePolyline = L.polyline(coords as any, {
-              color: routeColor,
-              weight: 5,
-              opacity: 0.65,
-              dashArray: '5, 8'
-            }).addTo(leafletMap);
-            routeLayersRef.current.push(routePolyline);
-          }
-        })
-        .catch((err) => {
-          console.warn('AdminMap OSRM routing failed, using straight fallback:', err);
-          // Fallback to dashed line
-          const routePolyline = L.polyline(coords as any, {
-            color: routeColor,
-            weight: 5,
-            opacity: 0.65,
-            dashArray: '5, 8'
-          }).addTo(leafletMap);
-          routeLayersRef.current.push(routePolyline);
-        });
-    }
+      // 🏢 Plant Center Emoji Marker
+      const plantIcon = L.divIcon({
+        html: `<div class="flex items-center justify-center w-8 h-8 bg-white border border-slate-350 rounded-lg shadow-md text-lg">🏢</div>`,
+        iconSize: [32, 32],
+        iconAnchor: [16, 16],
+      });
+      const centerMarker = L.marker(position, { icon: plantIcon })
+        .addTo(map)
+        .bindPopup(`
+          <div class="font-sans">
+            <div class="font-extrabold text-slate-800 text-xs">${escapeHtml(plant.name)}</div>
+            <div class="text-[9px] text-slate-400 font-bold uppercase mt-0.5">Code: ${escapeHtml(plant.code)}</div>
+            <div class="text-[10px] text-slate-500 mt-1">${escapeHtml(plant.address || '')}</div>
+          </div>
+        `);
 
-    // Draw route lines and stops for filtered active trips
-    filteredTrips.forEach((trip, tripIdx) => {
-      const routeStops = trip.route?.stops || [];
-      if (routeStops.length > 0) {
-        const sortedStops = [...routeStops].sort((a: any, b: any) => a.stop_order - b.stop_order);
-        
-        // Use different colors for different routes if displaying all
-        const colors = ['#4f46e5', '#0ea5e9', '#10b981', '#f59e0b', '#ec4899'];
-        const routeColor = colors[tripIdx % colors.length];
+      // Geofence Circle
+      const geofenceCircle = L.circle(position, {
+        radius: plant.radius_meters || 100,
+        color: '#6366f1', // Indigo
+        fillColor: '#818cf8',
+        fillOpacity: 0.15,
+        weight: 1.5,
+      }).addTo(map);
 
-        // Find matching bus location for this trip
-        const busLoc = busesLocations.find((b) => b.bus_id === trip.bus?.id);
-        const hasLatestLoc = busLoc?.latest_location;
-
-        // Construct coordinate points for routing line
-        let routingCoords: [number, number][] = [];
-        if (hasLatestLoc && busLoc.latest_location) {
-          // Prepend bus location, and connect to other stops (excluding Stop 0 / school starting point)
-          const otherStops = sortedStops.filter((s: any) => s.stop_order !== 0);
-          routingCoords = [
-            [Number(busLoc.latest_location.latitude), Number(busLoc.latest_location.longitude)],
-            ...otherStops.map((stop: any) => [Number(stop.latitude), Number(stop.longitude)] as [number, number])
-          ];
-        } else {
-          // If bus is inactive or has no coordinates yet, show full original route from Stop 0
-          routingCoords = sortedStops.map((stop: any) => [Number(stop.latitude), Number(stop.longitude)] as [number, number]);
-        }
-
-        // Draw the road route line starting from the bus's location
-        drawRoadRoute(routingCoords, routeColor);
-
-        // Draw stop circle markers
-        sortedStops.forEach((stop: any, idx: number) => {
-          let color = '#3b82f6';
-          let fillColor = '#93c5fd';
-          let radius = 5;
-          let labelText = `Transit Stop #${idx + 1}`;
-
-          if (stop.stop_order === 0) {
-            color = '#ef4444'; // Designed Start stop (School Campus)
-            fillColor = '#f87171';
-            radius = 8;
-            labelText = '🚩 Designed Start: School Campus';
-          } else if (idx === sortedStops.length - 1) {
-            color = '#10b981'; // End stop
-            fillColor = '#34d399';
-            radius = 7;
-            labelText = '🏁 End Destination';
-          }
-
-          const stopMarker = L.circleMarker([Number(stop.latitude), Number(stop.longitude)], {
-            radius,
-            color,
-            fillColor,
-            fillOpacity: 0.9,
-            weight: 2
-          })
-            .addTo(map)
-            .bindPopup(`
-              <div class="font-sans">
-                <div class="font-bold text-slate-800 text-xs">${escapeHtml(stop.name)}</div>
-                <div class="text-[10px] text-slate-500">${labelText}</div>
-              </div>
-            `);
-          routeLayersRef.current.push(stopMarker);
-        });
-      }
+      plantCirclesRef.current[plant.id] = [centerMarker, geofenceCircle];
     });
 
-    // Bus Icon Factory
-    const createBusIcon = (name: string, isActive: boolean, isStale?: boolean) => {
-      const safeName = escapeHtml(name);
-      const bgClass = isStale
-        ? 'bg-red-500 border-red-700 text-white'
-        : isActive 
-          ? 'bg-amber-400 border-amber-600 text-slate-800' 
-          : 'bg-slate-200 border-slate-400 text-slate-500';
+    // Marker Icon Creators
+    const createPinIcon = (name: string, role: string, isTracking: boolean) => {
+      const initials = name.split(' ').map((n) => n[0]).join('').substring(0, 2).toUpperCase();
+      let colorClass = 'bg-blue-600 border-blue-800 text-white'; // Worker: Blue
+      let iconEmoji = '🔵';
+
+      if (role === 'manager') {
+        colorClass = 'bg-purple-600 border-purple-800 text-white'; // Manager: Purple
+        iconEmoji = '🟣';
+      } else if (role === 'supervisor') {
+        colorClass = 'bg-amber-500 border-amber-700 text-slate-900'; // Supervisor: Yellow/Amber
+        iconEmoji = '🟡';
+      }
+
+      if (!isTracking) {
+        colorClass = 'bg-slate-400 border-slate-600 text-white';
+      }
+
       return L.divIcon({
         className: '',
         html: `
-          <div class="relative flex items-center justify-center w-9 h-9 ${bgClass} border-2 rounded-full shadow-lg transition-all duration-300">
-            <span class="text-sm">🚌</span>
-            <div class="absolute top-10 bg-slate-900/90 text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow whitespace-nowrap border border-slate-700">
-              ${safeName}
+          <div class="relative flex items-center justify-center w-8 h-8 ${colorClass} border border-white rounded-full shadow-lg font-black text-[10px] tracking-tighter">
+            <span>${initials}</span>
+            <div class="absolute top-8 bg-slate-900/90 text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow whitespace-nowrap border border-slate-700">
+              ${escapeHtml(name)}
             </div>
           </div>
         `,
-        iconSize: [36, 36],
-        iconAnchor: [18, 18],
+        iconSize: [32, 32],
+        iconAnchor: [16, 16],
       });
     };
 
-    // Render or update active markers
-    busesLocations.forEach((bus) => {
-      // If we filtered by a specific bus, hide others
-      const shouldShow = filterBusId === 'all' || filterBusId === bus.bus_id;
+    // Sync Locations
+    locations.forEach((loc) => {
+      if (!loc.user) return;
       
-      let marker = markersRef.current[bus.bus_id];
+      const shouldShow = selectedPlantId === 'all' || selectedPlantId === loc.user.plant_id;
+      let marker = markersRef.current[loc.user.id];
+
       if (!shouldShow) {
         if (marker) {
           marker.remove();
-          delete markersRef.current[bus.bus_id];
+          delete markersRef.current[loc.user.id];
         }
         return;
       }
 
-      if (bus.latest_location) {
-        const { latitude, longitude, speed, is_stale } = bus.latest_location as any;
-        const icon = createBusIcon(bus.bus_name, bus.is_active, is_stale);
-        const matchingTrip = activeTrips.find((t: any) => t.bus?.id === bus.bus_id);
+      const position: L.LatLngExpression = [Number(loc.latitude), Number(loc.longitude)];
+      const icon = createPinIcon(loc.user.full_name, loc.user.role, loc.is_tracking);
+      const roleLabel = loc.user.role === 'manager' ? 'Plant Manager' : loc.user.role === 'supervisor' ? 'Supervisor' : 'Worker';
 
-        let nearestStopInfo = '';
-        if (matchingTrip?.route?.stops && matchingTrip.route.stops.length > 0) {
-          let nearestStop: any = null;
-          let minDistance = Infinity;
-          matchingTrip.route.stops.forEach((stop: any) => {
-            const d = calculateDistanceKm(latitude, longitude, Number(stop.latitude), Number(stop.longitude));
-            if (d < minDistance) {
-              minDistance = d;
-              nearestStop = stop;
-            }
-          });
-          if (nearestStop) {
-            const distLabel = minDistance < 1 ? `${Math.round(minDistance * 1000)}m` : `${minDistance.toFixed(1)} km`;
-            nearestStopInfo = `<div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Nearest Stop:</span> ${escapeHtml(nearestStop.name)} (${distLabel})</div>`;
-          }
-        }
-        const safeBusName = escapeHtml(bus.bus_name);
-        const safeRouteName = escapeHtml(bus.route_name);
-        const safeDriverName = escapeHtml(bus.driver_name);
-        const safeDriverPhone = bus.driver_phone ? escapeHtml(bus.driver_phone) : '';
-        const safeSpeed = Number(speed || 0).toFixed(1);
-        
-        if (marker) {
-          marker.setLatLng([latitude, longitude]);
-          marker.setIcon(icon);
-          marker.setPopupContent(`
-            <div class="font-sans space-y-1.5">
-              <div class="font-bold text-slate-950 text-sm flex items-center gap-1.5">
-                ${bus.bus_name}
-                <span class="inline-block w-2.5 h-2.5 rounded-full ${bus.is_active ? (is_stale ? 'bg-red-500' : 'bg-emerald-500 animate-pulse') : 'bg-slate-400'}"></span>
-              </div>
-              <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Status:</span> ${bus.is_active ? (is_stale ? '⚠️ Offline / GPS Lost' : 'Active Trip') : 'Inactive'}</div>
-              <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Route:</span> ${bus.route_name}</div>
-              ${nearestStopInfo}
-              <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Driver:</span> ${bus.driver_name} ${safeDriverPhone ? `(<a href="tel:${safeDriverPhone}" class="text-purple-600 hover:underline font-bold">${safeDriverPhone}</a>)` : ''}</div>
-              <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Speed:</span> ${is_stale ? '0.0' : speed.toFixed(1)} km/h</div>
-              <div class="pt-2 border-t border-slate-100 mt-2 space-y-1">
-                <a 
-                  href="https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}" 
-                  target="_blank" 
-                  rel="noopener noreferrer" 
-                  class="inline-flex items-center justify-center w-full px-2 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-[#5c3b99] text-[10px] font-bold rounded-lg transition-all text-center no-underline"
-                >
-                  📍 Open Location
-                </a>
-                <button 
-                  onclick="window.pingBusApp('${bus.bus_id}')"
-                  class="inline-flex items-center justify-center w-full px-2 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 text-[10px] font-bold rounded-lg transition-all text-center border-0 cursor-pointer"
-                >
-                  📱 Open App
-                </button>
-              </div>
-            </div>
-          `);
-        } else {
-          marker = L.marker([latitude, longitude], { icon }).addTo(map);
-          marker.bindPopup(`
-            <div class="font-sans space-y-1.5">
-              <div class="font-bold text-slate-950 text-sm flex items-center gap-1.5">
-                ${bus.bus_name}
-                <span class="inline-block w-2.5 h-2.5 rounded-full ${bus.is_active ? (is_stale ? 'bg-red-500' : 'bg-emerald-500 animate-pulse') : 'bg-slate-400'}"></span>
-              </div>
-              <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Status:</span> ${bus.is_active ? (is_stale ? '⚠️ Offline / GPS Lost' : 'Active Trip') : 'Inactive'}</div>
-              <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Route:</span> ${bus.route_name}</div>
-              ${nearestStopInfo}
-              <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Driver:</span> ${bus.driver_name} ${safeDriverPhone ? `(<a href="tel:${safeDriverPhone}" class="text-purple-600 hover:underline font-bold">${safeDriverPhone}</a>)` : ''}</div>
-              <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Speed:</span> ${is_stale ? '0.0' : speed.toFixed(1)} km/h</div>
-              <div class="pt-2 border-t border-slate-100 mt-2 space-y-1">
-                <a 
-                  href="https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}" 
-                  target="_blank" 
-                  rel="noopener noreferrer" 
-                  class="inline-flex items-center justify-center w-full px-2 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-[#5c3b99] text-[10px] font-bold rounded-lg transition-all text-center no-underline"
-                >
-                  📍 Open Location
-                </a>
-                <button 
-                  onclick="window.pingBusApp('${bus.bus_id}')"
-                  class="inline-flex items-center justify-center w-full px-2 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 text-[10px] font-bold rounded-lg transition-all text-center border-0 cursor-pointer"
-                >
-                  📱 Open App
-                </button>
-              </div>
-            </div>
-          `);
-          markersRef.current[bus.bus_id] = marker;
-        }
+      const popupHtml = `
+        <div class="font-sans space-y-1">
+          <div class="font-black text-slate-900 text-sm flex items-center gap-1.5">
+            ${escapeHtml(loc.user.full_name)}
+            <span class="inline-block w-2 h-2 rounded-full ${loc.is_tracking ? 'bg-green-500 animate-pulse' : 'bg-slate-400'}"></span>
+          </div>
+          <div class="text-[10px] text-slate-400 font-bold uppercase">${roleLabel}</div>
+          ${loc.user.supervisor_name ? `<div class="text-[11px] text-slate-500"><span class="font-bold text-slate-600">Supervisor:</span> ${escapeHtml(loc.user.supervisor_name)}</div>` : ''}
+          <div class="text-[11px] text-slate-500"><span class="font-bold text-slate-600">Speed:</span> ${loc.speed.toFixed(1)} km/h</div>
+          <div class="text-[11px] text-slate-500"><span class="font-bold text-slate-600">Battery:</span> ${loc.battery_level !== null ? `${loc.battery_level}%` : '—'}</div>
+          <div class="text-[11px] text-slate-500"><span class="font-bold text-slate-600">Accuracy:</span> ${loc.accuracy.toFixed(1)} m</div>
+          <div class="pt-1.5 border-t border-slate-100 mt-2">
+            <a 
+              href="https://www.google.com/maps/search/?api=1&query=${loc.latitude},${loc.longitude}" 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              class="inline-flex items-center justify-center w-full px-2 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-[#5c3b99] text-[10px] font-bold rounded-lg transition-all text-center no-underline"
+            >
+              📍 Open Location
+            </a>
+          </div>
+        </div>
+      `;
+
+      if (marker) {
+        marker.setLatLng(position);
+        marker.setIcon(icon);
+        marker.setPopupContent(popupHtml);
+      } else {
+        marker = L.marker(position, { icon }).addTo(map).bindPopup(popupHtml);
+        markersRef.current[loc.user.id] = marker;
       }
     });
 
-    // Supabase Realtime subscription for all bus locations
+    // Clean up markers for users that are no longer in locations list
+    Object.keys(markersRef.current).forEach((userId) => {
+      const exists = locations.some((loc) => loc.user?.id === userId);
+      if (!exists) {
+        markersRef.current[userId].remove();
+        delete markersRef.current[userId];
+      }
+    });
+
+    // Realtime location update WebSocket subscription
     const supabase = createBrowserSupabaseClient();
     const channel = supabase
-      .channel('admin-tracking-channel')
+      .channel('live-locations-command-map')
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'bus_locations' },
+        { event: '*', schema: 'public', table: 'live_locations' },
         (payload: any) => {
-          if (payload.eventType === 'DELETE') return;
-          const { bus_id, latitude, longitude, speed } = payload.new;
-          
-          // If we filtered by a specific bus, hide updates for others
-          const shouldShow = filterBusId === 'all' || filterBusId === bus_id;
-          if (!shouldShow) {
-            const marker = markersRef.current[bus_id];
-            if (marker) {
-              marker.remove();
-              delete markersRef.current[bus_id];
+          if (payload.eventType === 'DELETE') {
+            const oldId = payload.old.user_id;
+            if (markersRef.current[oldId]) {
+              markersRef.current[oldId].remove();
+              delete markersRef.current[oldId];
             }
             return;
           }
 
-          // Find matching bus metadata
-          const matchingBus = busesLocations.find((b) => b.bus_id === bus_id);
-          const busName = matchingBus ? matchingBus.bus_name : 'Active Bus';
-          const isActive = matchingBus ? matchingBus.is_active : false;
-          const routeName = matchingBus ? matchingBus.route_name : 'Assigned Route';
-          const driverName = matchingBus ? matchingBus.driver_name : 'Assigned Driver';
-          const driverPhone = matchingBus ? (matchingBus as any).driver_phone : null;
-          const safeDriverPhone = driverPhone ? escapeHtml(driverPhone) : '';
+          const newLoc = payload.new;
+          const matchingLoc = locations.find((l) => l.user?.id === newLoc.user_id);
+          if (!matchingLoc || !matchingLoc.user) return;
 
-          // Find nearest stop info
-          let nearestStopInfo = '';
-          const matchingTrip = activeTrips.find((t: any) => t.bus?.id === bus_id);
-          if (latitude && longitude && matchingTrip?.route?.stops && matchingTrip.route.stops.length > 0) {
-            let nearestStop: any = null;
-            let minDistance = Infinity;
-            matchingTrip.route.stops.forEach((stop: any) => {
-              const d = calculateDistanceKm(Number(latitude), Number(longitude), Number(stop.latitude), Number(stop.longitude));
-              if (d < minDistance) {
-                minDistance = d;
-                nearestStop = stop;
-              }
-            });
-            if (nearestStop) {
-              const distLabel = minDistance < 1 ? `${Math.round(minDistance * 1000)}m` : `${minDistance.toFixed(1)} km`;
-              nearestStopInfo = `<div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Nearest Stop:</span> ${nearestStop.name} (${distLabel})</div>`;
-            }
-          }
+          const shouldShow = selectedPlantId === 'all' || selectedPlantId === matchingLoc.user.plant_id;
+          if (!shouldShow) return;
 
-          const marker = markersRef.current[bus_id];
-          const icon = createBusIcon(busName, isActive);
+          const pos: L.LatLngExpression = [Number(newLoc.latitude), Number(newLoc.longitude)];
+          let marker = markersRef.current[newLoc.user_id];
+          const icon = createPinIcon(matchingLoc.user.full_name, matchingLoc.user.role, newLoc.is_tracking);
+          const roleLbl = matchingLoc.user.role === 'manager' ? 'Plant Manager' : matchingLoc.user.role === 'supervisor' ? 'Supervisor' : 'Worker';
+
+          const popHtml = `
+            <div class="font-sans space-y-1">
+              <div class="font-black text-slate-900 text-sm flex items-center gap-1.5">
+                ${escapeHtml(matchingLoc.user.full_name)}
+                <span class="inline-block w-2 h-2 rounded-full ${newLoc.is_tracking ? 'bg-green-500 animate-pulse' : 'bg-slate-400'}"></span>
+              </div>
+              <div class="text-[10px] text-slate-400 font-bold uppercase">${roleLbl}</div>
+              ${matchingLoc.user.supervisor_name ? `<div class="text-[11px] text-slate-500"><span class="font-bold text-slate-600">Supervisor:</span> ${escapeHtml(matchingLoc.user.supervisor_name)}</div>` : ''}
+              <div class="text-[11px] text-slate-500"><span class="font-bold text-slate-600">Speed:</span> ${Number(newLoc.speed || 0).toFixed(1)} km/h</div>
+              <div class="text-[11px] text-slate-500"><span class="font-bold text-slate-600">Battery:</span> ${newLoc.battery_level !== null ? `${newLoc.battery_level}%` : '—'}</div>
+              <div class="text-[11px] text-slate-500"><span class="font-bold text-slate-600">Accuracy:</span> ${Number(newLoc.accuracy || 0).toFixed(1)} m</div>
+              <div class="pt-1.5 border-t border-slate-100 mt-2">
+                <a 
+                  href="https://www.google.com/maps/search/?api=1&query=${newLoc.latitude},${newLoc.longitude}" 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  class="inline-flex items-center justify-center w-full px-2 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-[#5c3b99] text-[10px] font-bold rounded-lg transition-all text-center no-underline"
+                >
+                  📍 Open Location
+                </a>
+              </div>
+            </div>
+          `;
 
           if (marker) {
-            marker.setLatLng([latitude, longitude]);
+            marker.setLatLng(pos);
             marker.setIcon(icon);
-            marker.setPopupContent(`
-              <div class="font-sans space-y-1.5">
-                <div class="font-bold text-slate-950 text-sm flex items-center gap-1.5">
-                  ${busName}
-                  <span class="inline-block w-2.5 h-2.5 rounded-full ${isActive ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}"></span>
-                </div>
-                <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Status:</span> ${isActive ? 'Active Trip' : 'Inactive'}</div>
-                <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Route:</span> ${routeName}</div>
-                ${nearestStopInfo}
-                <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Driver:</span> ${driverName} ${safeDriverPhone ? `(<a href="tel:${safeDriverPhone}" class="text-purple-600 hover:underline font-bold">${safeDriverPhone}</a>)` : ''}</div>
-                <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Speed:</span> ${Number(speed || 0).toFixed(1)} km/h</div>
-                <div class="pt-2 border-t border-slate-100 mt-2 space-y-1">
-                  <a 
-                    href="https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}" 
-                    target="_blank" 
-                    rel="noopener noreferrer" 
-                    class="inline-flex items-center justify-center w-full px-2 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-[#5c3b99] text-[10px] font-bold rounded-lg transition-all text-center no-underline"
-                  >
-                    📍 Open Location
-                  </a>
-                  <button 
-                    onclick="window.pingBusApp('${bus_id}')"
-                    class="inline-flex items-center justify-center w-full px-2 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 text-[10px] font-bold rounded-lg transition-all text-center border-0 cursor-pointer"
-                  >
-                    📱 Open App
-                  </button>
-                </div>
-              </div>
-            `);
+            marker.setPopupContent(popHtml);
           } else {
-            const newMarker = L.marker([latitude, longitude], { icon }).addTo(map);
-            newMarker.bindPopup(`
-              <div class="font-sans space-y-1.5">
-                <div class="font-bold text-slate-950 text-sm flex items-center gap-1.5">
-                  ${busName}
-                  <span class="inline-block w-2.5 h-2.5 rounded-full ${isActive ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}"></span>
-                </div>
-                <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Status:</span> ${isActive ? 'Active Trip' : 'Inactive'}</div>
-                <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Route:</span> ${routeName}</div>
-                ${nearestStopInfo}
-                <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Driver:</span> ${driverName} ${safeDriverPhone ? `(<a href="tel:${safeDriverPhone}" class="text-purple-600 hover:underline font-bold">${safeDriverPhone}</a>)` : ''}</div>
-                <div class="text-[11px] text-slate-500"><span class="font-semibold text-slate-700">Speed:</span> ${Number(speed || 0).toFixed(1)} km/h</div>
-                <div class="pt-2 border-t border-slate-100 mt-2 space-y-1">
-                  <a 
-                    href="https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}" 
-                    target="_blank" 
-                    rel="noopener noreferrer" 
-                    class="inline-flex items-center justify-center w-full px-2 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-[#5c3b99] text-[10px] font-bold rounded-lg transition-all text-center no-underline"
-                  >
-                    📍 Open Location
-                  </a>
-                  <button 
-                    onclick="window.pingBusApp('${bus_id}')"
-                    class="inline-flex items-center justify-center w-full px-2 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 text-[10px] font-bold rounded-lg transition-all text-center border-0 cursor-pointer"
-                  >
-                    📱 Open App
-                  </button>
-                </div>
-              </div>
-            `);
-            markersRef.current[bus_id] = newMarker;
+            marker = L.marker(pos, { icon }).addTo(map).bindPopup(popHtml);
+            markersRef.current[newLoc.user_id] = marker;
           }
         }
       )
@@ -525,27 +304,13 @@ export function AdminMap({ activeTrips = [], busesLocations = [] }: AdminMapProp
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [busesLocations, activeTrips, filterBusId]);
+  }, [plants, locations, selectedPlantId]);
 
   return (
     <div className="relative z-0 w-full h-[450px] border border-slate-200 rounded-2xl overflow-hidden shadow-inner">
-      <div id="admin-map" className="w-full h-full" />
-
-      {/* Bus-Wise Filter Dropdown overlay */}
-      <div className="absolute top-3 right-3 z-[1000] bg-white/95 backdrop-blur border border-slate-200 rounded-xl shadow-lg p-1.5 flex items-center gap-2">
-        <span className="text-[10px] font-bold text-slate-500 uppercase pl-1.5">Fleet Filter:</span>
-        <select
-          value={filterBusId}
-          onChange={(e) => setFilterBusId(e.target.value)}
-          className="text-[10px] font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer font-sans"
-        >
-          <option value="all">All Active Buses</option>
-          {busesLocations.map((b) => (
-            <option key={b.bus_id} value={b.bus_id}>{b.bus_name}</option>
-          ))}
-        </select>
-      </div>
+      <div id="admin-map" className="w-full h-full animate-in fade-in duration-300" />
     </div>
   );
 }
+
 export default AdminMap;

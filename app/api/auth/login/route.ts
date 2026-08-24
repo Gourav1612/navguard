@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
     // Find the user's profile to get their auth user ID
     const { data: profileObj } = await adminClient
       .from('user_profiles')
-      .select('id, school_id, full_name')
+      .select('id, plant_id, full_name')
       .eq('email', email)
       .maybeSingle();
 
@@ -171,10 +171,10 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Retrieve user profile (role, full_name, school_id)
+    // Retrieve user profile (role, full_name, plant_id)
     const { data: profile, error: profileError } = await adminClient
       .from('user_profiles')
-      .select('role, full_name, school_id, is_active')
+      .select('role, full_name, plant_id, is_active')
       .eq('id', authData.user.id)
       .single();
 
@@ -196,7 +196,7 @@ export async function POST(req: NextRequest) {
 
     // Write audit log using the system admin client
     await adminClient.from('audit_logs').insert({
-      school_id: profile.school_id,
+      plant_id: profile.plant_id,
       user_id: authData.user.id,
       action: 'LOGIN',
       table_name: 'user_profiles',
@@ -211,7 +211,7 @@ export async function POST(req: NextRequest) {
         email: authData.user.email,
         role: profile.role,
         full_name: profile.full_name,
-        school_id: profile.school_id,
+        plant_id: profile.plant_id,
       },
     });
   } catch (err: any) {

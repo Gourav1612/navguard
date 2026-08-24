@@ -6,178 +6,71 @@ import { requireRole } from '@/lib/auth-guard';
 import { PaginatedResult, ServerActionResponse } from '@/types/pagination';
 
 /**
- * Server Action: Delete Driver by ID
+ * Server Action: Delete User by ID (Auth + Profile)
  */
-export async function deleteDriverAction(id: string): Promise<ServerActionResponse> {
+export async function deleteUserAction(id: string): Promise<ServerActionResponse> {
   const auth = await requireRole(['admin']);
   if (auth.error) return { success: false, error: 'Unauthorized' };
+
+  // Super Admin cannot delete themselves
+  if (id === auth.user.id) {
+    return { success: false, error: 'Cannot delete your own account' };
+  }
 
   const adminClient = createAdminClient();
 
   try {
-    const { data: driver } = await adminClient
-      .from('drivers')
-      .select('id, user_id')
+    const { data: profile } = await adminClient
+      .from('user_profiles')
+      .select('id, role')
       .eq('id', id)
-      .eq('school_id', auth.profile.school_id)
       .maybeSingle();
 
-    if (!driver) return { success: false, error: 'Driver not found' };
+    if (!profile) return { success: false, error: 'User profile not found' };
 
-    // 1. Delete associated trips
-    await adminClient.from('trips').delete().eq('driver_id', id);
-
-    // 2. Clean up announcements
-    await adminClient.from('announcements').delete().eq('created_by', driver.user_id);
-
-    // 3. Delete driver record
-    const { error: delErr } = await adminClient.from('drivers').delete().eq('id', id);
-    if (delErr) return { success: false, error: delErr.message };
-
-    // 4. Delete auth user
-    await adminClient.auth.admin.deleteUser(driver.user_id);
+    // Delete user from auth.users (Cascade deletes live_locations and user_profiles)
+    const { error: authDeleteErr } = await adminClient.auth.admin.deleteUser(id);
+    if (authDeleteErr) return { success: false, error: authDeleteErr.message };
 
     revalidatePath('/dashboard');
     return { success: true };
   } catch (err: any) {
-    return { success: false, error: err.message || 'Failed to delete driver' };
+    return { success: false, error: err.message || 'Failed to delete user' };
   }
 }
 
 /**
- * Server Action: Delete Bus by ID
+ * Server Action: Delete Plant by ID
  */
-export async function deleteBusAction(id: string): Promise<ServerActionResponse> {
+export async function deletePlantAction(id: string): Promise<ServerActionResponse> {
   const auth = await requireRole(['admin']);
   if (auth.error) return { success: false, error: 'Unauthorized' };
 
   const adminClient = createAdminClient();
 
   try {
-    const { data: bus } = await adminClient
-      .from('buses')
+    const { data: plant } = await adminClient
+      .from('plants')
       .select('id')
       .eq('id', id)
-      .eq('school_id', auth.profile.school_id)
       .maybeSingle();
 
-    if (!bus) return { success: false, error: 'Bus not found' };
+    if (!plant) return { success: false, error: 'Plant not found' };
 
-    await adminClient.from('routes').update({ bus_id: null }).eq('bus_id', id);
-    await adminClient.from('drivers').update({ bus_id: null }).eq('bus_id', id);
-    await adminClient.from('student_profiles').update({ bus_id: null, stop_id: null }).eq('bus_id', id);
-    await adminClient.from('bus_locations').delete().eq('bus_id', id);
-    await adminClient.from('trips').delete().eq('bus_id', id);
-    await adminClient.from('announcements').delete().eq('bus_id', id);
+    // 1. Clear plant_id on user profiles
+    await adminClient.from('user_profiles').update({ plant_id: null }).eq('plant_id', id);
 
-    const { error: delErr } = await adminClient.from('buses').delete().eq('id', id);
+    // 2. Clear plant_id on audit logs
+    await adminClient.from('audit_logs').update({ plant_id: null }).eq('plant_id', id);
+
+    // 3. Delete the plant
+    const { error: delErr } = await adminClient.from('plants').delete().eq('id', id);
     if (delErr) return { success: false, error: delErr.message };
 
     revalidatePath('/dashboard');
     return { success: true };
   } catch (err: any) {
-    return { success: false, error: err.message || 'Failed to delete bus' };
-  }
-}
-
-/**
- * Server Action: Delete Route by ID
- */
-export async function deleteRouteAction(id: string): Promise<ServerActionResponse> {
-  const auth = await requireRole(['admin']);
-  if (auth.error) return { success: false, error: 'Unauthorized' };
-
-  const adminClient = createAdminClient();
-
-  try {
-    const { data: route } = await adminClient
-      .from('routes')
-      .select('id')
-      .eq('id', id)
-      .eq('school_id', auth.profile.school_id)
-      .maybeSingle();
-
-    if (!route) return { success: false, error: 'Route not found' };
-
-    await adminClient.from('trips').delete().eq('route_id', id);
-
-    const { data: routeStops } = await adminClient.from('stops').select('id').eq('route_id', id);
-    if (routeStops && routeStops.length > 0) {
-      const stopIds = routeStops.map((s) => s.id);
-      await adminClient.from('student_profiles').update({ stop_id: null }).in('stop_id', stopIds);
-    }
-
-    await adminClient.from('stops').delete().eq('route_id', id);
-    const { error: delErr } = await adminClient.from('routes').delete().eq('id', id);
-    if (delErr) return { success: false, error: delErr.message };
-
-    revalidatePath('/dashboard');
-    return { success: true };
-  } catch (err: any) {
-    return { success: false, error: err.message || 'Failed to delete route' };
-  }
-}
-
-/**
- * Server Action: Delete Student by ID
- */
-export async function deleteStudentAction(id: string): Promise<ServerActionResponse> {
-  const auth = await requireRole(['admin']);
-  if (auth.error) return { success: false, error: 'Unauthorized' };
-
-  const adminClient = createAdminClient();
-
-  try {
-    const { data: student } = await adminClient
-      .from('student_profiles')
-      .select('id, user_id')
-      .eq('id', id)
-      .eq('school_id', auth.profile.school_id)
-      .maybeSingle();
-
-    if (!student) return { success: false, error: 'Student not found' };
-
-    const { error: authDeleteErr } = await adminClient.auth.admin.deleteUser(student.user_id);
-    if (authDeleteErr) {
-      await adminClient.from('student_profiles').delete().eq('id', id);
-    }
-
-    revalidatePath('/dashboard');
-    return { success: true };
-  } catch (err: any) {
-    return { success: false, error: err.message || 'Failed to delete student' };
-  }
-}
-
-/**
- * Server Action: Delete Parent by ID
- */
-export async function deleteParentAction(id: string): Promise<ServerActionResponse> {
-  const auth = await requireRole(['admin']);
-  if (auth.error) return { success: false, error: 'Unauthorized' };
-
-  const adminClient = createAdminClient();
-
-  try {
-    const { data: parent } = await adminClient
-      .from('parent_profiles')
-      .select('id, user_id')
-      .eq('id', id)
-      .eq('school_id', auth.profile.school_id)
-      .maybeSingle();
-
-    if (!parent) return { success: false, error: 'Parent not found' };
-
-    await adminClient.from('parent_student_links').delete().eq('parent_id', id);
-    const { error: authDeleteErr } = await adminClient.auth.admin.deleteUser(parent.user_id);
-    if (authDeleteErr) {
-      await adminClient.from('parent_profiles').delete().eq('id', id);
-    }
-
-    revalidatePath('/dashboard');
-    return { success: true };
-  } catch (err: any) {
-    return { success: false, error: err.message || 'Failed to delete parent' };
+    return { success: false, error: err.message || 'Failed to delete plant' };
   }
 }
 

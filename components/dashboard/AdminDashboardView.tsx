@@ -3,7 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { 
   Loader2, 
-  Bus, 
+  Building, 
   ShieldAlert, 
   UserCheck, 
   Users, 
@@ -11,9 +11,9 @@ import {
   Lock, 
   Unlock, 
   ShieldCheck as ShieldCheckIcon, 
-  Send, 
-  Key, 
-  X 
+  X,
+  MapPin,
+  Clock
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { Badge } from '@/components/Badge';
@@ -22,17 +22,10 @@ import { useState, useEffect } from 'react';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Capacitor } from '@capacitor/core';
-import { BatteryOptimization } from '@/lib/capacitor-plugins';
 
-// Import all admin subviews
-import BusesView from './subviews/BusesView';
-import RoutesView from './subviews/RoutesView';
-import DriversView from './subviews/DriversView';
-import ParentsView from './subviews/ParentsView';
-import StudentsView from './subviews/StudentsView';
-import AssignmentsView from './subviews/AssignmentsView';
-import ImportView from './subviews/ImportView';
+// Import admin subviews
+import PlantsView from './subviews/PlantsView';
+import UsersView from './subviews/UsersView';
 import AuditLogsView from './subviews/AuditLogsView';
 import SettingsView from './subviews/SettingsView';
 import { DashboardSkeleton } from '@/components/ui/Skeleton';
@@ -54,9 +47,12 @@ export default function AdminDashboardView({ tab: initialTab }: { tab?: string }
   const router = useRouter();
   const rawTab = searchParams.get('tab') || '';
   
-  const validTabs = ['buses', 'routes', 'drivers', 'parents', 'students', 'assignments', 'import', 'audit-logs', 'settings'];
+  const validTabs = ['plants', 'users', 'audit-logs', 'settings'];
   const tab = validTabs.includes(rawTab) ? rawTab : '';
   const isMainDashboard = !tab;
+
+  // Selected plant filter overlay
+  const [selectedPlantId, setSelectedPlantId] = useState<string>('all');
 
   // Sanitize invalid tab parameter from URL automatically
   useEffect(() => {
@@ -68,11 +64,6 @@ export default function AdminDashboardView({ tab: initialTab }: { tab?: string }
   // MFA states
   const [mfaEnabled, setMfaEnabled] = useState(false);
   const [mfaFactorId, setMfaFactorId] = useState<string | null>(null);
-  const [showOtpModal, setShowOtpModal] = useState(false);
-  const [otpCode, setOtpCode] = useState('');
-  const [otpLoading, setOtpLoading] = useState(false);
-  const [otpError, setOtpError] = useState<string | null>(null);
-  const [otpSuccess, setOtpSuccess] = useState(false);
 
   // Fetch dashboard stats
   const { data, isLoading, error, refetch } = useQuery({
@@ -82,7 +73,7 @@ export default function AdminDashboardView({ tab: initialTab }: { tab?: string }
       if (!res.ok) throw new Error('Failed to load dashboard metrics');
       return res.json();
     },
-    refetchInterval: 15000,
+    refetchInterval: 10000, // reload stats every 10 seconds for real-time responsiveness
     enabled: isMainDashboard,
   });
 
@@ -97,7 +88,6 @@ export default function AdminDashboardView({ tab: initialTab }: { tab?: string }
         setMfaEnabled(true);
         setMfaFactorId(activeTotp.id);
 
-        // Check if authentication assurance level requires challenge (MFA enabled but not verified in this session)
         const { data: mfaData, error: mfaErr } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
         if (!mfaErr && mfaData) {
           const { currentLevel, nextLevel } = mfaData;
@@ -109,7 +99,6 @@ export default function AdminDashboardView({ tab: initialTab }: { tab?: string }
       } else {
         setMfaEnabled(false);
         setMfaFactorId(null);
-        // Force redirect to enrollment page if no verified MFA factor is set up yet
         router.replace('/admin/mfa-setup');
       }
     } catch (err) {
@@ -121,198 +110,17 @@ export default function AdminDashboardView({ tab: initialTab }: { tab?: string }
     checkMfaStatus();
   }, [tab]);
 
-  const [endingTripId, setEndingTripId] = useState<string | null>(null);
-
-  const handleEndTrip = async (tripId: string) => {
-    if (!confirm('Are you sure you want to force end this active trip? This will set its status to Completed.')) {
-      return;
-    }
-    setEndingTripId(tripId);
-    try {
-      const res = await fetch('/api/admin/trips/end', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ trip_id: tripId }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to end trip');
-      }
-      refetch();
-    } catch (err: any) {
-      alert(err.message || 'An error occurred.');
-    } finally {
-      setEndingTripId(null);
-    }
-  };
-
-  // Request email OTP
-  const handleRequestOtp = async () => {
-    setOtpError(null);
-    setOtpLoading(true);
-    try {
-      const res = await fetch('/api/admin/mfa/send-otp', { method: 'POST' });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to request code');
-
-      setShowOtpModal(true);
-    } catch (err: any) {
-      setOtpError(err.message || 'Failed to request verification code.');
-    } finally {
-      setOtpLoading(false);
-    }
-  };
-
-  // Verify OTP and Disable MFA
-  const handleVerifyAndDisable = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!mfaFactorId || otpCode.length !== 6) return;
-
-    setOtpError(null);
-    setOtpLoading(true);
-
-    try {
-      // 1. Verify OTP code with API
-      const res = await fetch('/api/admin/mfa/verify-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: otpCode }),
-      });
-      const resData = await res.json();
-      if (!res.ok) throw new Error(resData.error || 'OTP verification failed');
-
-      // 2. Perform client-side unenrollment
-      const { error: unenrollErr } = await supabase.auth.mfa.unenroll({
-        factorId: mfaFactorId,
-      });
-      if (unenrollErr) throw unenrollErr;
-
-      // Refresh session immediately to downgrade local token to aal1
-      await supabase.auth.refreshSession();
-
-      setOtpSuccess(true);
-      setTimeout(() => {
-        setShowOtpModal(false);
-        setOtpSuccess(false);
-        setOtpCode('');
-        checkMfaStatus();
-      }, 2000);
-    } catch (err: any) {
-      setOtpError(err.message || 'OTP verification or unenrollment failed.');
-    } finally {
-      setOtpLoading(false);
-    }
-  };
-  // Real-time Notification Subscriber state
-  const [adminSchoolId, setAdminSchoolId] = useState<string | null>(null);
-  const [toastNotification, setToastNotification] = useState<{
-    id: string;
-    title: string;
-    message: string;
-    type: string;
-  } | null>(null);
-
-  // Request Notification permission for system popup alerts
+  // Real-time location subscriber to refresh state on inserts/updates
   useEffect(() => {
-    if (typeof window !== 'undefined' && 'Notification' in window) {
-      if (Notification.permission === 'default') {
-        Notification.requestPermission().catch(console.error);
-      }
-    }
-  }, []);
-
-  useEffect(() => {
-    async function getAdminProfile() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      
-      const { data: profile } = await supabase
-        .from('user_profiles')
-        .select('school_id')
-        .eq('id', user.id)
-        .single();
-        
-      if (profile?.school_id) {
-        setAdminSchoolId(profile.school_id);
-      }
-    }
-    getAdminProfile();
-  }, [supabase]);
-
-  useEffect(() => {
-    if (!adminSchoolId) return;
+    if (!isMainDashboard) return;
 
     const channel = supabase
-      .channel('admin-realtime-notifications')
+      .channel('admin-dashboard-realtime')
       .on(
         'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'notifications',
-          filter: `school_id=eq.${adminSchoolId}`,
-        },
-        (payload: any) => {
-          const newNotif = payload.new;
-          // Ignore self-triggered trip start/end notifications for Admin
-          if (newNotif.title?.includes('Admin') || newNotif.title?.includes('Trip Started') || newNotif.title?.includes('Trip Ended')) {
-            return;
-          }
-          setToastNotification({
-            id: newNotif.id,
-            title: newNotif.title,
-            message: newNotif.message,
-            type: newNotif.type,
-          });
-
-          // Show native browser or app system notification (upper banner popup)
-          if (Capacitor.isNativePlatform()) {
-            BatteryOptimization.showLocalNotification({
-              title: newNotif.title,
-              message: newNotif.message,
-            }).catch((err: any) => {
-              console.error('Failed to trigger native local notification:', err);
-            });
-          } else if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
-            try {
-              new Notification(newNotif.title, {
-                body: newNotif.message,
-                icon: '/logo.png',
-                tag: newNotif.id,
-              });
-            } catch (err) {
-              console.error('Failed to trigger native notification:', err);
-            }
-          }
-
-          // Play premium Audio Context Double Chime Sound
-          try {
-            const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-            osc.connect(gain);
-            gain.connect(ctx.destination);
-            
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(587.33, ctx.currentTime);
-            gain.gain.setValueAtTime(0.08, ctx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
-            osc.start(ctx.currentTime);
-            osc.stop(ctx.currentTime + 0.15);
-            
-            const osc2 = ctx.createOscillator();
-            const gain2 = ctx.createGain();
-            osc2.connect(gain2);
-            gain2.connect(ctx.destination);
-            osc2.type = 'sine';
-            osc2.frequency.setValueAtTime(880, ctx.currentTime + 0.08);
-            gain2.gain.setValueAtTime(0.08, ctx.currentTime + 0.08);
-            gain2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
-            osc2.start(ctx.currentTime + 0.08);
-            osc2.stop(ctx.currentTime + 0.3);
-          } catch (audioErr) {
-            console.error('Realtime notification sound chime failed:', audioErr);
-          }
+        { event: '*', schema: 'public', table: 'live_locations' },
+        () => {
+          refetch();
         }
       )
       .subscribe();
@@ -320,87 +128,14 @@ export default function AdminDashboardView({ tab: initialTab }: { tab?: string }
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [adminSchoolId, supabase]);
-
-  useEffect(() => {
-    if (!adminSchoolId) return;
-
-    const tripsChannel = supabase
-      .channel('admin-realtime-trips')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'trips',
-          filter: `school_id=eq.${adminSchoolId}`,
-        },
-        () => {
-          refetch();
-        }
-      )
-      .subscribe();
-
-    const locationsChannel = supabase
-      .channel('admin-realtime-locations')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'bus_locations',
-        },
-        (payload: any) => {
-          if (payload.eventType !== 'DELETE') {
-            refetch();
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(tripsChannel);
-      supabase.removeChannel(locationsChannel);
-    };
-  }, [adminSchoolId, supabase, refetch]);
-
-  useEffect(() => {
-    if (!toastNotification) return;
-    const timer = setTimeout(() => {
-      // Auto dismiss but keep in DB (just hide from UI)
-      setToastNotification(null);
-    }, 6000);
-    return () => clearTimeout(timer);
-  }, [toastNotification]);
-
-  const dismissNotification = async (notifId: string) => {
-    setToastNotification(null);
-    try {
-      await supabase
-        .from('notifications')
-        .delete()
-        .eq('id', notifId);
-    } catch (err) {
-      console.error('Failed to delete notification:', err);
-    }
-  };
+  }, [isMainDashboard, supabase, refetch]);
 
   // Dynamic Routing based on Search Param tab
   switch (tab) {
-    case 'buses':
-      return <BusesView />;
-    case 'routes':
-      return <RoutesView />;
-    case 'drivers':
-      return <DriversView />;
-    case 'parents':
-      return <ParentsView />;
-    case 'students':
-      return <StudentsView />;
-    case 'assignments':
-      return <AssignmentsView />;
-    case 'import':
-      return <ImportView />;
+    case 'plants':
+      return <PlantsView />;
+    case 'users':
+      return <UsersView />;
     case 'audit-logs':
       return <AuditLogsView />;
     case 'settings':
@@ -421,7 +156,7 @@ export default function AdminDashboardView({ tab: initialTab }: { tab?: string }
         </p>
         <button
           onClick={() => refetch()}
-          className="px-5 py-2.5 bg-primary text-white text-sm font-semibold rounded-xl hover:bg-primary-dark transition shadow"
+          className="px-5 py-2.5 bg-[#5c3b99] text-white text-sm font-semibold rounded-xl hover:bg-primary-dark transition shadow"
         >
           Retry Connection
         </button>
@@ -429,13 +164,18 @@ export default function AdminDashboardView({ tab: initialTab }: { tab?: string }
     );
   }
 
-  const { metrics, active_trips, buses_locations = [] } = data;
+  const { metrics, plants = [], locations = [] } = data;
+
+  // Filter coordinates based on plant filter
+  const filteredLocations = selectedPlantId === 'all'
+    ? locations
+    : locations.filter((loc: any) => loc.user?.plant_id === selectedPlantId);
 
   const stats = [
-    { name: 'Total Fleet Buses', value: metrics.total_buses, icon: Bus, color: 'text-blue-600 bg-blue-50 border-blue-100' },
-    { name: 'Active Trips', value: metrics.active_trips, icon: Radio, color: 'text-green-600 bg-green-50 border-green-100', pulse: true },
-    { name: 'Total Students', value: metrics.total_students, icon: Users, color: 'text-indigo-600 bg-indigo-50 border-indigo-100' },
-    { name: 'Active Drivers', value: metrics.total_drivers, icon: UserCheck, color: 'text-amber-600 bg-amber-50 border-amber-100' },
+    { name: 'Active Plants', value: metrics.total_plants, icon: Building, color: 'text-blue-600 bg-blue-50 border-blue-100' },
+    { name: 'Active Shifts', value: metrics.active_shifts, icon: Radio, color: 'text-green-600 bg-green-50 border-green-100', pulse: true },
+    { name: 'Total Supervisors', value: metrics.total_supervisors, icon: Users, color: 'text-indigo-600 bg-indigo-50 border-indigo-100' },
+    { name: 'Total Workers', value: metrics.total_workers, icon: UserCheck, color: 'text-amber-600 bg-amber-50 border-amber-100' },
   ];
 
   return (
@@ -443,17 +183,25 @@ export default function AdminDashboardView({ tab: initialTab }: { tab?: string }
       {/* Header Info */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-black text-slate-900 tracking-tight">Fleet Command</h2>
+          <h2 className="text-2xl font-black text-slate-900 tracking-tight">Workforce Command Center</h2>
           <p className="text-slate-500 text-sm font-medium">
-            Monitor real-time school bus routes, telemetry, and driver status.
+            Monitor real-time personnel tracking, geofence safety, and plant operations.
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="flex h-2.5 w-2.5 relative">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
-          </span>
-          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Live tracking active</span>
+
+        {/* Global Plant Filter */}
+        <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-1.5 shadow-sm">
+          <span className="text-[10px] font-bold text-slate-400 uppercase">Plant Scope:</span>
+          <select
+            value={selectedPlantId}
+            onChange={(e) => setSelectedPlantId(e.target.value)}
+            className="text-xs font-bold text-slate-700 bg-transparent border-0 focus:outline-none cursor-pointer"
+          >
+            <option value="all">All Plants</option>
+            {plants.map((p: any) => (
+              <option key={p.id} value={p.id}>{p.name} ({p.code})</option>
+            ))}
+          </select>
         </div>
       </div>
 
@@ -482,14 +230,20 @@ export default function AdminDashboardView({ tab: initialTab }: { tab?: string }
       </div>
 
       {/* Map Segment */}
-      <div className="space-y-3">
-        <h3 className="text-lg font-bold text-slate-800 tracking-tight">Active Fleet Map</h3>
-        <AdminMap activeTrips={active_trips} busesLocations={buses_locations} />
+      <div className="space-y-3 relative">
+        <div className="flex justify-between items-center">
+          <h3 className="text-lg font-bold text-slate-800 tracking-tight">Active Plant Mapping</h3>
+          <span className="flex items-center gap-1 text-[10px] font-bold text-slate-450 uppercase">
+            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+            Real-time feed active
+          </span>
+        </div>
+        <AdminMap plants={plants} locations={filteredLocations} selectedPlantId={selectedPlantId} />
       </div>
 
-      {/* Active Trips Table */}
+      {/* Personnel Telemetry Table */}
       <div className="space-y-4">
-        <h3 className="text-lg font-bold text-slate-800 tracking-tight">Ongoing Trips</h3>
+        <h3 className="text-lg font-bold text-slate-800 tracking-tight">Active Personnel Telemetry</h3>
         
         {/* Desktop View Table */}
         <div className="hidden md:block bg-white border border-slate-150 rounded-2xl shadow-sm overflow-hidden">
@@ -497,54 +251,67 @@ export default function AdminDashboardView({ tab: initialTab }: { tab?: string }
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50/75 border-b border-slate-150 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                  <th className="px-6 py-4">Fleet Bus</th>
-                  <th className="px-6 py-4">Assigned Route</th>
-                  <th className="px-6 py-4">On-Duty Driver</th>
-                  <th className="px-6 py-4">GPS Status</th>
-                  <th className="px-6 py-4">Live Speed</th>
-                  <th className="px-6 py-4">Last Telemetry</th>
-                  <th className="px-6 py-4 text-right">Actions</th>
+                  <th className="px-6 py-4">Full Name</th>
+                  <th className="px-6 py-4">Role</th>
+                  <th className="px-6 py-4">Tracking Status</th>
+                  <th className="px-6 py-4">Speed</th>
+                  <th className="px-6 py-4">Battery</th>
+                  <th className="px-6 py-4">Accuracy</th>
+                  <th className="px-6 py-4">Last Update</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
-                {active_trips.length === 0 ? (
+                {filteredLocations.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="px-6 py-8 text-center text-slate-400 font-medium">
-                      No active trips currently running.
+                      No active telemetry data streaming for this scope.
                     </td>
                   </tr>
                 ) : (
-                  active_trips.map((trip: any) => {
-                    const hasLoc = !!trip.latest_location;
-                    const isEnding = endingTripId === trip.trip_id;
+                  filteredLocations.map((loc: any) => {
+                    const isStale = loc.is_stale;
+                    const roleLabel = loc.user?.role === 'manager' ? 'Plant Manager' : loc.user?.role === 'supervisor' ? 'Supervisor' : 'Worker';
+                    
                     return (
-                      <tr key={trip.trip_id} className="hover:bg-slate-50/50 transition duration-150">
-                        <td className="px-6 py-4.5 font-bold text-slate-900">{trip.bus.name}</td>
-                        <td className="px-6 py-4.5 font-medium text-slate-600">{trip.route.name}</td>
-                        <td className="px-6 py-4.5 text-slate-600">{trip.driver.full_name}</td>
+                      <tr key={loc.id} className="hover:bg-slate-50/50 transition duration-150">
                         <td className="px-6 py-4.5">
-                          <Badge status={hasLoc ? (trip.latest_location.is_stale ? 'offline' : 'active') : 'pending'} />
+                          <div className="font-bold text-slate-900">{loc.user?.full_name}</div>
+                          {loc.user?.supervisor_name && (
+                            <span className="text-[10px] text-slate-450 font-semibold block mt-0.5">
+                              Supervisor: {loc.user.supervisor_name}
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4.5">
+                          <span className={`px-2 py-0.5 inline-block text-[9px] font-bold rounded-lg uppercase ${
+                            loc.user?.role === 'manager' 
+                              ? 'bg-purple-100 text-purple-700' 
+                              : loc.user?.role === 'supervisor' 
+                                ? 'bg-amber-100 text-amber-700' 
+                                : 'bg-blue-100 text-blue-700'
+                          }`}>
+                            {roleLabel}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4.5">
+                          <Badge status={isStale ? 'offline' : (loc.is_tracking ? 'active' : 'pending')} />
                         </td>
                         <td className="px-6 py-4.5 font-mono font-semibold text-slate-800">
-                          {hasLoc ? `${trip.latest_location.speed.toFixed(1)} km/h` : '—'}
+                          {loc.speed.toFixed(1)} km/h
                         </td>
-                        <td className="px-6 py-4.5 text-slate-500 text-xs font-medium">
-                          {hasLoc ? (
-                            trip.latest_location.is_stale ? (
-                              <span className="text-red-500 font-bold">⚠️ Offline (Last: {formatDateTime(trip.latest_location.recorded_at)})</span>
-                            ) : (
-                              formatDateTime(trip.latest_location.recorded_at)
-                            )
-                          ) : 'Waiting for link...'}
+                        <td className="px-6 py-4.5 font-semibold text-slate-700">
+                          {loc.battery_level !== null ? `${loc.battery_level}%` : '—'}
                         </td>
-                        <td className="px-6 py-4.5 text-right">
-                          <button
-                            onClick={() => handleEndTrip(trip.trip_id)}
-                            disabled={isEnding}
-                            className="px-3 py-1.5 bg-red-50 hover:bg-red-100 disabled:bg-slate-100 disabled:text-slate-400 text-red-600 hover:text-red-700 border border-red-100 hover:border-red-200 rounded-lg text-[10px] font-bold tracking-wider transition cursor-pointer"
-                          >
-                            {isEnding ? 'Ending...' : '🛑 End Trip'}
-                          </button>
+                        <td className="px-6 py-4.5 text-slate-500 font-medium">
+                          {loc.accuracy.toFixed(1)} m
+                        </td>
+                        <td className="px-6 py-4.5 text-slate-500 text-xs font-semibold flex items-center gap-1.5 mt-2 border-0">
+                          <Clock className="w-3.5 h-3.5 text-slate-450" />
+                          {isStale ? (
+                            <span className="text-red-500 font-bold">Offline ({formatDateTime(loc.recorded_at)})</span>
+                          ) : (
+                            formatDateTime(loc.recorded_at)
+                          )}
                         </td>
                       </tr>
                     );
@@ -555,72 +322,66 @@ export default function AdminDashboardView({ tab: initialTab }: { tab?: string }
           </div>
         </div>
 
-        {/* Mobile Responsive Cards View */}
+        {/* Mobile responsive Cards */}
         <div className="block md:hidden space-y-4">
-          {active_trips.length === 0 ? (
+          {filteredLocations.length === 0 ? (
             <div className="bg-white border border-slate-150 rounded-2xl p-8 text-center text-slate-400 text-xs font-semibold">
-              No active trips currently running.
+              No active telemetry data streaming for this scope.
             </div>
           ) : (
-            active_trips.map((trip: any) => {
-              const hasLoc = !!trip.latest_location;
-              const isEnding = endingTripId === trip.trip_id;
+            filteredLocations.map((loc: any) => {
+              const isStale = loc.is_stale;
+              const roleLabel = loc.user?.role === 'manager' ? 'Plant Manager' : loc.user?.role === 'supervisor' ? 'Supervisor' : 'Worker';
+
               return (
-                <div key={trip.trip_id} className="bg-white border border-slate-155 rounded-2xl p-5 shadow-sm space-y-4">
+                <div key={loc.id} className="bg-white border border-slate-155 rounded-2xl p-5 shadow-sm space-y-3">
                   <div className="flex justify-between items-start gap-2">
                     <div>
-                      <h4 className="font-bold text-slate-900 text-sm">{trip.bus.name}</h4>
-                      <p className="text-slate-450 text-[10px] font-semibold mt-1">Route: {trip.route.name}</p>
+                      <h4 className="font-bold text-slate-900 text-sm">{loc.user?.full_name}</h4>
+                      <span className={`px-2 py-0.5 mt-1.5 inline-block text-[9px] font-bold rounded-lg uppercase ${
+                        loc.user?.role === 'manager' 
+                          ? 'bg-purple-100 text-purple-700' 
+                          : loc.user?.role === 'supervisor' 
+                            ? 'bg-amber-100 text-amber-700' 
+                            : 'bg-blue-100 text-blue-700'
+                      }`}>
+                        {roleLabel}
+                      </span>
                     </div>
                     <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[10px] font-extrabold uppercase ${
-                      hasLoc 
-                        ? (trip.latest_location.is_stale 
-                            ? 'bg-red-50 text-red-800 border border-red-100' 
-                            : 'bg-emerald-50 text-emerald-800 border border-emerald-100')
-                        : 'bg-slate-50 text-slate-500 border border-slate-150'
+                      isStale 
+                        ? 'bg-red-50 text-red-800 border border-red-100' 
+                        : (loc.is_tracking 
+                            ? 'bg-emerald-50 text-emerald-800 border border-emerald-100' 
+                            : 'bg-slate-50 text-slate-500 border border-slate-150')
                     }`}>
                       <span className={`w-1.5 h-1.5 rounded-full ${
-                        hasLoc 
-                          ? (trip.latest_location.is_stale ? 'bg-red-500' : 'bg-emerald-500 animate-pulse') 
-                          : 'bg-slate-400'
+                        isStale ? 'bg-red-500' : (loc.is_tracking ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400')
                       }`}></span>
-                      {hasLoc ? (trip.latest_location.is_stale ? 'Offline' : 'Active') : 'Pending'}
+                      {isStale ? 'Offline' : (loc.is_tracking ? 'Active' : 'Pending')}
                     </span>
                   </div>
-                  
+
                   <div className="grid grid-cols-2 gap-3 pt-3.5 border-t border-slate-100 text-xs font-semibold">
                     <div>
-                      <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">On-Duty Driver</span>
-                      <span className="text-slate-700 block mt-0.5">{trip.driver.full_name}</span>
+                      <span className="text-[9px] text-slate-400 font-bold block uppercase tracking-wider">Speed</span>
+                      <span className="text-slate-700 block mt-0.5 font-mono">{loc.speed.toFixed(1)} km/h</span>
                     </div>
                     <div>
-                      <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Live Speed</span>
-                      <span className="text-slate-700 block mt-0.5 font-mono">
-                        {hasLoc ? `${trip.latest_location.speed.toFixed(1)} km/h` : '—'}
+                      <span className="text-[9px] text-slate-400 font-bold block uppercase tracking-wider">Battery</span>
+                      <span className="text-slate-700 block mt-0.5">{loc.battery_level !== null ? `${loc.battery_level}%` : '—'}</span>
+                    </div>
+                    <div>
+                      <span className="text-[9px] text-slate-400 font-bold block uppercase tracking-wider">GPS Accuracy</span>
+                      <span className="text-slate-750 block mt-0.5">{loc.accuracy.toFixed(1)} meters</span>
+                    </div>
+                    <div>
+                      <span className="text-[9px] text-slate-400 font-bold block uppercase tracking-wider">Last Telemetry</span>
+                      <span className="text-slate-500 block mt-0.5 text-[11px] font-semibold flex items-center gap-1">
+                        <Clock className="w-3.5 h-3.5 text-slate-400" />
+                        {isStale ? <span className="text-red-500">Offline</span> : 'Just now'}
                       </span>
                     </div>
-                    <div className="col-span-2">
-                      <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Last Telemetry</span>
-                      <span className="text-slate-500 block mt-0.5 text-[11px] font-medium leading-relaxed">
-                        {hasLoc ? (
-                          trip.latest_location.is_stale ? (
-                            <span className="text-red-500 font-bold">⚠️ Offline (Last: {formatDateTime(trip.latest_location.recorded_at)})</span>
-                          ) : (
-                            formatDateTime(trip.latest_location.recorded_at)
-                          )
-                        ) : 'Waiting for link...'}
-                      </span>
-                    </div>
-                  </div>
-                  
-                  <div className="pt-3.5 border-t border-slate-100">
-                    <button
-                      onClick={() => handleEndTrip(trip.trip_id)}
-                      disabled={isEnding}
-                      className="w-full flex items-center justify-center gap-1.5 py-2.5 bg-red-50 hover:bg-red-100 disabled:bg-slate-100 disabled:text-slate-400 text-red-650 hover:text-red-750 border border-red-100 hover:border-red-200 rounded-xl text-xs font-bold transition cursor-pointer"
-                    >
-                      🛑 {isEnding ? 'Ending...' : 'End Trip'}
-                    </button>
                   </div>
                 </div>
               );
@@ -646,37 +407,24 @@ export default function AdminDashboardView({ tab: initialTab }: { tab?: string }
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold text-slate-600">Authentication Status:</span>
               {mfaEnabled ? (
-                <span className="px-2.5 py-0.5 rounded-full text-[9px] font-bold bg-green-50 text-green-700 border border-green-150">
+                <span className="px-2.5 py-0.5 rounded-full text-[9px] font-bold bg-green-50 text-green-700 border border-green-155">
                   SECURE (TOTP ACTIVE)
                 </span>
               ) : (
-                <span className="px-2.5 py-0.5 rounded-full text-[9px] font-bold bg-amber-50 text-amber-700 border border-amber-150">
+                <span className="px-2.5 py-0.5 rounded-full text-[9px] font-bold bg-amber-50 text-amber-700 border border-amber-155">
                   MFA INACTIVE
                 </span>
               )}
             </div>
             <p className="text-[11px] text-slate-400 mt-1 max-w-md">
               {mfaEnabled 
-                ? "Your administrator account is secured with secondary code authorization. You can disable it below."
+                ? "Your administrator account is secured with secondary code authorization."
                 : "Secondary credentials authorization is disabled. Scan dynamic QR codes to secure your panel session."}
             </p>
           </div>
 
           <div>
-            {mfaEnabled ? (
-              <button
-                onClick={handleRequestOtp}
-                disabled={otpLoading}
-                className="px-4 py-2 bg-red-50 hover:bg-red-100 border border-red-150 text-red-700 text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
-              >
-                {otpLoading ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <Unlock className="w-3.5 h-3.5" />
-                )}
-                Disable MFA Setup
-              </button>
-            ) : (
+            {!mfaEnabled && (
               <Link
                 href="/admin/mfa-setup"
                 className="px-4 py-2 bg-[#5c3b99] hover:bg-[#432775] text-white text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5 shadow-sm shadow-purple-500/10 cursor-pointer"
@@ -688,109 +436,6 @@ export default function AdminDashboardView({ tab: initialTab }: { tab?: string }
           </div>
         </div>
       </div>
-
-      {/* OTP Verification Modal Prompt */}
-      {showOtpModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-[9999] animate-in fade-in duration-200">
-          <div className="bg-white border border-slate-150 rounded-3xl p-6 max-w-sm w-full space-y-5 shadow-2xl relative animate-in zoom-in-95 duration-200">
-            <button
-              onClick={() => setShowOtpModal(false)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-slate-650 p-1 rounded-lg transition"
-            >
-              <X className="w-4.5 h-4.5" />
-            </button>
-
-            <div className="text-center space-y-1">
-              <div className="w-11 h-11 bg-red-50 border border-red-100 rounded-2xl flex items-center justify-center text-red-650 mx-auto mb-2">
-                <Unlock className="w-5 h-5" />
-              </div>
-              <h4 className="font-extrabold text-slate-800 text-sm">Verify Action Consent</h4>
-              <p className="text-[11px] text-slate-400 leading-normal max-w-[240px] mx-auto">
-                A 6-digit OTP code has been logged/sent to your registered admin email. Enter it below to un-enroll TOTP.
-              </p>
-            </div>
-
-
-
-            {otpError && (
-              <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-red-800 text-[10px] font-bold leading-normal">
-                <ShieldAlert className="w-4 h-4 flex-shrink-0 mt-0.5 text-red-600" />
-                <span>{otpError}</span>
-              </div>
-            )}
-
-            {otpSuccess ? (
-              <div className="p-4 bg-emerald-50 border border-emerald-250 rounded-xl text-emerald-800 text-center text-xs font-bold flex items-center justify-center gap-1.5 animate-in zoom-in-95 duration-150">
-                <ShieldCheckIcon className="w-4.5 h-4.5 text-emerald-600 animate-bounce" />
-                <span>MFA Factor Disabled Successfully!</span>
-              </div>
-            ) : (
-              <form onSubmit={handleVerifyAndDisable} className="space-y-4">
-                <div className="relative">
-                  <input
-                    type="text"
-                    maxLength={6}
-                    placeholder="Enter 6-digit code"
-                    value={otpCode}
-                    onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
-                    className="block w-full py-3 px-4 bg-slate-50 border border-slate-200 focus:border-purple-500 rounded-xl text-center text-lg font-bold font-mono tracking-widest focus:outline-none focus:ring-2 focus:ring-purple-100"
-                  />
-                  <Key className="w-4 h-4 text-slate-350 absolute left-3 top-1/2 -translate-y-1/2" />
-                </div>
-
-                <div className="flex gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setShowOtpModal(false)}
-                    className="flex-1 py-2.5 border border-slate-200 text-slate-500 hover:bg-slate-50 text-xs font-bold rounded-xl transition cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={otpLoading || otpCode.length !== 6}
-                    className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl shadow-md shadow-red-500/10 transition cursor-pointer disabled:opacity-50"
-                  >
-                    {otpLoading ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin mx-auto" />
-                    ) : (
-                      'Confirm Disable'
-                    )}
-                  </button>
-                </div>
-              </form>
-            )}
-          </div>
-        </div>
-      )}
-      {/* Real-time In-App Notification Toast */}
-      {toastNotification && (
-        <div className="fixed bottom-6 right-6 z-[9999] max-w-sm w-full bg-[#160d2b]/95 backdrop-blur-md border border-[#301c56]/80 text-white rounded-3xl p-5 shadow-2xl flex items-start gap-3.5 animate-in slide-in-from-bottom duration-300">
-          <div className={`p-2.5 rounded-xl flex-shrink-0 ${
-            toastNotification.type === 'gps_off' ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
-          }`}>
-            {toastNotification.type === 'gps_off' ? (
-              <Radio className="w-5.5 h-5.5 animate-pulse" />
-            ) : (
-              <ShieldAlert className="w-5.5 h-5.5" />
-            )}
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex justify-between items-center">
-              <span className="font-bold text-xs uppercase tracking-wider text-slate-400">Security Alert</span>
-              <span className="text-[9px] font-medium text-slate-500">Just now</span>
-            </div>
-            <h4 className="font-extrabold text-sm text-slate-100 mt-1 leading-tight">{toastNotification.title}</h4>
-            <p className="text-xs text-slate-300 mt-1 font-semibold leading-relaxed">{toastNotification.message}</p>
-          </div>
-          <button 
-            onClick={() => dismissNotification(toastNotification.id)}
-            className="text-slate-500 hover:text-slate-350 p-0.5 rounded-lg transition-all"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      )}
     </div>
   );
 }

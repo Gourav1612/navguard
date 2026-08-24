@@ -11,7 +11,7 @@ import { safeSetDriverStatus } from '@/lib/capacitor-plugins';
 interface UserProfile {
   full_name: string;
   email: string;
-  role: 'driver' | 'parent' | 'student' | 'admin';
+  role: 'manager' | 'supervisor' | 'worker' | 'admin';
 }
 
 export function BottomNav({ children }: { children: React.ReactNode }) {
@@ -72,8 +72,8 @@ export function BottomNav({ children }: { children: React.ReactNode }) {
           const data = await res.json();
           setUser(data);
           
-          // Set driver status on native client
-          await safeSetDriverStatus(data.role === 'driver');
+          // Set driver status on native client for all tracked roles
+          await safeSetDriverStatus(data.role === 'worker' || data.role === 'supervisor' || data.role === 'manager');
         }
       } catch (err) {
         console.error('Failed to fetch user:', err);
@@ -104,18 +104,14 @@ export function BottomNav({ children }: { children: React.ReactNode }) {
 
   // Define tabs based on role
   const roleTabs: Record<string, Array<{ name: string; href: string; icon: any }>> = {
-    driver: [
+    manager: [
       { name: 'Home', href: '/dashboard', icon: Home },
-      { name: 'Route Map', href: '/dashboard?tab=route', icon: Map },
-      { name: 'Trip Tracker', href: '/dashboard?tab=trip', icon: ClipboardList },
     ],
-    parent: [
+    supervisor: [
       { name: 'Home', href: '/dashboard', icon: Home },
-      { name: 'Live Map', href: '/dashboard?tab=live-map', icon: Map },
     ],
-    student: [
+    worker: [
       { name: 'Home', href: '/dashboard', icon: Home },
-      { name: 'Live Map', href: '/dashboard?tab=track', icon: Map },
     ],
   };
 

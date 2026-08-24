@@ -1,4 +1,3 @@
-// NaviGuard Route Proxy and Middleware
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
@@ -45,18 +44,17 @@ export async function proxy(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname;
 
-  // Bypass public assets
+  // Bypass public assets and api routes
   if (
     pathname.startsWith('/_next') ||
     pathname.startsWith('/api/') ||
-    pathname.includes('.') // matches favicon.ico, manifest.json, css, image files, etc.
+    pathname.includes('.') // matches favicon.ico, logo.png, manifest.json, css/js files, etc.
   ) {
     return response;
   }
 
   // Redirect to login if unauthenticated
   if (!user) {
-    // Allow /reset-password ONLY if it contains valid token & email query parameters generated via email
     if (pathname === '/reset-password') {
       const hasToken = request.nextUrl.searchParams.has('token') && (request.nextUrl.searchParams.get('token')?.trim() || '').length > 0;
       const hasEmail = request.nextUrl.searchParams.has('email') && (request.nextUrl.searchParams.get('email')?.trim() || '').length > 0;
@@ -74,7 +72,7 @@ export async function proxy(request: NextRequest) {
   let role = user.user_metadata?.role;
   let is_active = user.user_metadata?.is_active ?? true;
 
-  // Fallback to database query only if metadata role is missing (optimizes network calls)
+  // Fallback to database query only if metadata role is missing
   if (!role) {
     const { data: profile } = await supabase
       .from('user_profiles')
@@ -88,18 +86,17 @@ export async function proxy(request: NextRequest) {
     }
   }
 
-
   // If user profile is not found or is deactivated, force log out
   if (!role || !is_active) {
     if (pathname === '/login') {
       return response;
     }
     const loginRedirect = NextResponse.redirect(new URL('/login', request.url));
-    // Clear cookies
     loginRedirect.cookies.delete('sb-access-token');
     loginRedirect.cookies.delete('sb-refresh-token');
     return loginRedirect;
   }
+
   // MFA checks for admin accounts
   if (role === 'admin') {
     const { data: mfaData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
@@ -113,7 +110,7 @@ export async function proxy(request: NextRequest) {
           return NextResponse.redirect(new URL('/admin/mfa-setup', request.url));
         }
       }
-      // 2. Force challenge if factor is set up but session is not elevated (currentLevel is aal1 and nextLevel is aal2)
+      // 2. Force challenge if factor is set up but session is not elevated
       else if (nextLevel === 'aal2' && currentLevel === 'aal1') {
         if (pathname !== '/login/mfa-challenge') {
           return NextResponse.redirect(new URL('/login/mfa-challenge', request.url));
@@ -135,9 +132,9 @@ export async function proxy(request: NextRequest) {
   // Enforce role boundaries
   const rolePrefixes: Record<string, string> = {
     admin: '/admin',
-    driver: '/driver',
-    parent: '/parent',
-    student: '/student',
+    manager: '/manager',
+    supervisor: '/supervisor',
+    worker: '/worker',
   };
 
   // Check if user is trying to access a path starting with another role's prefix

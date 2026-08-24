@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
     const { error } = await adminClient
       .from('audit_logs')
       .delete()
-      .eq('school_id', profile.school_id);
+      .neq('id', '00000000-0000-0000-0000-000000000000');
 
     if (error) {
       return NextResponse.json(

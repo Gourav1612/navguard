@@ -1,222 +1,127 @@
 import { NextResponse } from 'next/server';
 import { requireRole } from '@/lib/auth-guard';
-import { createSupabaseServerClient, createAdminClient } from '@/lib/supabase/server';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 export async function GET() {
   const auth = await requireRole(['admin']);
   if (auth.error) return auth.error;
 
-  const { profile } = auth;
   const supabase = await createSupabaseServerClient();
-  const adminClient = createAdminClient();
-
   try {
     // 1. Fetch metrics in parallel
     const [
-      { count: totalBuses, error: busesErr },
-      { count: activeTripsCount, error: activeTripsErr },
-      { count: totalStudents, error: studentsErr },
-      { count: totalDrivers, error: driversErr },
+      { count: totalPlants, error: plantsErr },
+      { count: totalManagers, error: managersErr },
+      { count: totalSupervisors, error: supervisorsErr },
+      { count: totalWorkers, error: workersErr },
+      { count: activeShiftsCount, error: activeShiftsErr },
     ] = await Promise.all([
       supabase
-        .from('buses')
-        .select('*', { count: 'exact', head: true })
-        .eq('school_id', profile.school_id),
+        .from('plants')
+        .select('*', { count: 'exact', head: true }),
       supabase
-        .from('trips')
+        .from('user_profiles')
         .select('*', { count: 'exact', head: true })
-        .eq('school_id', profile.school_id)
-        .eq('status', 'active'),
+        .eq('role', 'manager'),
       supabase
-        .from('student_profiles')
+        .from('user_profiles')
         .select('*', { count: 'exact', head: true })
-        .eq('school_id', profile.school_id),
+        .eq('role', 'supervisor'),
       supabase
-        .from('drivers')
+        .from('user_profiles')
         .select('*', { count: 'exact', head: true })
-        .eq('school_id', profile.school_id),
+        .eq('role', 'worker'),
+      supabase
+        .from('live_locations')
+        .select('*', { count: 'exact', head: true })
+        .eq('is_tracking', true),
     ]);
 
-    if (busesErr || activeTripsErr || studentsErr || driversErr) {
+    if (plantsErr || managersErr || supervisorsErr || workersErr || activeShiftsErr) {
       return NextResponse.json(
         { 
-          error: 'Failed to retrieve metrics', 
+          error: 'Failed to retrieve workforce metrics', 
           code: 'SERVER_ERROR',
-          details: { busesErr, activeTripsErr, studentsErr, driversErr }
+          details: { plantsErr, managersErr, supervisorsErr, workersErr, activeShiftsErr }
         }, 
         { status: 500 }
       );
     }
 
-    // 2. Fetch detailed active trips
-    const { data: activeTripsRaw, error: tripsError } = await supabase
-      .from('trips')
+    // 2. Fetch Plants data for Leaflet mapping
+    const { data: plants } = await supabase
+      .from('plants')
+      .select('id, name, code, latitude, longitude, radius_meters')
+      .order('name', { ascending: true });
+
+    // 3. Fetch Active live locations joined with user profile metadata
+    const { data: rawLocations, error: locationsErr } = await supabase
+      .from('live_locations')
       .select(`
         id,
-        buses (id, name, registration_plate),
-        drivers (id, user_profiles (full_name, phone)),
-        routes (id, name, stops (id, name, stop_order, latitude, longitude))
-      `)
-      .eq('school_id', profile.school_id)
-      .eq('status', 'active');
+        latitude,
+        longitude,
+        speed,
+        heading,
+        accuracy,
+        battery_level,
+        is_tracking,
+        recorded_at,
+        user:user_profiles(
+          id,
+          full_name,
+          role,
+          plant_id,
+          supervisor_id,
+          supervisor:user_profiles!supervisor_id(full_name)
+        )
+      `);
 
-    if (tripsError) {
+    if (locationsErr) {
       return NextResponse.json(
-        { error: 'Failed to retrieve active trips', code: 'SERVER_ERROR', details: tripsError },
+        { error: 'Failed to retrieve active locations feed', code: 'SERVER_ERROR', details: locationsErr },
         { status: 500 }
       );
     }
 
-    // 3. Fetch all buses for this school to determine active/inactive drivers and map locations
-    const { data: allBuses } = await supabase
-      .from('buses')
-      .select('id, name, registration_plate')
-      .eq('school_id', profile.school_id);
-
-    // Fetch all drivers with their assigned buses and user profiles in a single query
-    const { data: allDrivers } = await supabase
-      .from('drivers')
-      .select(`
-        bus_id,
-        user_profiles(full_name, phone)
-      `)
-      .eq('school_id', profile.school_id)
-      .eq('is_active', true);
-
-    const busIds = (allBuses || []).map((b: any) => b.id);
-
-    // Fetch all location records in a single batch query!
-    const { data: locationDataList } = busIds.length > 0
-      ? await supabase
-          .from('bus_locations')
-          .select('bus_id, latitude, longitude, speed, heading, recorded_at')
-          .in('bus_id', busIds)
-      : { data: [] };
-
-    // Group locations by bus_id for O(1) lookups
-    const locationsMap = (locationDataList || []).reduce((acc: any, curr: any) => {
-      acc[curr.bus_id] = curr;
-      return acc;
-    }, {});
-
-    // 4. Map detailed active trips
-    const activeTripsWithLocation = (activeTripsRaw || []).map((trip: any) => {
-      const busObj = Array.isArray(trip.buses) ? trip.buses[0] : (trip.buses || {});
-      const driverObj = Array.isArray(trip.drivers) ? trip.drivers[0] : (trip.drivers || {});
-      const routeObj = Array.isArray(trip.routes) ? trip.routes[0] : (trip.routes || {});
-
-      const locationData = locationsMap[busObj.id] || null;
+    const locationsFormatted = (rawLocations || []).map((loc: any) => {
+      const userObj = Array.isArray(loc.user) ? loc.user[0] : loc.user;
+      const supervisorObj = userObj && Array.isArray(userObj.supervisor) ? userObj.supervisor[0] : (userObj?.supervisor || null);
+      
+      const recTime = new Date(loc.recorded_at).getTime();
+      const isStale = (Date.now() - recTime) > 30000; // stale if no update in 30 seconds
 
       return {
-        trip_id: trip.id,
-        bus: {
-          id: busObj.id || null,
-          name: busObj.name || 'Unknown Bus',
-        },
-        driver: {
-          full_name: driverObj.user_profiles?.full_name || 'Unassigned Driver',
-        },
-        route: {
-          id: routeObj.id || null,
-          name: routeObj.name || 'No Route Assigned',
-          stops: routeObj.stops || [],
-        },
-        latest_location: (() => {
-          if (!locationData) return null;
-          const recTime = new Date(locationData.recorded_at).getTime();
-          const elapsed = Date.now() - recTime;
-          const isStale = elapsed > 8000;
-
-          if (isStale) {
-            const driverName = driverObj.user_profiles?.full_name || 'Unassigned Driver';
-            // Fire async check to create notifications if not exists
-            (async () => {
-              try {
-                const { data: existingNotif } = await adminClient
-                  .from('notifications')
-                  .select('id')
-                  .eq('type', 'gps_off')
-                  .like('message', `%trip:${trip.id}%`)
-                  .limit(1)
-                  .maybeSingle();
-
-                if (!existingNotif) {
-                  const busName = busObj.name || 'Unknown Bus';
-                  const busPlate = busObj.registration_plate || 'N/A';
-                  await adminClient.from('notifications').insert({
-                    school_id: profile.school_id,
-                    title: '📶 Driver GPS Interrupted',
-                    message: `${driverName} on ${busName} (${busPlate}) went offline or stopped location reporting. [trip:${trip.id}]`,
-                    type: 'gps_off',
-                  });
-                }
-              } catch (e) {
-                console.error('Failed to auto-insert stale GPS notification:', e);
-              }
-            })();
-          }
-
-          return {
-            latitude: Number(locationData.latitude),
-            longitude: Number(locationData.longitude),
-            speed: isStale ? 0 : Number(locationData.speed),
-            heading: Number(locationData.heading),
-            recorded_at: locationData.recorded_at,
-            is_stale: isStale,
-          };
-        })(),
-      };
-    });
-
-    // 5. Map all buses with their locations (both active and inactive)
-    const allBusesWithLocation = (allBuses || []).map((bus: any) => {
-      const locationData = locationsMap[bus.id] || null;
-
-      const activeTrip: any = (activeTripsRaw || []).find((t: any) => {
-        const busObj: any = t.buses || {};
-        return busObj.id === bus.id;
-      });
-
-      const tripDriverObj = activeTrip?.drivers ? (Array.isArray(activeTrip.drivers) ? activeTrip.drivers[0] : activeTrip.drivers) : null;
-      const busDriverObj = (allDrivers || []).find((d: any) => d.bus_id === bus.id);
-      const driverUser = tripDriverObj?.user_profiles || busDriverObj?.user_profiles;
-      const routeObj = activeTrip?.routes ? (Array.isArray(activeTrip.routes) ? activeTrip.routes[0] : activeTrip.routes) : null;
-
-      return {
-        bus_id: bus.id,
-        bus_name: bus.name,
-        registration_plate: bus.registration_plate,
-        is_active: !!activeTrip,
-        trip_id: activeTrip?.id || null,
-        driver_name: driverUser?.full_name || 'Unassigned',
-        driver_phone: driverUser?.phone || null,
-        route_name: routeObj?.name || 'No Active Route',
-        latest_location: (() => {
-          if (!locationData) return null;
-          const recTime = new Date(locationData.recorded_at).getTime();
-          const elapsed = Date.now() - recTime;
-          const isStale = elapsed > 8000;
-          return {
-            latitude: Number(locationData.latitude),
-            longitude: Number(locationData.longitude),
-            speed: isStale ? 0 : Number(locationData.speed),
-            heading: Number(locationData.heading),
-            recorded_at: locationData.recorded_at,
-            is_stale: isStale,
-          };
-        })(),
+        id: loc.id,
+        latitude: Number(loc.latitude),
+        longitude: Number(loc.longitude),
+        speed: isStale ? 0 : Number(loc.speed || 0),
+        heading: Number(loc.heading || 0),
+        accuracy: Number(loc.accuracy || 0),
+        battery_level: loc.battery_level,
+        is_tracking: loc.is_tracking && !isStale,
+        recorded_at: loc.recorded_at,
+        is_stale: isStale,
+        user: userObj ? {
+          id: userObj.id,
+          full_name: userObj.full_name,
+          role: userObj.role,
+          plant_id: userObj.plant_id,
+          supervisor_name: supervisorObj?.full_name || null
+        } : null
       };
     });
 
     return NextResponse.json({
       metrics: {
-        total_buses: totalBuses || 0,
-        active_trips: activeTripsCount || 0,
-        total_students: totalStudents || 0,
-        total_drivers: totalDrivers || 0,
+        total_plants: totalPlants || 0,
+        total_managers: totalManagers || 0,
+        total_supervisors: totalSupervisors || 0,
+        total_workers: totalWorkers || 0,
+        active_shifts: activeShiftsCount || 0,
       },
-      active_trips: activeTripsWithLocation,
-      buses_locations: allBusesWithLocation,
+      plants: plants || [],
+      locations: locationsFormatted,
     });
   } catch (err: any) {
     return NextResponse.json(

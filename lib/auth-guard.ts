@@ -53,7 +53,7 @@ export async function requireRole(allowedRoles: string[], options?: { skipMfa?: 
   const profileClient = usedBearerToken ? createAdminClient() : supabase;
   const { data: profile } = await profileClient
     .from('user_profiles')
-    .select('id, role, school_id, is_active, full_name, email')
+    .select('id, role, plant_id, is_active, full_name, email')
     .eq('id', user.id)
     .single();
 

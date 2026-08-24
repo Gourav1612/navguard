@@ -1,0 +1,476 @@
+'use client';
+
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { CreateUserSchema } from '@/lib/validations';
+import { deleteUserAction } from '@/app/actions/admin-pagination';
+import { 
+  Loader2, 
+  Plus, 
+  Trash2, 
+  Edit2, 
+  X, 
+  User, 
+  AlertCircle,
+  Search,
+  CheckCircle,
+  XCircle,
+  Shield,
+  Building,
+  Users
+} from 'lucide-react';
+import { z } from 'zod';
+
+type UserFormValues = z.infer<typeof CreateUserSchema>;
+
+export default function UsersView() {
+  const [editingUser, setEditingUser] = useState<any>(null);
+  const [showModal, setShowModal] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [roleFilter, setRoleFilter] = useState('');
+  const [plantFilter, setPlantFilter] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  // Fetch Users
+  const { data: users = [], isLoading: usersLoading, refetch: refetchUsers } = useQuery({
+    queryKey: ['admin-users', roleFilter, plantFilter],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (roleFilter) params.append('role', roleFilter);
+      if (plantFilter) params.append('plant_id', plantFilter);
+      const res = await fetch(`/api/admin/users?${params.toString()}`);
+      if (!res.ok) throw new Error('Failed to load users');
+      return res.json();
+    },
+  });
+
+  // Fetch Plants (for select dropdowns)
+  const { data: plants = [] } = useQuery({
+    queryKey: ['admin-plants'],
+    queryFn: async () => {
+      const res = await fetch('/api/admin/plants');
+      if (!res.ok) throw new Error('Failed to load plants');
+      return res.json();
+    },
+  });
+
+  // Filter Supervisors (for worker onboarding)
+  const supervisorsList = users.filter((u: any) => u.role === 'supervisor');
+
+  const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<UserFormValues>({
+    resolver: zodResolver(CreateUserSchema) as any,
+    defaultValues: {
+      full_name: '',
+      email: '',
+      phone: '',
+      password: '',
+      role: 'worker',
+      plant_id: '',
+      supervisor_id: '',
+      is_active: true,
+      location_interval: 10,
+    }
+  });
+
+  const selectedRole = watch('role');
+
+  const handleOpenCreate = () => {
+    setEditingUser(null);
+    setFormError(null);
+    reset({
+      full_name: '',
+      email: '',
+      phone: '',
+      password: '',
+      role: 'worker',
+      plant_id: '',
+      supervisor_id: '',
+      is_active: true,
+      location_interval: 10,
+    });
+    setShowModal(true);
+  };
+
+  const handleOpenEdit = (user: any) => {
+    setEditingUser(user);
+    setFormError(null);
+    reset({
+      full_name: user.full_name,
+      email: user.email,
+      phone: user.phone || '',
+      password: 'DummyPassword123!', // placeholder so validation passes, PATCH ignores it if not changed
+      role: user.role,
+      plant_id: user.plant?.id || '',
+      supervisor_id: user.supervisor?.id || '',
+      is_active: user.is_active,
+      location_interval: user.location_interval || 10,
+    });
+    setShowModal(true);
+  };
+
+  const onSubmit = async (values: UserFormValues) => {
+    setSubmitting(true);
+    setFormError(null);
+    try {
+      const url = editingUser ? `/api/admin/users/${editingUser.id}` : '/api/admin/users';
+      const method = editingUser ? 'PATCH' : 'POST';
+
+      // Clean payload for updates
+      const payload: any = { ...values };
+      if (editingUser && values.password === 'DummyPassword123!') {
+        delete payload.password; // Do not update password during edit unless user explicitly wrote a new one
+      }
+
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || 'Failed to save user');
+      }
+
+      setShowModal(false);
+      refetchUsers();
+    } catch (err: any) {
+      setFormError(err.message || 'An error occurred while saving user details.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDelete = async (userId: string) => {
+    if (!confirm('Are you sure you want to completely delete this user? This will delete their Auth credentials, profile details, and telemetry history.')) {
+      return;
+    }
+    try {
+      const res = await deleteUserAction(userId);
+      if (!res.success) {
+        alert(res.error || 'Failed to delete user');
+      } else {
+        refetchUsers();
+      }
+    } catch (err: any) {
+      alert(err.message || 'Failed to delete user');
+    }
+  };
+
+  const filteredUsers = users.filter((u: any) => 
+    u.full_name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    u.email.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  return (
+    <div className="space-y-6">
+      {/* Header Info */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-black text-slate-900 tracking-tight">Personnel Roster</h2>
+          <p className="text-slate-500 text-xs font-medium">
+            Onboard, edit, and assign Managers, Supervisors, and Workers within plant organizations.
+          </p>
+        </div>
+        <button
+          onClick={handleOpenCreate}
+          className="flex items-center justify-center gap-1.5 px-4 py-2.5 bg-[#5c3b99] hover:bg-[#432775] text-white text-xs font-extrabold rounded-xl transition shadow-sm cursor-pointer"
+        >
+          <Plus className="w-4 h-4" />
+          Onboard Personnel
+        </button>
+      </div>
+
+      {/* Roster Controls Row */}
+      <div className="flex flex-wrap items-center gap-4">
+        <div className="flex items-center bg-white border border-slate-150 rounded-xl px-3.5 py-1 w-full max-w-xs shadow-sm">
+          <Search className="w-4.5 h-4.5 text-slate-400 mr-2" />
+          <input
+            type="text"
+            placeholder="Search by name or email..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full text-xs font-medium bg-transparent text-slate-800 focus:outline-none py-2.5"
+          />
+        </div>
+
+        <select
+          value={roleFilter}
+          onChange={(e) => setRoleFilter(e.target.value)}
+          className="text-xs font-bold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer shadow-sm"
+        >
+          <option value="">All Roles</option>
+          <option value="manager">Plant Manager</option>
+          <option value="supervisor">Supervisor</option>
+          <option value="worker">Worker</option>
+        </select>
+
+        <select
+          value={plantFilter}
+          onChange={(e) => setPlantFilter(e.target.value)}
+          className="text-xs font-bold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer shadow-sm"
+        >
+          <option value="">All Sites</option>
+          {plants.map((p: any) => (
+            <option key={p.id} value={p.id}>{p.name}</option>
+          ))}
+        </select>
+      </div>
+
+      {/* Content Grid */}
+      {usersLoading ? (
+        <div className="flex justify-center items-center py-20">
+          <Loader2 className="w-8 h-8 text-[#5c3b99] animate-spin" />
+        </div>
+      ) : filteredUsers.length === 0 ? (
+        <div className="bg-white border border-slate-150 rounded-2xl p-12 text-center text-slate-400 font-medium">
+          No personnel profiles found matching filters.
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredUsers.map((user: any) => (
+            <div key={user.id} className="bg-white border border-slate-150 rounded-2xl shadow-sm hover:shadow-md transition overflow-hidden">
+              <div className="p-5 space-y-4">
+                <div className="flex justify-between items-start gap-2">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 bg-purple-50 border border-purple-100 rounded-xl text-[#5c3b99]">
+                      <User className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="font-extrabold text-slate-900 text-sm leading-tight">{user.full_name}</h4>
+                      <div className="flex items-center gap-1.5 mt-1">
+                        <span className={`px-2 py-0.5 inline-block text-[9px] font-bold rounded-lg uppercase ${
+                          user.role === 'manager' 
+                            ? 'bg-purple-100 text-purple-700' 
+                            : user.role === 'supervisor' 
+                              ? 'bg-amber-100 text-amber-700' 
+                              : 'bg-blue-100 text-blue-700'
+                        }`}>
+                          {user.role === 'manager' ? 'Plant Manager' : user.role === 'supervisor' ? 'Supervisor' : 'Worker'}
+                        </span>
+                        <span className={`inline-flex items-center text-[9px] font-bold ${user.is_active ? 'text-green-600' : 'text-red-500'}`}>
+                          {user.is_active ? <CheckCircle className="w-2.5 h-2.5 mr-0.5" /> : <XCircle className="w-2.5 h-2.5 mr-0.5" />}
+                          {user.is_active ? 'Active' : 'Disabled'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => handleOpenEdit(user)}
+                      className="p-1.5 text-slate-500 hover:bg-slate-50 rounded-lg border border-slate-200 transition"
+                      title="Edit"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(user.id)}
+                      className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg border border-red-100 transition"
+                      title="Delete"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5 pt-2 text-xs font-semibold text-slate-600">
+                  <p><span className="text-slate-400 font-bold block text-[9px] uppercase tracking-wider">Email Address</span>{user.email}</p>
+                  {user.phone && <p><span className="text-slate-400 font-bold block text-[9px] uppercase tracking-wider">Contact Phone</span>{user.phone}</p>}
+                </div>
+
+                <div className="pt-4 border-t border-slate-100 grid grid-cols-2 gap-3 text-xs font-semibold">
+                  <div>
+                    <span className="text-[9px] text-slate-400 font-bold block uppercase tracking-wider">Assigned Site</span>
+                    <span className="text-slate-700 block mt-0.5 leading-tight flex items-center gap-1">
+                      <Building className="w-3.5 h-3.5 text-slate-400" />
+                      {user.plant?.name || '—'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[9px] text-slate-400 font-bold block uppercase tracking-wider">Reporting To</span>
+                    <span className="text-slate-700 block mt-0.5 leading-tight flex items-center gap-1">
+                      <Users className="w-3.5 h-3.5 text-slate-400" />
+                      {user.supervisor?.full_name || '—'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Onboarding Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-[9999] animate-in fade-in duration-200">
+          <div className="bg-white border border-slate-150 rounded-3xl p-6 max-w-md w-full space-y-5 shadow-2xl relative animate-in zoom-in-95 duration-250">
+            <button
+              onClick={() => setShowModal(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-650 p-1.5 rounded-lg transition"
+            >
+              <X className="w-4.5 h-4.5" />
+            </button>
+
+            <div className="space-y-1">
+              <h3 className="font-black text-slate-900 text-base">
+                {editingUser ? 'Edit User Profile' : 'Onboard Workforce Personnel'}
+              </h3>
+              <p className="text-[11px] text-slate-400 font-medium">
+                Create user profile and credentials to grant panel access.
+              </p>
+            </div>
+
+            {formError && (
+              <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-red-800 text-[10px] font-bold">
+                <AlertCircle className="w-4 h-4 mt-0.5 text-red-650 flex-shrink-0" />
+                <span>{formError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Full Name</label>
+                  <input
+                    type="text"
+                    {...register('full_name')}
+                    placeholder="e.g. Rajesh Kumar"
+                    className="block w-full py-2.5 px-3 bg-slate-50 border border-slate-200 focus:border-[#5c3b99] rounded-xl text-xs font-bold text-slate-800 focus:outline-none"
+                  />
+                  {errors.full_name && <p className="text-red-500 text-[9px] font-bold">{errors.full_name.message}</p>}
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">User Role</label>
+                  <select
+                    {...register('role')}
+                    className="block w-full py-2.5 px-3 bg-slate-50 border border-slate-200 focus:border-[#5c3b99] rounded-xl text-xs font-bold text-slate-700 focus:outline-none cursor-pointer"
+                  >
+                    <option value="worker">Worker</option>
+                    <option value="supervisor">Supervisor</option>
+                    <option value="manager">Plant Manager</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Email Address</label>
+                  <input
+                    type="email"
+                    {...register('email')}
+                    disabled={!!editingUser}
+                    placeholder="e.g. rajesh@indiawalls.com"
+                    className="block w-full py-2.5 px-3 bg-slate-50 border border-slate-200 focus:border-[#5c3b99] rounded-xl text-xs font-bold text-slate-800 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                  />
+                  {errors.email && <p className="text-red-500 text-[9px] font-bold">{errors.email.message}</p>}
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Contact Phone</label>
+                  <input
+                    type="text"
+                    {...register('phone')}
+                    placeholder="e.g. +919876543210"
+                    className="block w-full py-2.5 px-3 bg-slate-50 border border-slate-200 focus:border-[#5c3b99] rounded-xl text-xs font-bold text-slate-800 focus:outline-none"
+                  />
+                  {errors.phone && <p className="text-red-500 text-[9px] font-bold">{errors.phone.message}</p>}
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                  {editingUser ? 'Update Password (Optional)' : 'Access Password'}
+                </label>
+                <input
+                  type="password"
+                  {...register('password')}
+                  placeholder={editingUser ? 'Leave blank to preserve current' : 'At least 8 characters...'}
+                  className="block w-full py-2.5 px-3 bg-slate-50 border border-slate-200 focus:border-[#5c3b99] rounded-xl text-xs font-bold text-slate-800 focus:outline-none"
+                />
+                {errors.password && <p className="text-red-500 text-[9px] font-bold">{errors.password.message}</p>}
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                  Location Update Interval (Seconds)
+                </label>
+                <input
+                  type="number"
+                  {...register('location_interval')}
+                  placeholder="e.g. 10"
+                  className="block w-full py-2.5 px-3 bg-slate-50 border border-slate-200 focus:border-[#5c3b99] rounded-xl text-xs font-bold text-slate-800 focus:outline-none"
+                />
+                {errors.location_interval && <p className="text-red-500 text-[9px] font-bold">{errors.location_interval.message}</p>}
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Assign Plant Site</label>
+                  <select
+                    {...register('plant_id')}
+                    className="block w-full py-2.5 px-3 bg-slate-50 border border-slate-200 focus:border-[#5c3b99] rounded-xl text-xs font-bold text-slate-700 focus:outline-none cursor-pointer"
+                  >
+                    <option value="">Select Site (Or None)</option>
+                    {plants.map((p: any) => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Supervisor (Worker only)</label>
+                  <select
+                    {...register('supervisor_id')}
+                    disabled={selectedRole !== 'worker'}
+                    className="block w-full py-2.5 px-3 bg-slate-50 border border-slate-200 focus:border-[#5c3b99] rounded-xl text-xs font-bold text-slate-700 focus:outline-none cursor-pointer disabled:opacity-50"
+                  >
+                    <option value="">Select Supervisor</option>
+                    {supervisorsList.map((s: any) => (
+                      <option key={s.id} value={s.id}>{s.full_name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 pt-2">
+                <input
+                  type="checkbox"
+                  id="is_active"
+                  {...register('is_active')}
+                  className="rounded border-slate-300 text-purple-650 focus:ring-purple-500 h-4 w-4"
+                />
+                <label htmlFor="is_active" className="text-xs font-bold text-slate-600 cursor-pointer">
+                  Activate this user profile immediately
+                </label>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowModal(false)}
+                  className="flex-1 py-3 border border-slate-200 text-slate-500 hover:bg-slate-50 text-xs font-extrabold rounded-xl transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="flex-1 py-3 bg-[#5c3b99] hover:bg-[#432775] text-white text-xs font-extrabold rounded-xl shadow-md transition cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  {submitting ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    'Save User Profile'
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

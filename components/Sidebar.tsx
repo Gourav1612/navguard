@@ -5,18 +5,14 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import {
   LayoutDashboard,
-  Bus,
-  Map,
+  Building,
   Shield,
   Users,
-  UserCheck,
-  Compass,
   FileText,
   LogOut,
   User,
   Menu,
   X,
-  Upload,
   Lock,
   Settings,
 } from 'lucide-react';
@@ -82,7 +78,7 @@ export function Sidebar() {
               setMfaVerified(false);
             }
           } else {
-            // Non-admin roles (drivers, parents, students) don't have mandatory MFA
+            // Non-admin roles don't have mandatory MFA
             setMfaVerified(true);
           }
         }
@@ -111,15 +107,10 @@ export function Sidebar() {
 
   const navItems = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-    { name: 'Buses', href: '/dashboard?tab=buses', icon: Bus },
-    { name: 'Routes', href: '/dashboard?tab=routes', icon: Map },
-    { name: 'Drivers', href: '/dashboard?tab=drivers', icon: UserCheck },
-    { name: 'Parents', href: '/dashboard?tab=parents', icon: Users },
-    { name: 'Students', href: '/dashboard?tab=students', icon: Users },
-    { name: 'Assignments', href: '/dashboard?tab=assignments', icon: Compass },
-    { name: 'Import Data', href: '/dashboard?tab=import', icon: Upload },
+    { name: 'Plants', href: '/dashboard?tab=plants', icon: Building },
+    { name: 'Users', href: '/dashboard?tab=users', icon: Users },
     { name: 'Audit Logs', href: '/dashboard?tab=audit-logs', icon: FileText },
-    { name: 'School Settings', href: '/dashboard?tab=settings', icon: Settings },
+    { name: 'Settings', href: '/dashboard?tab=settings', icon: Settings },
   ];
 
   const sidebarContent = (
@@ -129,7 +120,7 @@ export function Sidebar() {
         <img src="/logo.png" alt="Logo" className="w-10 h-10 object-contain bg-white/5 border border-white/10 rounded-xl p-1" />
         <div>
           <h1 className="font-extrabold text-base tracking-wide leading-none text-white">NaviGuard</h1>
-          <span className="text-[9px] text-purple-300 font-bold uppercase tracking-widest block mt-1">Transport Admin</span>
+          <span className="text-[9px] text-purple-300 font-bold uppercase tracking-widest block mt-1">Workforce Command</span>
         </div>
       </div>
 

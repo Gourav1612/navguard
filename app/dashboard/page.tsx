@@ -8,13 +8,13 @@ import Sidebar from '@/components/Sidebar';
 const AdminDashboardView = dynamic(() => import('@/components/dashboard/AdminDashboardView'), {
   loading: () => <DashboardLoader />,
 });
-const ParentDashboardView = dynamic(() => import('@/components/dashboard/ParentDashboardView'), {
+const ManagerDashboardView = dynamic(() => import('@/components/dashboard/ManagerDashboardView'), {
   loading: () => <DashboardLoader />,
 });
-const DriverDashboardView = dynamic(() => import('@/components/dashboard/DriverDashboardView'), {
+const SupervisorDashboardView = dynamic(() => import('@/components/dashboard/SupervisorDashboardView'), {
   loading: () => <DashboardLoader />,
 });
-const StudentDashboardView = dynamic(() => import('@/components/dashboard/StudentDashboardView'), {
+const WorkerDashboardView = dynamic(() => import('@/components/dashboard/WorkerDashboardView'), {
   loading: () => <DashboardLoader />,
 });
 
@@ -28,13 +28,12 @@ function DashboardLoader() {
 }
 
 interface PageProps {
-  searchParams: Promise<{ tab?: string; busId?: string }>;
+  searchParams: Promise<{ tab?: string }>;
 }
 
 export default async function DashboardPage({ searchParams }: PageProps) {
   const resolvedParams = await searchParams;
   const tab = resolvedParams.tab || '';
-  const busId = resolvedParams.busId || '';
 
   const supabase = await createSupabaseServerClient();
   const {
@@ -66,22 +65,22 @@ export default async function DashboardPage({ searchParams }: PageProps) {
           </main>
         </div>
       );
-    case 'parent':
+    case 'manager':
       return (
         <BottomNav>
-          <ParentDashboardView tab={tab} busId={busId} />
+          <ManagerDashboardView tab={tab} />
         </BottomNav>
       );
-    case 'driver':
+    case 'supervisor':
       return (
         <BottomNav>
-          <DriverDashboardView tab={tab} />
+          <SupervisorDashboardView tab={tab} />
         </BottomNav>
       );
-    case 'student':
+    case 'worker':
       return (
         <BottomNav>
-          <StudentDashboardView tab={tab} />
+          <WorkerDashboardView tab={tab} />
         </BottomNav>
       );
     default:
