@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireRole } from '@/lib/auth-guard';
 import { LocationSchema } from '@/lib/validations';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/server';
 
 export async function POST(req: NextRequest) {
   // Validate session - supports both cookie-based web session and Bearer headers from Android foreground service
@@ -27,9 +27,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid telemetry payload', details: parsed.error.format() }, { status: 400 });
     }
 
-    // Upsert live location details using authenticated client (leveraging self RLS rule)
-    const supabase = await createSupabaseServerClient();
-    const { data: location, error } = await supabase
+    // Upsert live location details using admin client to bypass RLS policies
+    const adminClient = createAdminClient();
+    const { data: location, error } = await adminClient
       .from('live_locations')
       .upsert({
         user_id: auth.user.id,
