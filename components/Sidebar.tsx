@@ -64,26 +64,10 @@ export function Sidebar() {
           // Admins should not have PiP enabled
           await safeSetDriverStatus(false);
           
-          if (data.role === 'admin') {
-            const { data: mfaData, error: mfaErr } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-            if (!mfaErr && mfaData) {
-              const { currentLevel, nextLevel } = mfaData;
-              // Admin must be AAL2 (or have no MFA enrolled) to view sidebar links
-              if (currentLevel === 'aal2' || nextLevel === 'aal1') {
-                setMfaVerified(true);
-              } else {
-                setMfaVerified(false);
-              }
-            } else {
-              setMfaVerified(true);
-            }
-          } else {
-            // Non-admin roles don't have mandatory MFA
-            setMfaVerified(true);
-          }
+          setMfaVerified(true);
         }
       } catch (err) {
-        console.error('Failed to verify MFA in sidebar:', err);
+        console.error('Failed to fetch user in sidebar:', err);
         setMfaVerified(true);
       } finally {
         setCheckingMfa(false);
