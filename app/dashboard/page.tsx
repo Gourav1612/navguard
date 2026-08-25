@@ -44,18 +44,26 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     redirect('/login');
   }
 
+  let userRole = user.user_metadata?.role;
+  let isActive = user.user_metadata?.is_active ?? true;
+
   const { data: profile } = await supabase
     .from('user_profiles')
     .select('role, is_active')
     .eq('id', user.id)
-    .single();
+    .maybeSingle();
 
-  if (!profile || !profile.is_active) {
+  if (profile) {
+    userRole = profile.role;
+    isActive = profile.is_active;
+  }
+
+  if (!userRole || !isActive) {
     redirect('/login');
   }
 
   // Render correct dashboard view wrapped in the appropriate layout, passing search params
-  switch (profile.role) {
+  switch (userRole) {
     case 'admin':
       return (
         <div className="flex flex-col lg:flex-row min-h-screen bg-[#f4f2f8] w-full">

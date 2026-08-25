@@ -189,10 +189,21 @@ export async function POST(req: NextRequest) {
       // Deactivated account
       await supabase.auth.signOut();
       return NextResponse.json(
-        { error: 'Account disabled', code: 'FORBIDDEN' },
-        { status: 403 }
+        { error: 'Your account has been deactivated. Please contact support.', code: 'UNAUTHORIZED' },
+        { status: 401 }
       );
     }
+
+    // Save role & is_active in user_metadata so middleware & server components always have instant access to user role
+    await adminClient.auth.admin.updateUserById(authData.user.id, {
+      user_metadata: {
+        ...authData.user.user_metadata,
+        role: profile.role,
+        is_active: profile.is_active,
+        login_attempts: 0,
+        login_locked: false,
+      }
+    });
 
     // Write audit log using the system admin client
     await adminClient.from('audit_logs').insert({
