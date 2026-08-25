@@ -19,7 +19,9 @@ import {
   XCircle,
   Shield,
   Building,
-  Users
+  Users,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { z } from 'zod';
 
@@ -33,6 +35,7 @@ export default function UsersView() {
   const [plantFilter, setPlantFilter] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   // Fetch Users
   const { data: users = [], isLoading: usersLoading, refetch: refetchUsers } = useQuery({
@@ -80,6 +83,7 @@ export default function UsersView() {
   const handleOpenCreate = () => {
     setEditingUser(null);
     setFormError(null);
+    setShowPassword(false);
     reset({
       full_name: '',
       email: '',
@@ -97,6 +101,7 @@ export default function UsersView() {
   const handleOpenEdit = (user: any) => {
     setEditingUser(user);
     setFormError(null);
+    setShowPassword(false);
     reset({
       full_name: user.full_name,
       email: user.email,
@@ -386,12 +391,23 @@ export default function UsersView() {
                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
                   {editingUser ? 'Update Password (Optional)' : 'Access Password'}
                 </label>
-                <input
-                  type="password"
-                  {...register('password')}
-                  placeholder={editingUser ? 'Leave blank to preserve current' : 'At least 8 characters...'}
-                  className="block w-full py-2.5 px-3 bg-slate-50 border border-slate-200 focus:border-[#5c3b99] rounded-xl text-xs font-bold text-slate-800 focus:outline-none"
-                />
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    {...register('password')}
+                    placeholder={editingUser ? 'Leave blank to preserve current' : 'At least 8 characters...'}
+                    className="block w-full py-2.5 pl-3 pr-10 bg-slate-50 border border-slate-200 focus:border-[#5c3b99] rounded-xl text-xs font-bold text-slate-800 focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-650 transition cursor-pointer p-0.5"
+                    tabIndex={-1}
+                    title={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4 text-slate-500" /> : <Eye className="w-4 h-4 text-slate-400" />}
+                  </button>
+                </div>
                 {errors.password && <p className="text-red-500 text-[9px] font-bold">{errors.password.message}</p>}
               </div>
 
