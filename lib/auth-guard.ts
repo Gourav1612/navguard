@@ -47,15 +47,14 @@ export async function requireRole(allowedRoles: string[], options?: { skipMfa?: 
     };
   }
 
-  // For bearer-token requests the supabase anon client doesn't have cookie-based session
-  // so we use createAdminClient to fetch the profile by user.id safely
+  // Always use admin client for profile role lookups to bypass RLS restrictions
   const { createAdminClient } = await import('./supabase/server');
-  const profileClient = usedBearerToken ? createAdminClient() : supabase;
+  const profileClient = createAdminClient();
   const { data: profile } = await profileClient
     .from('user_profiles')
     .select('id, role, plant_id, is_active, full_name, email')
     .eq('id', user.id)
-    .single();
+    .maybeSingle();
 
   if (!profile) {
     return {
