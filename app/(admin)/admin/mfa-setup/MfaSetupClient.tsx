@@ -60,7 +60,7 @@ export default function MfaSetupClient() {
         console.log('[MFA] 3. listFactors completed. Factors:', factors, 'Error:', factorsErr?.message);
         if (factorsErr) throw new Error(factorsErr.message);
 
-        const activeTotp = factors?.totp?.find((f: any) => f.status === 'verified');
+        const activeTotp = factors?.all?.find((f: any) => f.factorType === 'totp' && f.status === 'verified');
         if (activeTotp) {
           console.log('[MFA] User already has active verified TOTP. Redirecting to dashboard...');
           setSuccess(true);

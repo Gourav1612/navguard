@@ -60,7 +60,7 @@ export default function MfaChallengeClient() {
         if (listErr) throw new Error(listErr.message);
 
         // Find active TOTP factor
-        const activeTotp = factors?.totp?.find((f: any) => f.status === 'verified');
+        const activeTotp = factors?.all?.find((f: any) => f.factorType === 'totp' && f.status === 'verified');
         if (!activeTotp) {
           // No active factor found; force MFA setup
           router.replace('/admin/mfa-setup');
