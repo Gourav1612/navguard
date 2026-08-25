@@ -33,86 +33,25 @@ const AdminMap = dynamic(() => import('@/components/AdminMap').then((m) => m.Adm
 
 export default function SupervisorDashboardView({ tab }: { tab?: string }) {
   const supabase = createBrowserSupabaseClient();
-  const [supervisorProfile, setSupervisorProfile] = useState<any>(null);
-  const [plantManager, setPlantManager] = useState<any>(null);
-  
+
   // Shift telemetry state
   const [isShiftActive, setIsShiftActive] = useState(false);
   const [trackingError, setTrackingError] = useState<string | null>(null);
   const watchIdRef = useRef<number | null>(null);
 
-  // 1. Fetch Supervisor Profile
-  useEffect(() => {
-    async function getProfile() {
-      try {
-        const res = await fetch('/api/auth/me');
-        if (!res.ok) return;
-        const profile = await res.json();
-        setSupervisorProfile(profile);
-      } catch (err) {
-        console.error('Failed to fetch supervisor profile', err);
-      }
-    }
-    getProfile();
-  }, []);
-
-  // 2. Fetch Direct Workers and their live locations
+  // Fetch Supervisor Dashboard Data (Profile, Direct Workers, Live Locations, Plant Manager)
   const { data: dashboardData, isLoading, refetch } = useQuery({
-    queryKey: ['supervisor-dashboard', supervisorProfile?.id],
+    queryKey: ['supervisor-dashboard'],
     queryFn: async () => {
-      if (!supervisorProfile?.id) return { workers: [], locations: [] };
-
-      // Fetch workers assigned under this supervisor
-      const { data: workers, error: workersErr } = await supabase
-        .from('user_profiles')
-        .select('id, full_name, email, phone, role, is_active')
-        .eq('supervisor_id', supervisorProfile.id)
-        .eq('role', 'worker');
-
-      if (workersErr) throw workersErr;
-
-      const workerIds = (workers || []).map((w: any) => w.id);
-
-      // Fetch live locations of those direct workers
-      const { data: locations, error: locationsErr } = await supabase
-        .from('live_locations')
-        .select(`
-          id,
-          latitude,
-          longitude,
-          speed,
-          heading,
-          accuracy,
-          battery_level,
-          is_tracking,
-          recorded_at,
-          user:user_profiles(id, full_name, role, plant_id, supervisor_id)
-        `)
-        .in('user_id', workerIds);
-
-      if (locationsErr) throw locationsErr;
-
-      const formattedLocations = (locations || []).map((loc: any) => {
-        const userObj = Array.isArray(loc.user) ? loc.user[0] : loc.user;
-        const recTime = new Date(loc.recorded_at).getTime();
-        const isStale = (Date.now() - recTime) > 30000;
-
-        return {
-          ...loc,
-          latitude: Number(loc.latitude),
-          longitude: Number(loc.longitude),
-          speed: isStale ? 0 : Number(loc.speed || 0),
-          is_tracking: loc.is_tracking && !isStale,
-          is_stale: isStale,
-          user: userObj || null
-        };
-      });
-
-      return { workers: workers || [], locations: formattedLocations };
+      const res = await fetch('/api/supervisor/dashboard');
+      if (!res.ok) throw new Error('Failed to load supervisor dashboard');
+      return res.json();
     },
-    enabled: !!supervisorProfile?.id,
     refetchInterval: 8000,
   });
+
+  const supervisorProfile = dashboardData?.profile;
+  const plantManager = dashboardData?.plantManager;
 
   // Real-time listener for direct worker coordinates
   useEffect(() => {
