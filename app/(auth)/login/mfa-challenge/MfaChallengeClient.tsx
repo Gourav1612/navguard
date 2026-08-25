@@ -49,13 +49,7 @@ export default function MfaChallengeClient() {
         const { data: mfaData, error: mfaErr } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
         if (mfaErr) throw new Error(mfaErr.message);
 
-        // If user session is already verified (AAL2), skip challenge and go to unified dashboard
-        if (mfaData && mfaData.currentLevel === 'aal2') {
-          window.location.href = '/dashboard';
-          return;
-        }
-
-        // 3. Fetch active factors list
+        // Fetch active factors list
         const { data: factors, error: listErr } = await supabase.auth.mfa.listFactors();
         if (listErr) throw new Error(listErr.message);
 
@@ -109,8 +103,22 @@ export default function MfaChallengeClient() {
 
       if (verifyError) throw new Error(verifyError.message);
 
-      // Refresh session to upgrade the cookie token from AAL1 to AAL2
-      await supabase.auth.refreshSession();
+      // Refresh session locally
+      const { data: refreshData } = await supabase.auth.refreshSession();
+      const accessToken = verifyData?.access_token || refreshData?.session?.access_token;
+      const refreshToken = verifyData?.refresh_token || refreshData?.session?.refresh_token;
+
+      // Synchronize AAL2 session cookies to server via API endpoint
+      if (accessToken && refreshToken) {
+        await fetch('/api/auth/mfa/session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          }),
+        });
+      }
 
       setSuccess(true);
       setVerifying(false);
@@ -118,7 +126,7 @@ export default function MfaChallengeClient() {
       // Clear attempts on success
       localStorage.removeItem('mfa_failed_attempts');
 
-      // Redirect to dashboard with full browser navigation so server middleware sees AAL2 cookies
+      // Redirect to dashboard with full browser navigation so server middleware sees fresh AAL2 cookies
       window.location.href = '/dashboard';
     } catch (err: any) {
       const currentAttempts = Number(localStorage.getItem('mfa_failed_attempts') || '0') + 1;

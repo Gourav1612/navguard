@@ -138,8 +138,22 @@ export default function MfaSetupClient() {
 
       if (verifyErr) throw new Error(verifyErr.message);
 
-      // Refresh session immediately to upgrade local token to aal2
-      await supabase.auth.refreshSession();
+      // Refresh session locally
+      const { data: refreshData } = await supabase.auth.refreshSession();
+      const accessToken = verifyData?.access_token || refreshData?.session?.access_token;
+      const refreshToken = verifyData?.refresh_token || refreshData?.session?.refresh_token;
+
+      // Synchronize AAL2 session cookies to server via API endpoint
+      if (accessToken && refreshToken) {
+        await fetch('/api/auth/mfa/session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          }),
+        });
+      }
 
       setSuccess(true);
       setVerifying(false);
