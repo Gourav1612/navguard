@@ -203,7 +203,6 @@ export default function UsersView() {
           className="text-xs font-bold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer shadow-sm"
         >
           <option value="">All Roles</option>
-          <option value="admin">System Administrator</option>
           <option value="manager">Plant Manager</option>
           <option value="supervisor">Supervisor</option>
           <option value="worker">Worker</option>
@@ -355,7 +354,6 @@ export default function UsersView() {
                     <option value="worker">Worker</option>
                     <option value="supervisor">Supervisor</option>
                     <option value="manager">Plant Manager</option>
-                    <option value="admin">System Administrator</option>
                   </select>
                 </div>
               </div>
