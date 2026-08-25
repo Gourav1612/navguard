@@ -12,9 +12,9 @@ export async function GET(req: NextRequest) {
   const role = searchParams.get('role') || '';
   const plantId = searchParams.get('plant_id') || '';
 
-  const supabase = await createSupabaseServerClient();
+  const adminClient = createAdminClient();
   try {
-    let query = supabase
+    let query = adminClient
       .from('user_profiles')
       .select(`
         id,
@@ -26,8 +26,7 @@ export async function GET(req: NextRequest) {
         is_active,
         location_interval,
         created_at,
-        plant:plants(id, name, code),
-        supervisor:user_profiles!supervisor_id(id, full_name, email)
+        plant:plants(id, name, code)
       `);
 
     if (role) {
@@ -46,11 +45,10 @@ export async function GET(req: NextRequest) {
     // Format relation response objects if they are returned as arrays
     const formatted = (users || []).map((u: any) => {
       const plantObj = Array.isArray(u.plant) ? u.plant[0] : u.plant;
-      const supervisorObj = Array.isArray(u.supervisor) ? u.supervisor[0] : u.supervisor;
       return {
         ...u,
         plant: plantObj || null,
-        supervisor: supervisorObj || null,
+        supervisor: null,
       };
     });
 

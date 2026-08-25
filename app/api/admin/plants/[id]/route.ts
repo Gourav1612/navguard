@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/server';
 import { requireRole } from '@/lib/auth-guard';
 import { PlantSchema } from '@/lib/validations';
 
@@ -20,8 +20,8 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Validation failed', details: parsed.error.format() }, { status: 400 });
     }
 
-    const supabase = await createSupabaseServerClient();
-    const { data: plant, error } = await supabase
+    const adminClient = createAdminClient();
+    const { data: plant, error } = await adminClient
       .from('plants')
       .update(parsed.data)
       .eq('id', id)

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/server';
 import { requireRole } from '@/lib/auth-guard';
 import { PlantSchema } from '@/lib/validations';
 
@@ -7,9 +7,9 @@ export async function GET() {
   const auth = await requireRole(['admin']);
   if (auth.error) return auth.error;
 
-  const supabase = await createSupabaseServerClient();
+  const adminClient = createAdminClient();
   try {
-    const { data: plants, error } = await supabase
+    const { data: plants, error } = await adminClient
       .from('plants')
       .select('*')
       .order('name', { ascending: true });
@@ -35,8 +35,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Validation failed', details: parsed.error.format() }, { status: 400 });
     }
 
-    const supabase = await createSupabaseServerClient();
-    const { data: plant, error } = await supabase
+    const adminClient = createAdminClient();
+    const { data: plant, error } = await adminClient
       .from('plants')
       .insert(parsed.data)
       .select()
