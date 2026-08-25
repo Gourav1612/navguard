@@ -23,6 +23,24 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
 
     const adminClient = createAdminClient();
 
+    // Enforce single-admin limit across the system
+    if (parsed.data.role === 'admin') {
+      const { data: existingAdmin } = await adminClient
+        .from('user_profiles')
+        .select('id')
+        .eq('role', 'admin')
+        .neq('id', id)
+        .limit(1)
+        .maybeSingle();
+
+      if (existingAdmin) {
+        return NextResponse.json(
+          { error: 'System limit reached: Only 1 System Administrator account is allowed.' },
+          { status: 400 }
+        );
+      }
+    }
+
     // 1. Update user details in Auth if password or email is changed
     const authUpdatePayload: any = {};
     if (parsed.data.email) authUpdatePayload.email = parsed.data.email;

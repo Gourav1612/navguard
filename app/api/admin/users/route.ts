@@ -31,7 +31,10 @@ export async function GET(req: NextRequest) {
 
     if (role) {
       query = query.eq('role', role);
+    } else {
+      query = query.neq('role', 'admin');
     }
+
     if (plantId) {
       query = query.eq('plant_id', plantId);
     }
@@ -70,6 +73,21 @@ export async function POST(req: NextRequest) {
     }
 
     const adminClient = createAdminClient();
+
+    // Enforce single-admin limit across the system
+    if (parsed.data.role === 'admin') {
+      const { count } = await adminClient
+        .from('user_profiles')
+        .select('id', { count: 'exact', head: true })
+        .eq('role', 'admin');
+      
+      if ((count || 0) >= 1) {
+        return NextResponse.json(
+          { error: 'System limit reached: Only 1 System Administrator account is allowed.' },
+          { status: 400 }
+        );
+      }
+    }
 
     // 1. Create the user in Auth
     const { data: authUser, error: authErr } = await adminClient.auth.admin.createUser({
