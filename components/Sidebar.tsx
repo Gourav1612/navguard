@@ -235,15 +235,7 @@ export function Sidebar() {
       {isMobileOpen && (
         <div className="lg:hidden fixed inset-x-0 top-[64px] bg-[#351e56]/95 backdrop-blur-md border-b border-[#2d194a] shadow-2xl z-40 animate-in slide-in-from-top duration-300 overflow-hidden flex flex-col p-5 space-y-4">
           <nav className="space-y-1">
-            {!checkingMfa && !mfaVerified ? (
-              <div className="flex flex-col items-center justify-center p-6 text-center space-y-2 bg-black/10 border border-white/5 rounded-xl py-8">
-                <Lock className="w-6 h-6 text-purple-300 animate-pulse" />
-                <p className="text-xs font-bold text-white">MFA Security Locked</p>
-                <p className="text-[10px] text-purple-200/50 leading-relaxed max-w-[200px]">
-                  Please complete verification to unlock features.
-                </p>
-              </div>
-            ) : !checkingMfa && mfaVerified ? (
+            {!checkingMfa ? (
               navItems.map((item) => {
                 const itemUrl = new URL(item.href, 'http://localhost');
                 const itemQueryParam = itemUrl.searchParams.get('tab') || '';
