@@ -66,8 +66,7 @@ export default function MfaSetupClient() {
           setSuccess(true);
           setLoading(false);
           setTimeout(() => {
-            router.refresh();
-            router.replace('/dashboard');
+            window.location.href = '/dashboard';
           }, 1500);
           return;
         }
@@ -146,8 +145,7 @@ export default function MfaSetupClient() {
       setVerifying(false);
       
       setTimeout(() => {
-        router.refresh();
-        router.replace('/dashboard');
+        window.location.href = '/dashboard';
       }, 1500);
     } catch (err: any) {
       setError(err.message || 'Verification failed. Please check your authenticator code.');

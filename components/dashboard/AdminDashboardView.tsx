@@ -77,7 +77,7 @@ export default function AdminDashboardView({ tab: initialTab }: { tab?: string }
     enabled: isMainDashboard,
   });
 
-  // Verify MFA status on mount
+  // Verify MFA status on mount (for UI state display only; middleware handles route protection)
   const checkMfaStatus = async () => {
     try {
       const { data: factors, error: factorsErr } = await supabase.auth.mfa.listFactors();
@@ -87,19 +87,9 @@ export default function AdminDashboardView({ tab: initialTab }: { tab?: string }
       if (activeTotp) {
         setMfaEnabled(true);
         setMfaFactorId(activeTotp.id);
-
-        const { data: mfaData, error: mfaErr } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-        if (!mfaErr && mfaData) {
-          const { currentLevel, nextLevel } = mfaData;
-          if (nextLevel === 'aal2' && currentLevel === 'aal1') {
-            router.replace('/login/mfa-challenge');
-            return;
-          }
-        }
       } else {
         setMfaEnabled(false);
         setMfaFactorId(null);
-        router.replace('/admin/mfa-setup');
       }
     } catch (err) {
       console.error('Failed to list MFA factors:', err);
