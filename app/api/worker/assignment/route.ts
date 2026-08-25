@@ -1,14 +1,14 @@
 import { NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/server';
 import { requireRole } from '@/lib/auth-guard';
 
 export async function GET() {
   const auth = await requireRole(['worker']);
   if (auth.error) return auth.error;
 
-  const supabase = await createSupabaseServerClient();
+  const adminClient = createAdminClient();
   try {
-    const { data: workerRaw, error: workerErr } = await supabase
+    const { data: workerRaw, error: workerErr } = await adminClient
       .from('user_profiles')
       .select(`
         id,
@@ -32,7 +32,7 @@ export async function GET() {
     // Fetch Supervisor Details
     let supervisor = null;
     if (workerRaw.supervisor_id) {
-      const { data: supRaw } = await supabase
+      const { data: supRaw } = await adminClient
         .from('user_profiles')
         .select('id, full_name, email, phone')
         .eq('id', workerRaw.supervisor_id)
@@ -43,7 +43,7 @@ export async function GET() {
     // Fetch Plant Manager Details (peer manager/s for the same plant)
     let plantManager = null;
     if (workerRaw.plant_id) {
-      const { data: mgrRaw } = await supabase
+      const { data: mgrRaw } = await adminClient
         .from('user_profiles')
         .select('id, full_name, email, phone')
         .eq('plant_id', workerRaw.plant_id)

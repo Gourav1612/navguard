@@ -41,33 +41,20 @@ export default function SupervisorDashboardView({ tab }: { tab?: string }) {
   const [trackingError, setTrackingError] = useState<string | null>(null);
   const watchIdRef = useRef<number | null>(null);
 
-  // 1. Fetch Supervisor Profile and Plant Manager Details
+  // 1. Fetch Supervisor Profile
   useEffect(() => {
     async function getProfile() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data: profile } = await supabase
-        .from('user_profiles')
-        .select('id, full_name, email, role, plant_id, plant:plants(*)')
-        .eq('id', user.id)
-        .single();
-      
-      setSupervisorProfile(profile);
-
-      if (profile?.plant_id) {
-        const { data: manager } = await supabase
-          .from('user_profiles')
-          .select('id, full_name, email, phone')
-          .eq('plant_id', profile.plant_id)
-          .eq('role', 'manager')
-          .limit(1)
-          .maybeSingle();
-        setPlantManager(manager);
+      try {
+        const res = await fetch('/api/auth/me');
+        if (!res.ok) return;
+        const profile = await res.json();
+        setSupervisorProfile(profile);
+      } catch (err) {
+        console.error('Failed to fetch supervisor profile', err);
       }
     }
     getProfile();
-  }, [supabase]);
+  }, []);
 
   // 2. Fetch Direct Workers and their live locations
   const { data: dashboardData, isLoading, refetch } = useQuery({
