@@ -83,7 +83,7 @@ export default function AdminDashboardView({ tab: initialTab }: { tab?: string }
       const { data: factors, error: factorsErr } = await supabase.auth.mfa.listFactors();
       if (factorsErr) throw factorsErr;
 
-      const activeTotp = factors?.all?.find((f: any) => f.factorType === 'totp' && f.status === 'verified');
+      const activeTotp = factors?.all?.find((f: any) => f.factor_type === 'totp' && f.status === 'verified');
       if (activeTotp) {
         setMfaEnabled(true);
         setMfaFactorId(activeTotp.id);

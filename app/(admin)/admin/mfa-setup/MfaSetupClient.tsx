@@ -37,7 +37,7 @@ export default function MfaSetupClient() {
         
         if (userErr || !user) {
           console.log('[MFA] Redirecting to login: no user session');
-          window.location.href = '/login';
+          router.replace('/login');
           return;
         }
 
@@ -51,7 +51,7 @@ export default function MfaSetupClient() {
 
         if (!profile || profile.role !== 'admin') {
           console.log('[MFA] Redirecting: user is not an admin', profile?.role);
-          window.location.href = '/';
+          router.replace('/');
           return;
         }
 
@@ -60,13 +60,14 @@ export default function MfaSetupClient() {
         console.log('[MFA] 3. listFactors completed. Factors:', factors, 'Error:', factorsErr?.message);
         if (factorsErr) throw new Error(factorsErr.message);
 
-        const activeTotp = factors?.all?.find((f: any) => f.factorType === 'totp' && f.status === 'verified');
+        const activeTotp = factors?.all?.find((f: any) => f.factor_type === 'totp' && f.status === 'verified');
         if (activeTotp) {
           console.log('[MFA] User already has active verified TOTP. Redirecting to dashboard...');
           setSuccess(true);
           setLoading(false);
           setTimeout(() => {
-            window.location.href = '/dashboard';
+            router.refresh();
+            router.replace('/dashboard');
           }, 1500);
           return;
         }
@@ -145,7 +146,8 @@ export default function MfaSetupClient() {
       setVerifying(false);
       
       setTimeout(() => {
-        window.location.href = '/dashboard';
+        router.refresh();
+        router.replace('/dashboard');
       }, 1500);
     } catch (err: any) {
       setError(err.message || 'Verification failed. Please check your authenticator code.');

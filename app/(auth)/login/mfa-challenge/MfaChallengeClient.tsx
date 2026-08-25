@@ -41,7 +41,7 @@ export default function MfaChallengeClient() {
         // 1. Fetch user to verify active session
         const { data: { user }, error: userErr } = await supabase.auth.getUser();
         if (userErr || !user) {
-          window.location.href = '/login';
+          router.replace('/login');
           return;
         }
 
@@ -51,7 +51,8 @@ export default function MfaChallengeClient() {
 
         // If user session is already verified (AAL2), skip challenge and go to unified dashboard
         if (mfaData && mfaData.currentLevel === 'aal2') {
-          window.location.href = '/dashboard';
+          router.refresh();
+          router.replace('/dashboard');
           return;
         }
 
@@ -60,10 +61,10 @@ export default function MfaChallengeClient() {
         if (listErr) throw new Error(listErr.message);
 
         // Find active TOTP factor
-        const activeTotp = factors?.all?.find((f: any) => f.factorType === 'totp' && f.status === 'verified');
+        const activeTotp = factors?.all?.find((f: any) => f.factor_type === 'totp' && f.status === 'verified');
         if (!activeTotp) {
           // No active factor found; force MFA setup
-          window.location.href = '/admin/mfa-setup';
+          router.replace('/admin/mfa-setup');
           return;
         }
 
@@ -116,7 +117,8 @@ export default function MfaChallengeClient() {
       localStorage.removeItem('mfa_failed_attempts');
 
       // Redirect to dynamic Command Dashboard
-      window.location.href = '/dashboard';
+      router.refresh();
+      router.replace('/dashboard');
     } catch (err: any) {
       const currentAttempts = Number(localStorage.getItem('mfa_failed_attempts') || '0') + 1;
       localStorage.setItem('mfa_failed_attempts', String(currentAttempts));
