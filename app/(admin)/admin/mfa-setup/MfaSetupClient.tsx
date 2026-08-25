@@ -37,7 +37,7 @@ export default function MfaSetupClient() {
         
         if (userErr || !user) {
           console.log('[MFA] Redirecting to login: no user session');
-          router.replace('/login');
+          window.location.href = '/login';
           return;
         }
 
@@ -51,7 +51,7 @@ export default function MfaSetupClient() {
 
         if (!profile || profile.role !== 'admin') {
           console.log('[MFA] Redirecting: user is not an admin', profile?.role);
-          router.replace('/');
+          window.location.href = '/';
           return;
         }
 

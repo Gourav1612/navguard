@@ -41,7 +41,7 @@ export default function MfaChallengeClient() {
         // 1. Fetch user to verify active session
         const { data: { user }, error: userErr } = await supabase.auth.getUser();
         if (userErr || !user) {
-          router.replace('/login');
+          window.location.href = '/login';
           return;
         }
 
@@ -63,7 +63,7 @@ export default function MfaChallengeClient() {
         const activeTotp = factors?.all?.find((f: any) => f.factorType === 'totp' && f.status === 'verified');
         if (!activeTotp) {
           // No active factor found; force MFA setup
-          router.replace('/admin/mfa-setup');
+          window.location.href = '/admin/mfa-setup';
           return;
         }
 
