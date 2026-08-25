@@ -203,6 +203,7 @@ export default function UsersView() {
           className="text-xs font-bold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer shadow-sm"
         >
           <option value="">All Roles</option>
+          <option value="admin">System Administrator</option>
           <option value="manager">Plant Manager</option>
           <option value="supervisor">Supervisor</option>
           <option value="worker">Worker</option>
@@ -243,13 +244,15 @@ export default function UsersView() {
                       <h4 className="font-extrabold text-slate-900 text-sm leading-tight">{user.full_name}</h4>
                       <div className="flex items-center gap-1.5 mt-1">
                         <span className={`px-2 py-0.5 inline-block text-[9px] font-bold rounded-lg uppercase ${
-                          user.role === 'manager' 
-                            ? 'bg-purple-100 text-purple-700' 
-                            : user.role === 'supervisor' 
-                              ? 'bg-amber-100 text-amber-700' 
-                              : 'bg-blue-100 text-blue-700'
+                          user.role === 'admin'
+                            ? 'bg-red-100 text-red-700 border border-red-200'
+                            : user.role === 'manager' 
+                              ? 'bg-purple-100 text-purple-700 border border-purple-200' 
+                              : user.role === 'supervisor' 
+                                ? 'bg-amber-100 text-amber-700 border border-amber-200' 
+                                : 'bg-blue-100 text-blue-700 border border-blue-200'
                         }`}>
-                          {user.role === 'manager' ? 'Plant Manager' : user.role === 'supervisor' ? 'Supervisor' : 'Worker'}
+                          {user.role === 'admin' ? 'System Admin' : user.role === 'manager' ? 'Plant Manager' : user.role === 'supervisor' ? 'Supervisor' : 'Worker'}
                         </span>
                         <span className={`inline-flex items-center text-[9px] font-bold ${user.is_active ? 'text-green-600' : 'text-red-500'}`}>
                           {user.is_active ? <CheckCircle className="w-2.5 h-2.5 mr-0.5" /> : <XCircle className="w-2.5 h-2.5 mr-0.5" />}
@@ -352,6 +355,7 @@ export default function UsersView() {
                     <option value="worker">Worker</option>
                     <option value="supervisor">Supervisor</option>
                     <option value="manager">Plant Manager</option>
+                    <option value="admin">System Administrator</option>
                   </select>
                 </div>
               </div>

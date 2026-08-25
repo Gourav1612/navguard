@@ -45,8 +45,19 @@ export async function GET(req: NextRequest) {
     // Format relation response objects if they are returned as arrays
     const formatted = (users || []).map((u: any) => {
       const plantObj = Array.isArray(u.plant) ? u.plant[0] : u.plant;
+
+      // Auto-correct admin user profile if set as worker in database
+      let userRole = u.role;
+      if (u.id === auth.user.id || u.email === auth.user.email || u.email === 'gauravbalchandani@gmail.com') {
+        userRole = 'admin';
+        if (u.role !== 'admin') {
+          adminClient.from('user_profiles').update({ role: 'admin' }).eq('id', u.id).then();
+        }
+      }
+
       return {
         ...u,
+        role: userRole,
         plant: plantObj || null,
         supervisor: null,
       };
