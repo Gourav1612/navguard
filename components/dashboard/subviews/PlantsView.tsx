@@ -27,6 +27,64 @@ export default function PlantsView() {
   const [searchQuery, setSearchQuery] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [mapsUrlInput, setMapsUrlInput] = useState('');
+  const [resolvingMapsUrl, setResolvingMapsUrl] = useState(false);
+  const [mapsSuccess, setMapsSuccess] = useState<{ lat: number; lng: number } | null>(null);
+
+  // Helper to extract lat/lng from Google Maps URLs
+  const parseGoogleMapsCoords = (urlStr: string): { lat: number; lng: number } | null => {
+    // Pattern 1: @lat,lng
+    const matchAt = urlStr.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+    if (matchAt) {
+      return { lat: parseFloat(matchAt[1]), lng: parseFloat(matchAt[2]) };
+    }
+
+    // Pattern 2: !3dlat!4dlng
+    const match3d4d = urlStr.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/);
+    if (match3d4d) {
+      return { lat: parseFloat(match3d4d[1]), lng: parseFloat(match3d4d[2]) };
+    }
+
+    // Pattern 3: q=lat,lng or ll=lat,lng
+    const matchQuery = urlStr.match(/(?:q|ll)=(-?\d+\.\d+),(-?\d+\.\d+)/);
+    if (matchQuery) {
+      return { lat: parseFloat(matchQuery[1]), lng: parseFloat(matchQuery[2]) };
+    }
+
+    return null;
+  };
+
+  const handleResolveMapsLink = async () => {
+    if (!mapsUrlInput.trim()) return;
+    setResolvingMapsUrl(true);
+    setFormError(null);
+    setMapsSuccess(null);
+
+    try {
+      let urlToParse = mapsUrlInput.trim();
+
+      const res = await fetch(`/api/resolve-map-link?url=${encodeURIComponent(urlToParse)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.expandedUrl) {
+          urlToParse = data.expandedUrl;
+        }
+      }
+
+      const coords = parseGoogleMapsCoords(urlToParse);
+      if (!coords) {
+        throw new Error('Could not extract coordinates from Google Maps link. Please verify the URL.');
+      }
+
+      setValue('latitude', coords.lat);
+      setValue('longitude', coords.lng);
+      setMapsSuccess(coords);
+    } catch (err: any) {
+      setFormError(err.message || 'Failed to parse Google Maps link.');
+    } finally {
+      setResolvingMapsUrl(false);
+    }
+  };
 
   // Fetch Plants
   const { data: plants = [], isLoading, refetch } = useQuery({
@@ -53,6 +111,8 @@ export default function PlantsView() {
   const handleOpenCreate = () => {
     setEditingPlant(null);
     setFormError(null);
+    setMapsUrlInput('');
+    setMapsSuccess(null);
     reset({
       name: '',
       code: '',
@@ -67,6 +127,8 @@ export default function PlantsView() {
   const handleOpenEdit = (plant: any) => {
     setEditingPlant(plant);
     setFormError(null);
+    setMapsUrlInput('');
+    setMapsSuccess(null);
     reset({
       name: plant.name,
       code: plant.code,
@@ -285,6 +347,36 @@ export default function PlantsView() {
                   rows={2}
                   className="block w-full py-2.5 px-3 bg-slate-50 border border-slate-200 focus:border-[#5c3b99] rounded-xl text-xs font-bold text-slate-800 focus:outline-none resize-none"
                 />
+              </div>
+
+              {/* Google Maps Auto-Fill Box */}
+              <div className="p-3 bg-[#f8f5fc] border border-[#e8ddf5] rounded-2xl space-y-2">
+                <label className="text-[10px] font-bold text-[#5c3b99] uppercase tracking-wider flex items-center gap-1.5">
+                  <MapPin className="w-3.5 h-3.5 text-[#5c3b99]" />
+                  Paste Google Maps Link to Auto-Fill Coords
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="url"
+                    value={mapsUrlInput}
+                    onChange={(e) => setMapsUrlInput(e.target.value)}
+                    placeholder="e.g. https://maps.app.goo.gl/..."
+                    className="flex-1 py-2 px-3 bg-white border border-purple-200 focus:border-[#5c3b99] rounded-xl text-xs font-medium text-slate-800 focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleResolveMapsLink}
+                    disabled={resolvingMapsUrl || !mapsUrlInput.trim()}
+                    className="px-3.5 py-2 bg-[#5c3b99] hover:bg-[#432775] disabled:opacity-50 text-white text-xs font-bold rounded-xl transition flex items-center gap-1 cursor-pointer flex-shrink-0"
+                  >
+                    {resolvingMapsUrl ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Auto Fill'}
+                  </button>
+                </div>
+                {mapsSuccess && (
+                  <p className="text-[10px] text-emerald-700 font-bold flex items-center gap-1">
+                    ✓ Coordinates filled: {mapsSuccess.lat.toFixed(4)}, {mapsSuccess.lng.toFixed(4)}
+                  </p>
+                )}
               </div>
 
               <div className="grid grid-cols-3 gap-4">
