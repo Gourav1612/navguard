@@ -1,4 +1,5 @@
 import { createServerClient } from '@supabase/ssr';
+import { createClient as createAdminClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
@@ -72,28 +73,40 @@ export async function proxy(request: NextRequest) {
   let role = user.user_metadata?.role;
   let is_active = user.user_metadata?.is_active ?? true;
 
-  // Fallback to database query only if metadata role is missing
-  if (!role) {
-    const { data: profile } = await supabase
-      .from('user_profiles')
-      .select('role, is_active')
-      .eq('id', user.id)
-      .single();
+  // Fallback to admin service client if metadata role is missing to bypass RLS restrictions in middleware
+  if (!role && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    try {
+      const adminClient = createAdminClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!,
+        { auth: { persistSession: false, autoRefreshToken: false } }
+      );
+      const { data: profile } = await adminClient
+        .from('user_profiles')
+        .select('role, is_active')
+        .eq('id', user.id)
+        .maybeSingle();
 
-    if (profile) {
-      role = profile.role;
-      is_active = profile.is_active;
+      if (profile) {
+        role = profile.role;
+        is_active = profile.is_active;
+      }
+    } catch (err) {
+      console.error('[Proxy] Failed to fetch profile via admin client:', err);
     }
   }
 
-  // If user profile is not found or is deactivated, force log out
+  // If user profile is not found or is deactivated, force log out & delete all Supabase auth cookies
   if (!role || !is_active) {
     if (pathname === '/login') {
       return response;
     }
     const loginRedirect = NextResponse.redirect(new URL('/login', request.url));
-    loginRedirect.cookies.delete('sb-access-token');
-    loginRedirect.cookies.delete('sb-refresh-token');
+    request.cookies.getAll().forEach((cookie) => {
+      if (cookie.name.startsWith('sb-')) {
+        loginRedirect.cookies.delete(cookie.name);
+      }
+    });
     return loginRedirect;
   }
 
@@ -109,17 +122,19 @@ export async function proxy(request: NextRequest) {
         if (pathname !== '/admin/mfa-setup') {
           return NextResponse.redirect(new URL('/admin/mfa-setup', request.url));
         }
+        return response;
       }
       // 2. Force challenge if factor is set up but session is not elevated
       else if (nextLevel === 'aal2' && currentLevel === 'aal1') {
         if (pathname !== '/login/mfa-challenge') {
           return NextResponse.redirect(new URL('/login/mfa-challenge', request.url));
         }
+        return response;
       }
     }
   }
 
-  // Redirect if visiting /login or root / when authenticated
+  // Redirect if visiting /login or root / when fully authenticated & MFA verified
   if (pathname === '/login' || pathname === '/') {
     return NextResponse.redirect(new URL('/dashboard', request.url));
   }
