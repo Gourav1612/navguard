@@ -109,13 +109,16 @@ export default function MfaChallengeClient() {
 
       if (verifyError) throw new Error(verifyError.message);
 
+      // Refresh session to upgrade the cookie token from AAL1 to AAL2
+      await supabase.auth.refreshSession();
+
       setSuccess(true);
       setVerifying(false);
       
       // Clear attempts on success
       localStorage.removeItem('mfa_failed_attempts');
 
-      // Redirect to dynamic Command Dashboard with full browser navigation to pass AAL2 session cookies to server middleware
+      // Redirect to dashboard with full browser navigation so server middleware sees AAL2 cookies
       window.location.href = '/dashboard';
     } catch (err: any) {
       const currentAttempts = Number(localStorage.getItem('mfa_failed_attempts') || '0') + 1;
