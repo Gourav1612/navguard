@@ -111,23 +111,7 @@ export function Sidebar() {
 
       {/* Navigation Links */}
       <nav className="flex-1 pl-4 pr-3 py-6 space-y-1.5 overflow-y-auto">
-        {!checkingMfa && !mfaVerified ? (
-          <div className="flex flex-col items-center justify-center p-6 text-center h-[260px] space-y-3 bg-black/10 border border-white/5 rounded-2xl mx-2">
-            <Lock className="w-8 h-8 text-purple-300 animate-pulse" />
-            <p className="text-xs font-bold text-white leading-normal">
-              MFA Security Locked
-            </p>
-            <p className="text-[10px] text-purple-200/50 leading-relaxed max-w-[160px] mx-auto">
-              Please complete verification to unlock navigation.
-            </p>
-            <Link
-              href="/login/mfa-challenge"
-              className="px-3 py-1.5 bg-purple-500/20 hover:bg-purple-500/30 border border-purple-400/30 text-purple-200 rounded-xl text-[11px] font-bold transition-all no-underline mt-2"
-            >
-              Verify MFA Code
-            </Link>
-          </div>
-        ) : !checkingMfa && mfaVerified ? (
+        {!checkingMfa ? (
           navItems.map((item) => {
             const itemUrl = new URL(item.href, 'http://localhost');
             const itemQueryParam = itemUrl.searchParams.get('tab') || '';
