@@ -16,6 +16,10 @@ export const CreateUserSchema = z.object({
   location_interval: z.coerce.number().int().min(1, 'Interval must be at least 1 second').max(3600, 'Interval cannot exceed 1 hour').default(10),
 });
 
+export const UpdateUserSchema = CreateUserSchema.extend({
+  password: PasswordSchema.optional().nullable().or(z.literal('')),
+});
+
 export const PlantSchema = z.object({
   name: z.string().min(1, 'Name is required').max(100),
   code: z.string().min(1, 'Code is required').max(20),

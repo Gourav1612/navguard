@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { CreateUserSchema } from '@/lib/validations';
+import { CreateUserSchema, UpdateUserSchema } from '@/lib/validations';
 import { deleteUserAction } from '@/app/actions/admin-pagination';
 import { 
   Loader2, 
@@ -61,7 +61,7 @@ export default function UsersView() {
   const supervisorsList = users.filter((u: any) => u.role === 'supervisor');
 
   const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<UserFormValues>({
-    resolver: zodResolver(CreateUserSchema) as any,
+    resolver: zodResolver(editingUser ? UpdateUserSchema : CreateUserSchema) as any,
     defaultValues: {
       full_name: '',
       email: '',
@@ -101,7 +101,7 @@ export default function UsersView() {
       full_name: user.full_name,
       email: user.email,
       phone: user.phone || '',
-      password: 'DummyPassword123!', // placeholder so validation passes, PATCH ignores it if not changed
+      password: '',
       role: user.role,
       plant_id: user.plant?.id || '',
       supervisor_id: user.supervisor?.id || '',
@@ -120,8 +120,8 @@ export default function UsersView() {
 
       // Clean payload for updates
       const payload: any = { ...values };
-      if (editingUser && values.password === 'DummyPassword123!') {
-        delete payload.password; // Do not update password during edit unless user explicitly wrote a new one
+      if (!payload.password || payload.password.trim() === '') {
+        delete payload.password;
       }
 
       const res = await fetch(url, {
