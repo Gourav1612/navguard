@@ -3,13 +3,13 @@
 import { useEffect, useState, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
-import { 
-  Loader2, 
-  User, 
-  Users, 
-  Radio, 
-  Phone, 
-  Play, 
+import {
+  Loader2,
+  User,
+  Users,
+  Radio,
+  Phone,
+  Play,
   Square,
   AlertCircle,
   Battery,
@@ -92,10 +92,10 @@ export default function SupervisorDashboardView({ tab }: { tab?: string }) {
     } else {
       // START SHIFT
       setTrackingError(null);
-      
+
       const sessionRes = await supabase.auth.getSession();
       const sessionToken = sessionRes.data.session?.access_token;
-      
+
       if (!sessionToken) {
         setTrackingError('Authentication session not active.');
         return;
@@ -174,7 +174,7 @@ export default function SupervisorDashboardView({ tab }: { tab?: string }) {
 
   return (
     <div className="p-4 lg:p-8 space-y-6 max-w-7xl mx-auto animate-in fade-in duration-200">
-      
+
       {/* Plant Manager Contact Card */}
       {plantManager && (
         <div className="bg-white border border-slate-150 rounded-2xl p-5 shadow-sm flex items-center justify-between gap-4">
@@ -188,7 +188,7 @@ export default function SupervisorDashboardView({ tab }: { tab?: string }) {
               <span className="text-[10px] text-slate-500 block leading-tight">{plantManager.email}</span>
             </div>
           </div>
-          
+
           {plantManager.phone && (
             <a
               href={`tel:${plantManager.phone}`}
@@ -226,11 +226,10 @@ export default function SupervisorDashboardView({ tab }: { tab?: string }) {
 
           <button
             onClick={toggleShift}
-            className={`flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-xs font-black transition cursor-pointer shadow-sm ${
-              isShiftActive 
-                ? 'bg-red-650 hover:bg-red-750 text-white shadow-red-500/10' 
-                : 'bg-[#5c3b99] hover:bg-[#432775] text-white shadow-purple-500/10'
-            }`}
+            className={`flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-xs font-black transition cursor-pointer shadow-sm ${isShiftActive
+              ? 'bg-red-650 hover:bg-red-750 text-white shadow-red-500/10'
+              : 'bg-[#5c3b99] hover:bg-[#432775] text-white shadow-purple-500/10'
+              }`}
           >
             {isShiftActive ? (
               <>
