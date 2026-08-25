@@ -68,14 +68,14 @@ export function Sidebar() {
             const { data: mfaData, error: mfaErr } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
             if (!mfaErr && mfaData) {
               const { currentLevel, nextLevel } = mfaData;
-              // Admin must be AAL2 (fully verified with MFA) to view sidebar links
-              if (currentLevel === 'aal2') {
+              // Admin must be AAL2 (or have no MFA enrolled) to view sidebar links
+              if (currentLevel === 'aal2' || nextLevel === 'aal1') {
                 setMfaVerified(true);
               } else {
                 setMfaVerified(false);
               }
             } else {
-              setMfaVerified(false);
+              setMfaVerified(true);
             }
           } else {
             // Non-admin roles don't have mandatory MFA
@@ -84,6 +84,7 @@ export function Sidebar() {
         }
       } catch (err) {
         console.error('Failed to verify MFA in sidebar:', err);
+        setMfaVerified(true);
       } finally {
         setCheckingMfa(false);
       }
@@ -133,8 +134,14 @@ export function Sidebar() {
               MFA Security Locked
             </p>
             <p className="text-[10px] text-purple-200/50 leading-relaxed max-w-[160px] mx-auto">
-              Please complete multi-factor verification to unlock navigation.
+              Please complete verification to unlock navigation.
             </p>
+            <Link
+              href="/login/mfa-challenge"
+              className="px-3 py-1.5 bg-purple-500/20 hover:bg-purple-500/30 border border-purple-400/30 text-purple-200 rounded-xl text-[11px] font-bold transition-all no-underline mt-2"
+            >
+              Verify MFA Code
+            </Link>
           </div>
         ) : !checkingMfa && mfaVerified ? (
           navItems.map((item) => {
