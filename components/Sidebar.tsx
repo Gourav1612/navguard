@@ -113,9 +113,9 @@ export function Sidebar() {
       <nav className="flex-1 pl-4 pr-3 py-6 space-y-1.5 overflow-y-auto">
         {!checkingMfa ? (
           navItems.map((item) => {
-            const itemUrl = new URL(item.href, 'http://localhost');
-            const itemQueryParam = itemUrl.searchParams.get('tab') || '';
-            const isActive = pathname === itemUrl.pathname && currentTab === itemQueryParam;
+            const [itemPath, itemQuery] = item.href.split('?');
+            const itemQueryParam = new URLSearchParams(itemQuery || '').get('tab') || '';
+            const isActive = pathname === itemPath && currentTab === itemQueryParam;
             return (
               <Link
                 key={item.name}
@@ -123,8 +123,8 @@ export function Sidebar() {
                 onClick={(e) => {
                   setIsMobileOpen(false);
                   e.preventDefault();
-                  const targetUrl = new URL(item.href, window.location.origin);
-                  const tabVal = targetUrl.searchParams.get('tab') || '';
+                  const [targetPath, targetQuery] = item.href.split('?');
+                  const tabVal = new URLSearchParams(targetQuery || '').get('tab') || '';
                   const finalPath = tabVal ? `/dashboard?tab=${tabVal}` : '/dashboard';
                   window.history.pushState(null, '', finalPath);
                   window.dispatchEvent(new PopStateEvent('popstate'));
@@ -221,9 +221,9 @@ export function Sidebar() {
           <nav className="space-y-1">
             {!checkingMfa ? (
               navItems.map((item) => {
-                const itemUrl = new URL(item.href, 'http://localhost');
-                const itemQueryParam = itemUrl.searchParams.get('tab') || '';
-                const isActive = pathname === itemUrl.pathname && currentTab === itemQueryParam;
+                const [itemPath, itemQuery] = item.href.split('?');
+                const itemQueryParam = new URLSearchParams(itemQuery || '').get('tab') || '';
+                const isActive = pathname === itemPath && currentTab === itemQueryParam;
                 return (
                   <Link
                     key={item.name}
@@ -231,8 +231,8 @@ export function Sidebar() {
                     onClick={(e) => {
                       setIsMobileOpen(false);
                       e.preventDefault();
-                      const targetUrl = new URL(item.href, window.location.origin);
-                      const tabVal = targetUrl.searchParams.get('tab') || '';
+                      const [targetPath, targetQuery] = item.href.split('?');
+                      const tabVal = new URLSearchParams(targetQuery || '').get('tab') || '';
                       const finalPath = tabVal ? `/dashboard?tab=${tabVal}` : '/dashboard';
                       window.history.pushState(null, '', finalPath);
                       window.dispatchEvent(new PopStateEvent('popstate'));
