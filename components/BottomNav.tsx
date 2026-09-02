@@ -7,6 +7,7 @@ import { Home, Map, ClipboardList, Bell, User, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Capacitor } from '@capacitor/core';
 import { safeSetDriverStatus } from '@/lib/capacitor-plugins';
+import { PortalSwitcher } from '@/components/PortalSwitcher';
 
 interface UserProfile {
   full_name: string;
@@ -127,12 +128,15 @@ export function BottomNav({ children }: { children: React.ReactNode }) {
       <aside className="hidden md:flex flex-col w-64 h-screen sticky top-0 bg-gradient-to-b from-[#351e56] to-[#1a0e2b] text-slate-100 border-r border-[#2d194a]/60 shadow-2xl flex-shrink-0 z-30 justify-between">
         <div>
           {/* Brand Header */}
-          <div className="flex items-center gap-3 px-6 py-6 border-b border-[#2d194a]/60">
-            <img src="/logo.png" alt="Logo" className="w-9 h-9 object-contain bg-white/5 border border-white/10 rounded-xl p-1" />
-            <div>
-              <h1 className="font-extrabold text-sm tracking-wide text-white leading-none">NaviGuard</h1>
-              <span className="text-[9px] text-purple-300 font-bold uppercase tracking-widest block mt-1">{user.role} Portal</span>
+          <div className="flex items-center justify-between px-6 py-6 border-b border-[#2d194a]/60 gap-2">
+            <div className="flex items-center gap-3">
+              <img src="/logo.png" alt="Logo" className="w-9 h-9 object-contain bg-white/5 border border-white/10 rounded-xl p-1" />
+              <div>
+                <h1 className="font-extrabold text-sm tracking-wide text-white leading-none">NaviGuard</h1>
+                <span className="text-[9px] text-purple-300 font-bold uppercase tracking-widest block mt-1">{user.role} Portal</span>
+              </div>
             </div>
+            <PortalSwitcher />
           </div>
 
           {/* Nav Links */}
@@ -204,7 +208,8 @@ export function BottomNav({ children }: { children: React.ReactNode }) {
             <img src="/logo.png" alt="Logo" className="w-8 h-8 object-contain bg-white/5 border border-white/10 rounded-lg p-0.5" />
             <span className="font-extrabold text-sm tracking-wide">NaviGuard</span>
           </div>
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2">
+            <PortalSwitcher />
             {showDownloadBtn && (
               <a
                 href="/NaviGuard.apk"
