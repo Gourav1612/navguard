@@ -291,20 +291,24 @@ export default function WorkerDashboardView({ tab }: { tab?: string }) {
         </div>
       )}
 
-      {/* Main Shift Telemetry Broadcaster Action */}
+      {/* Main Shift Telemetry Broadcaster Status */}
       {plant && (
-        <div className="bg-white border border-slate-150 p-6 rounded-2xl shadow-sm text-center space-y-6">
+        <div className="bg-white border border-slate-150 p-6 rounded-2xl shadow-sm text-center space-y-5">
           <div className="space-y-1">
-            <h3 className="font-extrabold text-slate-800 text-sm">Shift Attendance Status</h3>
-            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-extrabold uppercase mt-2 ${
+            <h3 className="font-extrabold text-slate-800 text-sm">Shift Attendance & Tracking</h3>
+            <span className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider mt-2 ${
               shiftActive 
-                ? 'bg-green-50 text-green-700 border border-green-150' 
-                : 'bg-slate-50 text-slate-550 border border-slate-150'
+                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
+                : 'bg-amber-50 text-amber-700 border border-amber-200'
             }`}>
-              <span className={`w-1.5 h-1.5 rounded-full ${shiftActive ? 'bg-green-500 animate-pulse' : 'bg-slate-400'}`}></span>
-              {shiftActive ? 'ON SHIFT (BROADCASTING)' : 'OFF SHIFT (STANDBY)'}
+              <span className={`w-2 h-2 rounded-full ${shiftActive ? 'bg-emerald-500 animate-ping' : 'bg-amber-500'}`}></span>
+              {shiftActive ? '🟢 LIVE ON DUTY (AUTO-TRACKING)' : '⏳ CONNECTING GPS SATELLITE...'}
             </span>
           </div>
+
+          <p className="text-[11px] font-semibold text-slate-500 bg-slate-50 border border-slate-100 p-3 rounded-xl">
+            ⚡ Telemetry & location packets are automatically streaming to the Command Center while logged in.
+          </p>
 
           {trackingError && (
             <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-red-800 text-[10px] font-bold text-left leading-normal">
@@ -313,45 +317,24 @@ export default function WorkerDashboardView({ tab }: { tab?: string }) {
             </div>
           )}
 
-          <button
-            onClick={handleToggleShift}
-            className={`w-full py-4 rounded-2xl text-sm font-black transition-all duration-300 shadow-md flex items-center justify-center gap-2 cursor-pointer ${
-              shiftActive 
-                ? 'bg-red-650 hover:bg-red-750 text-white shadow-red-500/10' 
-                : 'bg-[#5c3b99] hover:bg-[#432775] text-white shadow-purple-500/15'
-            }`}
-          >
-            {shiftActive ? (
-              <>
-                <Square className="w-4 h-4 fill-white" />
-                Stop Duty Shift
-              </>
-            ) : (
-              <>
-                <Play className="w-4 h-4 fill-white" />
-                Start Duty Shift
-              </>
-            )}
-          </button>
-
           {/* Real-time Status Gauges */}
           <div className="grid grid-cols-3 gap-4 pt-4 border-t border-slate-100 text-center font-sans">
             <div>
               <span className="text-[9px] text-slate-400 font-bold block uppercase tracking-wider">Speed</span>
               <span className="text-slate-800 font-mono font-extrabold text-sm block mt-1">
-                {shiftActive ? `${speed.toFixed(1)} km/h` : '0.0'}
+                {speed > 0 ? `${speed.toFixed(1)} km/h` : '0.0 km/h'}
               </span>
             </div>
             <div>
               <span className="text-[9px] text-slate-400 font-bold block uppercase tracking-wider">GPS Accuracy</span>
               <span className="text-slate-800 font-extrabold text-sm block mt-1">
-                {shiftActive ? `${accuracy.toFixed(1)}m` : '—'}
+                {accuracy > 0 ? `${accuracy.toFixed(1)}m` : 'High'}
               </span>
             </div>
             <div>
               <span className="text-[9px] text-slate-400 font-bold block uppercase tracking-wider">Battery</span>
               <span className="text-slate-800 font-extrabold text-sm block mt-1 flex items-center justify-center gap-1">
-                <Battery className="w-4 h-4 text-slate-450" />
+                <Battery className="w-4 h-4 text-emerald-600" />
                 {batteryLevel}%
               </span>
             </div>
