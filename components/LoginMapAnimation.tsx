@@ -14,16 +14,16 @@ const markerStyle = `
   .pulse-core {
     width: 14px;
     height: 14px;
-    background-color: #a855f7;
-    border: 2.5px solid #ffffff;
+    background-color: #ffffff;
+    border: 2.5px solid #18181b;
     border-radius: 50%;
-    box-shadow: 0 0 12px 6px rgba(168, 85, 247, 0.6);
+    box-shadow: 0 0 12px 6px rgba(255, 255, 255, 0.5);
   }
   .pulse-halo {
     position: absolute;
     width: 32px;
     height: 32px;
-    border: 2px solid #a855f7;
+    border: 2px solid #71717a;
     border-radius: 50%;
     opacity: 0;
     animation: ripple 2s infinite ease-out;
@@ -83,12 +83,12 @@ export function LoginMapAnimation() {
       maxZoom: 20
     }).addTo(map);
 
-    // 3. Add Polyline Route
+    // 3. Add Polyline Route (Clean silver/grey line)
     L.polyline(routeCoordinates, {
-      color: '#a855f7',
-      weight: 4,
-      opacity: 0.7,
-      dashArray: '8, 12',
+      color: '#a1a1aa',
+      weight: 3.5,
+      opacity: 0.85,
+      dashArray: '6, 6',
       lineCap: 'round',
       lineJoin: 'round'
     }).addTo(map);

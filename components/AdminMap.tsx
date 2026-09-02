@@ -177,7 +177,7 @@ export function AdminMap({ plants = [], locations = [], selectedPlantId = 'all' 
     // Sync Locations
     locations.forEach((loc) => {
       if (!loc.user) return;
-      
+
       const shouldShow = selectedPlantId === 'all' || selectedPlantId === loc.user.plant_id;
       let marker = markersRef.current[loc.user.id];
 

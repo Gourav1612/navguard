@@ -94,33 +94,33 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="relative min-h-screen bg-[#0e071e] text-slate-100 overflow-hidden flex flex-col md:flex-row">
+    <div className="relative min-h-screen bg-[#090A0F] text-zinc-100 overflow-hidden flex flex-col md:flex-row">
       
-      {/* Full-Screen Background Map & Dark Tonal Overlays */}
+      {/* Full-Screen Background Map & Dark Overlays */}
       <div className="absolute inset-0 z-0">
         <LoginMapAnimation />
         
-        {/* Dark Purple Tint & Tonal Gradient Fades */}
-        <div className="absolute inset-0 bg-[#0e071e]/25 pointer-events-none" />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#0e071e]/70 via-transparent to-[#0e071e]/40 pointer-events-none" />
-        <div className="absolute inset-0 bg-gradient-to-b from-[#0e071e]/45 via-transparent to-[#0e071e]/55 pointer-events-none" />
+        {/* Dark Tonal Overlays */}
+        <div className="absolute inset-0 bg-[#090A0F]/40 pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#090A0F] via-transparent to-[#090A0F]/60 pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#090A0F]/60 via-transparent to-[#090A0F] pointer-events-none" />
       </div>
 
       {/* Left Column: Form Panel */}
-      <div className="w-full md:w-[45%] lg:w-[40%] min-h-screen flex items-center justify-center p-6 sm:p-12 bg-[#0e071e]/65 md:bg-[#0e071e]/85 z-10 relative border-r border-[#1f133d]/40 backdrop-blur-xs">
+      <div className="w-full md:w-[45%] lg:w-[40%] min-h-screen flex items-center justify-center p-6 sm:p-12 bg-[#090A0F]/90 md:bg-[#090A0F]/95 z-10 relative border-r border-zinc-800/80 backdrop-blur-xl">
         <div className="w-full max-w-md space-y-8 animate-in fade-in duration-300">
           
           {/* Brand Header */}
           <div className="flex items-center justify-between gap-4 w-full">
             <div className="flex items-center gap-3">
-              <img src="/logo.png" alt="NaviGuard Logo" className="w-10 h-10 object-contain bg-purple-500/5 border border-purple-500/20 rounded-2xl p-1" />
-              <span className="font-extrabold text-base tracking-wider text-purple-100">NaviGuard</span>
+              <img src="/logo.png" alt="NaviGuard Logo" className="w-10 h-10 object-contain bg-zinc-900 border border-zinc-800 rounded-xl p-1" />
+              <span className="font-extrabold text-base tracking-wider text-white">NaviGuard</span>
             </div>
             {showDownloadBtn && (
               <a
                 href="/NaviGuard.apk"
                 download
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 text-purple-300 hover:text-purple-200 rounded-xl text-[10px] font-bold transition-all no-underline"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-zinc-800 bg-zinc-900/50 text-zinc-300 hover:border-zinc-700 hover:text-white rounded-xl text-[10px] font-bold transition-all no-underline"
               >
                 📥 Download App
               </a>
@@ -129,19 +129,19 @@ export default function LoginPage() {
 
           {/* Title Header */}
           <div className="space-y-2 pt-2">
-            <span className="text-[10px] font-black text-purple-400 tracking-widest uppercase block pl-0.5">secured access</span>
+            <span className="text-xs font-mono tracking-[0.25em] text-zinc-400 uppercase block pl-0.5">SECURED ACCESS</span>
             <h2 className="text-3xl lg:text-4xl font-black text-white tracking-tight leading-none">
-              Sign in to account<span className="text-purple-500">.</span>
+              Sign in to account<span className="text-zinc-400">.</span>
             </h2>
-            <p className="text-slate-400 text-xs font-semibold pt-1">
+            <p className="text-zinc-400 text-sm font-medium pt-1">
               Eliminating workforce tracking uncertainty.
             </p>
           </div>
 
           {/* Alert Error Banner */}
           {error && (
-            <div className="flex items-start gap-3 p-4 bg-red-955/40 border border-red-900/60 rounded-2xl text-red-200 text-xs animate-in shake duration-200">
-              <AlertCircle className="w-4.5 h-4.5 text-red-500 flex-shrink-0 mt-0.5" />
+            <div className="flex items-start gap-3 p-4 bg-red-950/30 border border-red-900/50 rounded-xl text-red-300 text-xs animate-in shake duration-200">
+              <AlertCircle className="w-4.5 h-4.5 text-red-400 flex-shrink-0 mt-0.5" />
               <div className="font-bold">{error}</div>
             </div>
           )}
@@ -150,22 +150,22 @@ export default function LoginPage() {
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             {/* Username / Email Field */}
             <div className="space-y-2">
-              <label htmlFor="identifier" className="text-[10px] font-black uppercase tracking-widest text-purple-300 block pl-1">
+              <label htmlFor="identifier" className="text-[10px] font-mono uppercase tracking-widest text-zinc-400 block pl-1">
                 Username / Email
               </label>
-              <div className="relative rounded-2xl shadow-2xs">
+              <div className="relative rounded-xl shadow-sm">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <Mail className="h-4.5 w-4.5 text-purple-400" />
+                  <Mail className="h-4.5 w-4.5 text-zinc-400" />
                 </div>
                 <input
                   id="identifier"
                   type="text"
                   disabled={loading}
-                  placeholder=""
-                  className={`block w-full pl-11 pr-3 py-3.5 bg-[#160d2b]/90 border text-white rounded-2xl text-sm transition focus:outline-none focus:ring-4 focus:ring-purple-500/10 ${
+                  placeholder="Enter Username or Email"
+                  className={`block w-full pl-11 pr-3 py-3.5 bg-zinc-900/60 border text-white placeholder:text-zinc-500 rounded-xl text-sm transition focus:border-white focus:ring-1 focus:ring-white/40 focus:outline-none ${
                     errors.identifier
                       ? 'border-red-500/50 focus:ring-red-500/10'
-                      : 'border-[#301c56] focus:border-purple-500'
+                      : 'border-zinc-800'
                   }`}
                   {...register('identifier')}
                 />
@@ -179,22 +179,22 @@ export default function LoginPage() {
 
             {/* Password Field */}
             <div className="space-y-2">
-              <label htmlFor="password" className="text-[10px] font-black uppercase tracking-widest text-purple-300 block pl-1">
+              <label htmlFor="password" className="text-[10px] font-mono uppercase tracking-widest text-zinc-400 block pl-1">
                 Password
               </label>
-              <div className="relative rounded-2xl shadow-2xs">
+              <div className="relative rounded-xl shadow-sm">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <Lock className="h-4.5 w-4.5 text-purple-400" />
+                  <Lock className="h-4.5 w-4.5 text-zinc-400" />
                 </div>
                 <input
                   id="password"
                   type={showPassword ? 'text' : 'password'}
                   disabled={loading}
                   placeholder="Enter Password"
-                  className={`block w-full pl-11 pr-10 py-3.5 bg-[#160d2b]/90 border text-white rounded-2xl text-sm transition focus:outline-none focus:ring-4 focus:ring-purple-500/10 ${
+                  className={`block w-full pl-11 pr-10 py-3.5 bg-zinc-900/60 border text-white placeholder:text-zinc-500 rounded-xl text-sm transition focus:border-white focus:ring-1 focus:ring-white/40 focus:outline-none ${
                     errors.password
                       ? 'border-red-500/50 focus:ring-red-500/10'
-                      : 'border-[#301c56] focus:border-purple-500'
+                      : 'border-zinc-800'
                   }`}
                   {...register('password')}
                 />
@@ -202,7 +202,7 @@ export default function LoginPage() {
                   type="button"
                   disabled={loading}
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-4 flex items-center text-purple-400 hover:text-purple-300 focus:outline-none cursor-pointer"
+                  className="absolute inset-y-0 right-0 pr-4 flex items-center text-zinc-400 hover:text-white focus:outline-none cursor-pointer"
                 >
                   {showPassword ? <EyeOff className="h-4.5 w-4.5" /> : <Eye className="h-4.5 w-4.5" />}
                 </button>
@@ -218,15 +218,15 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="flex items-center justify-center w-full py-4 px-4 bg-gradient-to-r from-purple-600 via-purple-700 to-indigo-600 hover:opacity-95 text-white rounded-2xl text-xs font-black uppercase tracking-widest transition-all shadow-lg shadow-purple-500/20 active:scale-[0.99] cursor-pointer disabled:opacity-50"
+              className="flex items-center justify-center w-full py-3 px-4 bg-white hover:bg-zinc-200 text-zinc-950 rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-md shadow-white/5 active:scale-[0.99] cursor-pointer disabled:opacity-50"
             >
               {loading ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  <Loader2 className="w-4 h-4 animate-spin mr-2 text-zinc-950" />
                   Verifying Account...
                 </>
               ) : (
-                'Sign In'
+                'SIGN IN'
               )}
             </button>
           </form>
@@ -237,17 +237,17 @@ export default function LoginPage() {
       <div className="hidden md:block md:w-[55%] lg:w-[60%] relative z-10 pointer-events-none">
         
         {/* Wavy solid color mask */}
-        <svg className="absolute top-0 bottom-0 left-0 w-24 h-full text-[#0e071e] opacity-85 fill-current z-20 pointer-events-none -ml-[1px]" viewBox="0 0 100 100" preserveAspectRatio="none">
+        <svg className="absolute top-0 bottom-0 left-0 w-24 h-full text-[#090A0F] opacity-90 fill-current z-20 pointer-events-none -ml-[1px]" viewBox="0 0 100 100" preserveAspectRatio="none">
           <path d="M0,0 C50,20 70,40 30,60 C70,80 50,90 0,100 Z" />
         </svg>
 
-        {/* Wavy neon dashed stroke */}
+        {/* Wavy silver dashed stroke */}
         <svg className="absolute top-0 bottom-0 left-0 w-24 h-full z-20 pointer-events-none -ml-[1px]" viewBox="0 0 100 100" preserveAspectRatio="none">
-          <path d="M0,0 C50,20 70,40 30,60 C70,80 50,90 0,100" fill="none" stroke="#a855f7" strokeWidth="1.5" strokeDasharray="3, 5" opacity="0.8" />
+          <path d="M0,0 C50,20 70,40 30,60 C70,80 50,90 0,100" fill="none" stroke="#71717a" strokeWidth="1.5" strokeDasharray="3, 5" opacity="0.6" />
         </svg>
 
         {/* Gradient overlay */}
-        <div className="absolute inset-y-0 left-0 w-48 bg-gradient-to-r from-[#0e071e]/85 via-[#0e071e]/50 to-transparent z-10 pointer-events-none" />
+        <div className="absolute inset-y-0 left-0 w-48 bg-gradient-to-r from-[#090A0F]/90 via-[#090A0F]/50 to-transparent z-10 pointer-events-none" />
       </div>
     </div>
   );

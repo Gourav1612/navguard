@@ -71,29 +71,31 @@ export function PortalSwitcher() {
   };
 
   return (
-    <div className="relative inline-block text-left z-50">
+    <div className="relative w-full text-left z-50">
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-2 px-3 py-2 bg-white/10 hover:bg-white/20 border border-white/20 rounded-xl text-xs font-bold text-white transition shadow-sm cursor-pointer"
+        className="w-full flex items-center justify-between px-3 py-2 bg-zinc-900/80 hover:bg-zinc-800 border border-zinc-800 rounded-xl text-xs font-bold text-zinc-100 transition shadow-sm cursor-pointer"
         title="Switch Portal View"
       >
-        <Eye className="w-3.5 h-3.5 text-purple-300" />
-        <span className="hidden sm:inline">Portal View:</span>
-        <span className="font-extrabold">{currentOption.label}</span>
-        <ChevronDown className={`w-3.5 h-3.5 transition-transform ${open ? 'rotate-180' : ''}`} />
+        <div className="flex items-center gap-2 min-w-0">
+          <Eye className="w-3.5 h-3.5 text-zinc-400 flex-shrink-0" />
+          <span className="truncate text-zinc-300 font-medium">View:</span>
+          <span className="font-extrabold truncate text-white">{currentOption.label}</span>
+        </div>
+        <ChevronDown className={`w-3.5 h-3.5 text-zinc-400 flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
 
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 mt-2 w-56 bg-white border border-slate-150 rounded-2xl shadow-xl py-1 z-50 animate-in fade-in zoom-in-95 duration-150 overflow-hidden">
-            <div className="px-3.5 py-2 bg-slate-50 border-b border-slate-100">
-              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">
-                Switch Active View
+          <div className="absolute left-0 right-0 mt-2 w-full bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl py-1 z-50 animate-in fade-in zoom-in-95 duration-150 overflow-hidden">
+            <div className="px-3.5 py-2 bg-zinc-950 border-b border-zinc-800">
+              <span className="text-[9px] font-mono font-bold text-zinc-400 uppercase tracking-wider block">
+                SWITCH PORTAL VIEW
               </span>
-              <span className="text-[10px] text-slate-500 font-semibold">
-                Your Role: <strong className="uppercase text-[#5c3b99]">{userRole}</strong>
+              <span className="text-[10px] text-zinc-400 font-medium block mt-0.5">
+                Role: <strong className="uppercase text-white">{userRole}</strong>
               </span>
             </div>
 
@@ -106,19 +108,19 @@ export function PortalSwitcher() {
                   <button
                     key={portal.key}
                     onClick={() => handleSelect(portal.key)}
-                    className={`w-full flex items-center justify-between px-3 py-2 text-left rounded-xl text-xs font-bold transition cursor-pointer ${
+                    className={`w-full flex items-center justify-between px-3 py-2 text-left rounded-lg text-xs font-bold transition cursor-pointer ${
                       isSelected
-                        ? 'bg-purple-50 text-[#5c3b99]'
-                        : 'text-slate-700 hover:bg-slate-50'
+                        ? 'bg-zinc-800 text-white border border-zinc-700'
+                        : 'text-zinc-300 hover:bg-zinc-800/60'
                     }`}
                   >
-                    <div className="flex items-center gap-2">
-                      <div className={`p-1 rounded-lg ${portal.color}`}>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="p-1 rounded-md bg-zinc-950 border border-zinc-800 text-zinc-300">
                         <IconComponent className="w-3.5 h-3.5" />
                       </div>
-                      <span>{portal.label}</span>
+                      <span className="truncate">{portal.label}</span>
                     </div>
-                    {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-[#5c3b99]"></span>}
+                    {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-white flex-shrink-0"></span>}
                   </button>
                 );
               })}
