@@ -73,6 +73,82 @@ export default function SupervisorDashboardView({ tab }: { tab?: string }) {
     };
   }, [supervisorProfile?.id, supabase, refetch]);
 
+  // Automatically start background packet streaming upon login
+  useEffect(() => {
+    let watchId: number | null = null;
+    let lastSent = 0;
+
+    async function startAutoTracking() {
+      if (!supervisorProfile?.id) return;
+      const sessionRes = await supabase.auth.getSession();
+      const sessionToken = sessionRes.data.session?.access_token;
+      if (!sessionToken) return;
+
+      setIsShiftActive(true);
+
+      if (Capacitor.isNativePlatform()) {
+        try {
+          await LocationService.startTracking({
+            token: sessionToken,
+            busId: supervisorProfile.id,
+            tripId: '',
+            serverUrl: `${window.location.origin}/api/worker/location`,
+            isTripActive: true,
+          });
+        } catch (err) {
+          console.error('Failed to start native tracking:', err);
+        }
+      }
+
+      if ('geolocation' in navigator) {
+        watchId = navigator.geolocation.watchPosition(
+          async (pos) => {
+            const now = Date.now();
+            const intervalSeconds = supervisorProfile.location_interval || 10;
+            if (now - lastSent < intervalSeconds * 1000) return;
+            lastSent = now;
+
+            try {
+              const res = await fetch('/api/worker/location', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionToken}` },
+                body: JSON.stringify({
+                  lat: pos.coords.latitude,
+                  lng: pos.coords.longitude,
+                  speed: pos.coords.speed ? pos.coords.speed * 3.6 : 0,
+                  heading: pos.coords.heading || 0,
+                  accuracy: pos.coords.accuracy,
+                  battery_level: 100,
+                  is_tracking: true,
+                }),
+              });
+              const data = await res.json();
+              if (data && data.trackingEnabled === false) {
+                setIsShiftActive(false);
+              } else {
+                setIsShiftActive(true);
+              }
+            } catch (err) {
+              console.error('Failed to post coordinates:', err);
+            }
+          },
+          (err) => {
+            setTrackingError(err.message || 'GPS access denied.');
+          },
+          { enableHighAccuracy: true, maximumAge: 0 }
+        );
+      }
+    }
+
+    startAutoTracking();
+
+    return () => {
+      if (watchId !== null) {
+        navigator.geolocation.clearWatch(watchId);
+      }
+    };
+  }, [supervisorProfile?.id, supabase]);
+
   // Handle Shift Toggle (GPS Telemetry Broadcaster)
   const toggleShift = async () => {
     if (isShiftActive) {

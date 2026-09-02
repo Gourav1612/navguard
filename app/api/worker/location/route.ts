@@ -27,8 +27,29 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid telemetry payload', details: parsed.error.format() }, { status: 400 });
     }
 
-    // Upsert live location details using admin client to bypass RLS policies
     const adminClient = createAdminClient();
+
+    // Check if Admin has enabled or paused tracking for this user profile
+    const { data: userProfile } = await adminClient
+      .from('user_profiles')
+      .select('is_active, location_interval')
+      .eq('id', auth.user.id)
+      .single();
+
+    if (userProfile && !userProfile.is_active) {
+      // Admin has paused tracking for this user: set is_tracking = false in DB
+      await adminClient
+        .from('live_locations')
+        .update({ is_tracking: false, recorded_at: new Date().toISOString() })
+        .eq('user_id', auth.user.id);
+
+      return NextResponse.json({
+        success: false,
+        trackingEnabled: false,
+        message: 'Packet streaming paused by Admin'
+      });
+    }
+
     const { data: location, error } = await adminClient
       .from('live_locations')
       .upsert({
@@ -39,7 +60,7 @@ export async function POST(req: NextRequest) {
         heading: parsed.data.heading,
         accuracy: parsed.data.accuracy,
         battery_level: parsed.data.battery_level,
-        is_tracking: parsed.data.is_tracking,
+        is_tracking: true,
         recorded_at: new Date().toISOString()
       }, { onConflict: 'user_id' })
       .select()
@@ -49,7 +70,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, location });
+    return NextResponse.json({
+      success: true,
+      trackingEnabled: true,
+      interval: userProfile?.location_interval || 10,
+      location
+    });
   } catch (err: any) {
     return NextResponse.json({ error: err.message || 'Server error' }, { status: 500 });
   }

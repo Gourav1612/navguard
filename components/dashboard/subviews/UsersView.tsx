@@ -21,7 +21,8 @@ import {
   Building,
   Users,
   Eye,
-  EyeOff
+  EyeOff,
+  Radio
 } from 'lucide-react';
 import { z } from 'zod';
 
@@ -114,6 +115,24 @@ export default function UsersView() {
       location_interval: user.location_interval || 10,
     });
     setShowModal(true);
+  };
+
+  const togglePacketStreaming = async (user: any) => {
+    try {
+      const res = await fetch(`/api/admin/users/${user.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          full_name: user.full_name,
+          role: user.role,
+          is_active: !user.is_active,
+        }),
+      });
+      if (!res.ok) throw new Error('Failed to update tracking state');
+      refetchUsers();
+    } catch (err: any) {
+      alert(err.message || 'Failed to toggle packet streaming state');
+    }
   };
 
   const onSubmit = async (values: UserFormValues) => {
@@ -304,6 +323,26 @@ export default function UsersView() {
                       {user.supervisor?.full_name || '—'}
                     </span>
                   </div>
+                </div>
+
+                {/* Packet Streaming Toggle Button for Admin */}
+                <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() => togglePacketStreaming(user)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black transition cursor-pointer ${
+                      user.is_active
+                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100'
+                        : 'bg-red-50 text-red-650 border border-red-200 hover:bg-red-100'
+                    }`}
+                    title={user.is_active ? "Click to Pause Packet Streaming" : "Click to Enable Packet Streaming"}
+                  >
+                    <Radio className="w-3.5 h-3.5 animate-pulse" />
+                    {user.is_active ? 'Packets: STREAMING' : 'Packets: PAUSED'}
+                  </button>
+                  <span className="text-[10px] text-slate-400 font-bold">
+                    Interval: {user.location_interval || 10}s
+                  </span>
                 </div>
               </div>
             </div>

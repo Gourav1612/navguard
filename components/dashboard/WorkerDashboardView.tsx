@@ -56,6 +56,87 @@ export default function WorkerDashboardView({ tab }: { tab?: string }) {
     }
   }, []);
 
+  // Automatically start background packet streaming upon login
+  useEffect(() => {
+    let watchId: number | null = null;
+
+    async function startAutoTracking() {
+      const sessionRes = await supabase.auth.getSession();
+      const sessionToken = sessionRes.data.session?.access_token;
+      if (!sessionToken) return;
+
+      setShiftActive(true);
+
+      if (Capacitor.isNativePlatform()) {
+        try {
+          await LocationService.startTracking({
+            token: sessionToken,
+            busId: assignment?.worker?.id || '',
+            tripId: '',
+            serverUrl: `${window.location.origin}/api/worker/location`,
+            isTripActive: true,
+          });
+        } catch (err) {
+          console.error('Failed to start native location tracking:', err);
+        }
+      }
+
+      if ('geolocation' in navigator) {
+        watchId = navigator.geolocation.watchPosition(
+          async (pos) => {
+            const currentSpeed = pos.coords.speed ? pos.coords.speed * 3.6 : 0;
+            const currentAccuracy = pos.coords.accuracy;
+            setSpeed(currentSpeed);
+            setAccuracy(currentAccuracy);
+
+            const now = Date.now();
+            const intervalSeconds = assignment?.worker?.location_interval || 10;
+            if (now - lastSentRef.current < intervalSeconds * 1000) return;
+            lastSentRef.current = now;
+
+            try {
+              const res = await fetch('/api/worker/location', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionToken}` },
+                body: JSON.stringify({
+                  lat: pos.coords.latitude,
+                  lng: pos.coords.longitude,
+                  speed: currentSpeed,
+                  heading: pos.coords.heading || 0,
+                  accuracy: currentAccuracy,
+                  battery_level: batteryLevel,
+                  is_tracking: true,
+                }),
+              });
+              const data = await res.json();
+              if (data && data.trackingEnabled === false) {
+                setShiftActive(false);
+              } else {
+                setShiftActive(true);
+              }
+            } catch (err) {
+              console.error('Failed to post coordinates:', err);
+            }
+          },
+          (err) => {
+            setTrackingError(err.message || 'GPS access denied.');
+          },
+          { enableHighAccuracy: true, maximumAge: 0 }
+        );
+      }
+    }
+
+    if (assignment) {
+      startAutoTracking();
+    }
+
+    return () => {
+      if (watchId !== null) {
+        navigator.geolocation.clearWatch(watchId);
+      }
+    };
+  }, [assignment, supabase, batteryLevel]);
+
   // Handle Shift Telemetry Broadcaster
   const handleToggleShift = async () => {
     if (shiftActive) {
