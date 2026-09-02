@@ -65,7 +65,6 @@ export default function AdminAuditLogs() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h2 className="text-2xl font-black text-slate-900 tracking-tight">System Audit Logs</h2>
-          <p className="text-slate-500 text-sm font-medium">Review operational logs, account mutations, database updates, and tracking events.</p>
         </div>
         {logs.length > 0 && (
           <button

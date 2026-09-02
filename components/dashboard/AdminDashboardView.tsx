@@ -174,9 +174,6 @@ export default function AdminDashboardView({ tab: initialTab }: { tab?: string }
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h2 className="text-2xl font-black text-slate-900 tracking-tight">Workforce Command Center</h2>
-          <p className="text-slate-500 text-sm font-medium">
-            Monitor real-time personnel tracking, geofence safety, and plant operations.
-          </p>
         </div>
 
         {/* Global Plant Filter */}

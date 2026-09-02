@@ -133,9 +133,6 @@ export default function LoginPage() {
             <h2 className="text-3xl lg:text-4xl font-black text-white tracking-tight leading-none">
               Sign in to account<span className="text-zinc-400">.</span>
             </h2>
-            <p className="text-zinc-400 text-sm font-medium pt-1">
-              Eliminating workforce tracking uncertainty.
-            </p>
           </div>
 
           {/* Alert Error Banner */}

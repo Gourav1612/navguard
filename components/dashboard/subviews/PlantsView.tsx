@@ -194,9 +194,6 @@ export default function PlantsView() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h2 className="text-xl font-black text-slate-900 tracking-tight">Plant Management</h2>
-          <p className="text-slate-500 text-xs font-medium">
-            Manage your industrial plant locations, coordinates, and geofence boundary safety thresholds.
-          </p>
         </div>
         <button
           onClick={handleOpenCreate}

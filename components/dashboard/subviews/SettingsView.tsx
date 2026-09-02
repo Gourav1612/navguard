@@ -115,9 +115,6 @@ export default function SettingsView() {
           <h2 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
             <Settings className="w-6 h-6 text-zinc-900" /> Security & Account
           </h2>
-          <p className="text-slate-500 text-sm font-medium">
-            Manage your Super Admin credentials, password verification, and authentication settings.
-          </p>
         </div>
         {otpStep !== 'initial' && (
           <button

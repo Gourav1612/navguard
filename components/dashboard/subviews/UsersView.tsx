@@ -197,9 +197,6 @@ export default function UsersView() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h2 className="text-xl font-black text-slate-900 tracking-tight">Personnel Roster</h2>
-          <p className="text-slate-500 text-xs font-medium">
-            Onboard, edit, and assign Managers, Supervisors, and Workers within plant organizations.
-          </p>
         </div>
         <button
           onClick={handleOpenCreate}
