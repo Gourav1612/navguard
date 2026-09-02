@@ -238,9 +238,14 @@ export default function SupervisorDashboardView({ tab }: { tab?: string }) {
 
   if (!supervisorProfile || isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
-        <Loader2 className="w-8 h-8 text-[#5c3b99] animate-spin" />
-        <p className="text-slate-500 font-bold text-sm">Loading Supervisor Panel...</p>
+      <div className="p-4 lg:p-8 space-y-6 max-w-7xl mx-auto animate-pulse">
+        <div className="h-8 bg-slate-200 rounded-xl w-1/4" />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="h-28 bg-slate-200 rounded-2xl" />
+          <div className="h-28 bg-slate-200 rounded-2xl" />
+          <div className="h-28 bg-slate-200 rounded-2xl" />
+        </div>
+        <div className="h-80 bg-slate-200 rounded-2xl" />
       </div>
     );
   }
@@ -253,13 +258,13 @@ export default function SupervisorDashboardView({ tab }: { tab?: string }) {
 
       {/* Plant Manager Contact Card */}
       {plantManager && (
-        <div className="bg-white border border-slate-150 rounded-2xl p-5 shadow-sm flex items-center justify-between gap-4">
+        <div className="bg-white border border-slate-150 p-4 rounded-2xl shadow-sm flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-purple-50 text-[#5c3b99] border border-purple-100 rounded-xl flex items-center justify-center font-extrabold text-sm">
+            <div className="w-10 h-10 bg-slate-100 text-slate-800 border border-slate-200 rounded-xl flex items-center justify-center font-extrabold text-sm">
               🏢
             </div>
             <div>
-              <span className="text-[9px] text-slate-400 font-bold block uppercase tracking-wider">Plant Manager</span>
+              <span className="text-[9px] text-slate-400 font-bold block uppercase tracking-wider">Site Plant Manager</span>
               <h4 className="font-extrabold text-slate-900 text-sm mt-0.5">{plantManager.full_name}</h4>
               <span className="text-[10px] text-slate-500 block leading-tight">{plantManager.email}</span>
             </div>
@@ -268,7 +273,7 @@ export default function SupervisorDashboardView({ tab }: { tab?: string }) {
           {plantManager.phone && (
             <a
               href={`tel:${plantManager.phone}`}
-              className="flex items-center gap-1.5 px-3 py-2 bg-[#5c3b99] hover:bg-[#432775] text-white text-xs font-bold rounded-xl transition shadow-sm"
+              className="flex items-center gap-1.5 px-3 py-2 bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-bold rounded-xl transition shadow-sm"
             >
               <Phone className="w-3.5 h-3.5" />
               Call Manager
@@ -304,7 +309,7 @@ export default function SupervisorDashboardView({ tab }: { tab?: string }) {
             onClick={toggleShift}
             className={`flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-xs font-black transition cursor-pointer shadow-sm ${isShiftActive
               ? 'bg-red-650 hover:bg-red-750 text-white shadow-red-500/10'
-              : 'bg-[#5c3b99] hover:bg-[#432775] text-white shadow-purple-500/10'
+              : 'bg-zinc-900 hover:bg-zinc-800 text-white'
               }`}
           >
             {isShiftActive ? (

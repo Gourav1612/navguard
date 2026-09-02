@@ -15,7 +15,8 @@ import {
   Phone, 
   Play, 
   Square,
-  AlertCircle
+  AlertCircle,
+  Activity
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { Capacitor } from '@capacitor/core';
@@ -242,9 +243,14 @@ export default function ManagerDashboardView({ tab }: { tab?: string }) {
 
   if (!managerProfile || isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
-        <Loader2 className="w-8 h-8 text-[#5c3b99] animate-spin" />
-        <p className="text-slate-500 font-bold text-sm">Loading Plant Manager Panel...</p>
+      <div className="p-4 lg:p-8 space-y-6 max-w-7xl mx-auto animate-pulse">
+        <div className="h-8 bg-slate-200 rounded-xl w-1/4" />
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+          <div className="h-28 bg-slate-200 rounded-2xl" />
+          <div className="h-28 bg-slate-200 rounded-2xl" />
+          <div className="h-28 bg-slate-200 rounded-2xl" />
+        </div>
+        <div className="h-96 bg-slate-200 rounded-2xl" />
       </div>
     );
   }
@@ -256,7 +262,7 @@ export default function ManagerDashboardView({ tab }: { tab?: string }) {
       {/* Header Panel */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 border border-slate-150 rounded-2xl shadow-sm">
         <div>
-          <span className="text-[9px] font-bold text-purple-650 uppercase tracking-widest bg-purple-50 border border-purple-100 px-2.5 py-1 rounded-lg">
+          <span className="text-[9px] font-bold text-slate-800 uppercase tracking-widest bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-lg">
             Site command
           </span>
           <h2 className="text-2xl font-black text-slate-900 mt-2 tracking-tight">
@@ -281,7 +287,7 @@ export default function ManagerDashboardView({ tab }: { tab?: string }) {
             className={`flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-xs font-black transition cursor-pointer shadow-sm ${
               isShiftActive 
                 ? 'bg-red-650 hover:bg-red-750 text-white shadow-red-500/10' 
-                : 'bg-[#5c3b99] hover:bg-[#432775] text-white shadow-purple-500/10'
+                : 'bg-zinc-900 hover:bg-zinc-800 text-white'
             }`}
           >
             {isShiftActive ? (
@@ -302,7 +308,7 @@ export default function ManagerDashboardView({ tab }: { tab?: string }) {
       {/* Metrics Row */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
         <div className="bg-white border border-slate-150 p-6 rounded-2xl shadow-sm flex items-center gap-4">
-          <div className="p-3 bg-purple-50 text-[#5c3b99] rounded-xl border border-purple-100">
+          <div className="p-3 bg-slate-100 text-slate-800 rounded-xl border border-slate-200">
             <Building className="w-6 h-6" />
           </div>
           <div>
@@ -310,65 +316,65 @@ export default function ManagerDashboardView({ tab }: { tab?: string }) {
             <span className="text-2xl font-black text-slate-900 mt-0.5 block">{supervisors.length}</span>
           </div>
         </div>
+
         <div className="bg-white border border-slate-150 p-6 rounded-2xl shadow-sm flex items-center gap-4">
-          <div className="p-3 bg-blue-50 text-blue-600 rounded-xl border border-blue-100">
+          <div className="p-3 bg-blue-50 text-blue-800 rounded-xl border border-blue-100">
             <Users className="w-6 h-6" />
           </div>
           <div>
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Workers On Site</span>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Total Workers</span>
             <span className="text-2xl font-black text-slate-900 mt-0.5 block">{workers.length}</span>
           </div>
         </div>
+
         <div className="bg-white border border-slate-150 p-6 rounded-2xl shadow-sm flex items-center gap-4">
-          <div className="p-3 bg-green-50 text-green-600 rounded-xl border border-green-100 relative">
-            <Radio className="w-6 h-6" />
-            <span className="absolute top-1.5 right-1.5 flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-            </span>
+          <div className="p-3 bg-emerald-50 text-emerald-800 rounded-xl border border-emerald-100">
+            <Activity className="w-6 h-6" />
           </div>
           <div>
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Active On-Duty</span>
-            <span className="text-2xl font-black text-slate-900 mt-0.5 block">{activeShifts}</span>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Live Stream Packets</span>
+            <span className="text-2xl font-black text-emerald-650 mt-0.5 block">{locations.filter((l: any) => l.is_tracking).length}</span>
           </div>
         </div>
       </div>
 
-      {/* Interactive Map */}
-      <div className="space-y-3">
-        <h3 className="text-lg font-bold text-slate-800 tracking-tight">Real-Time Site Map</h3>
-        <AdminMap plants={[managerProfile.plant]} locations={locations} selectedPlantId={plantId} />
-      </div>
+      {/* Roster & Telemetry Subviews */}
+      <div className="bg-white border border-slate-150 rounded-2xl p-6 shadow-sm space-y-6">
+        <div className="flex items-center justify-between border-b pb-4 border-slate-100">
+          <h3 className="font-black text-slate-900 text-base">Supervisors & Workers Roster</h3>
+          <span className="text-xs text-slate-400 font-bold">Total: {workers.length} Personnel</span>
+        </div>
 
-      {/* Team Accordion */}
-      <div className="space-y-4">
-        <h3 className="text-lg font-bold text-slate-800 tracking-tight">Personnel Roster & Safety</h3>
-
-        <div className="space-y-3">
+        <div className="space-y-4">
           {supervisors.length === 0 ? (
-            <div className="bg-white border border-slate-150 rounded-2xl p-8 text-center text-slate-400 font-medium">
-              No supervisors onboarded at this site yet.
+            <div className="p-8 text-center text-slate-400 text-xs font-semibold">
+              No supervisors currently assigned to this plant.
             </div>
           ) : (
             supervisors.map((supervisor: any) => {
-              const assignedWorkers = workers.filter((w) => w.supervisor_id === supervisor.id);
               const isExpanded = expandedSupervisorId === supervisor.id;
+              const assignedWorkers = workers.filter((w: any) => w.supervisor_id === supervisor.id);
 
               return (
-                <div key={supervisor.id} className="bg-white border border-slate-150 rounded-2xl overflow-hidden shadow-sm">
-                  {/* Accordion Trigger */}
+                <div key={supervisor.id} className="border border-slate-200 rounded-2xl overflow-hidden transition shadow-2xs">
+                  {/* Accordion Header */}
                   <button
                     onClick={() => setExpandedSupervisorId(isExpanded ? null : supervisor.id)}
-                    className="w-full flex items-center justify-between p-5 bg-slate-50/50 hover:bg-slate-50 transition border-0 cursor-pointer"
+                    className="w-full p-4 bg-slate-50 hover:bg-slate-100/70 transition flex items-center justify-between text-left cursor-pointer"
                   >
-                    <div className="flex items-center gap-3 text-left">
-                      <div className="w-8 h-8 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center font-bold text-xs">
-                        {supervisor.full_name.substring(0, 2).toUpperCase()}
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-slate-100 border border-slate-200 rounded-xl flex items-center justify-center font-extrabold text-sm text-slate-700">
+                        👤
                       </div>
                       <div>
-                        <h4 className="font-extrabold text-slate-900 text-xs sm:text-sm">{supervisor.full_name}</h4>
-                        <p className="text-slate-400 text-[10px] font-semibold mt-0.5">
-                          Supervisor • {assignedWorkers.length} Workers Assigned
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-extrabold text-slate-900 text-sm">{supervisor.full_name}</h4>
+                          <span className="px-2 py-0.5 bg-amber-50 border border-amber-200 text-amber-800 rounded-md text-[9px] font-bold uppercase">
+                            Supervisor
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 font-medium mt-0.5">
+                          {supervisor.email} • {assignedWorkers.length} Direct Reports
                         </p>
                       </div>
                     </div>
@@ -378,7 +384,7 @@ export default function ManagerDashboardView({ tab }: { tab?: string }) {
                         <a
                           href={`tel:${supervisor.phone}`}
                           onClick={(e) => e.stopPropagation()}
-                          className="p-2 bg-white border border-slate-200 text-[#5c3b99] hover:bg-[#5c3b99] hover:text-white rounded-xl transition shadow-sm"
+                          className="p-2 bg-white border border-slate-200 text-slate-800 hover:bg-zinc-900 hover:text-white rounded-xl transition shadow-sm"
                           title="Call Supervisor"
                         >
                           <Phone className="w-4 h-4" />

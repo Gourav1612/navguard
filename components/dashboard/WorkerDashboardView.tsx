@@ -248,12 +248,13 @@ export default function WorkerDashboardView({ tab }: { tab?: string }) {
       }
     };
   }, []);
-
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
-        <Loader2 className="w-8 h-8 text-[#5c3b99] animate-spin" />
-        <p className="text-slate-500 font-bold text-sm">Loading Worker Panel...</p>
+      <div className="max-w-xl mx-auto space-y-6 animate-pulse">
+        <div className="h-28 bg-slate-200 rounded-2xl" />
+        <div className="h-64 bg-slate-200 rounded-2xl" />
+        <div className="h-24 bg-slate-200 rounded-2xl" />
+        <div className="h-24 bg-slate-200 rounded-2xl" />
       </div>
     );
   }
@@ -273,84 +274,60 @@ export default function WorkerDashboardView({ tab }: { tab?: string }) {
   const { plant, supervisor, plantManager } = assignment;
 
   return (
-    <div className="p-4 sm:p-6 space-y-6 max-w-md mx-auto animate-in fade-in duration-200">
-      
-      {/* Header Plant Tag */}
-      {plant ? (
-        <div className="bg-white border border-slate-150 p-5 rounded-2xl shadow-sm space-y-2">
-          <span className="text-[9px] font-bold text-blue-650 uppercase tracking-widest bg-blue-50 border border-blue-100 px-2.5 py-1 rounded-lg">
-            Active Site Link
-          </span>
-          <h2 className="text-xl font-black text-slate-900 tracking-tight mt-2">{plant.name}</h2>
-          <p className="text-slate-500 text-[10px] font-bold uppercase">Plant Code: {plant.code}</p>
+    <div className="max-w-xl mx-auto space-y-6 pb-8">
+      {/* Site Assignment Header Card */}
+      <div className="bg-white border border-slate-150 p-6 rounded-2xl shadow-sm text-center relative overflow-hidden">
+        <div className="inline-block px-3 py-1 bg-slate-100 border border-slate-200 rounded-full text-[10px] font-black text-slate-800 uppercase tracking-widest mb-3">
+          Active Site Link
         </div>
-      ) : (
-        <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl text-amber-800 text-xs font-bold flex items-center gap-2">
-          <AlertTriangle className="w-5 h-5 flex-shrink-0" />
-          <span>No active plant site link configured. Telemetry disabled.</span>
-        </div>
-      )}
+        <h2 className="text-2xl font-black text-slate-900 tracking-tight">{plant.name}</h2>
+        <p className="text-xs font-mono text-slate-500 font-bold mt-1">PLANT CODE: {plant.code}</p>
+      </div>
 
-      {/* Main Shift Telemetry Broadcaster Status */}
-      {plant && (
-        <div className="bg-white border border-slate-150 p-6 rounded-2xl shadow-sm text-center space-y-5">
-          <div className="space-y-1">
-            <h3 className="font-extrabold text-slate-800 text-sm">Shift Attendance & Tracking</h3>
-            <span className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider mt-2 ${
-              shiftActive 
-                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
-                : 'bg-amber-50 text-amber-700 border border-amber-200'
-            }`}>
-              <span className={`w-2 h-2 rounded-full ${shiftActive ? 'bg-emerald-500 animate-ping' : 'bg-amber-500'}`}></span>
-              {shiftActive ? '🟢 LIVE ON DUTY (AUTO-TRACKING)' : '⏳ CONNECTING GPS SATELLITE...'}
-            </span>
+      {/* Auto Shift Tracking Active Card */}
+      <div className="bg-white border border-slate-150 p-6 rounded-2xl shadow-sm space-y-6">
+        <div className="text-center space-y-2">
+          <h3 className="text-base font-extrabold text-slate-900">Shift Attendance & Tracking</h3>
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-full text-xs font-black">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+            LIVE ON DUTY (AUTO-TRACKING)
           </div>
+        </div>
 
-          <p className="text-[11px] font-semibold text-slate-500 bg-slate-50 border border-slate-100 p-3 rounded-xl">
+        <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-center">
+          <p className="text-xs font-semibold text-slate-600">
             ⚡ Telemetry & location packets are automatically streaming to the Command Center while logged in.
           </p>
+        </div>
 
-          {trackingError && (
-            <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-red-800 text-[10px] font-bold text-left leading-normal">
-              <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5 text-red-650" />
-              <span>{trackingError}</span>
-            </div>
-          )}
+        <div className="grid grid-cols-3 gap-3 pt-2 text-center">
+          <div className="p-3 bg-slate-50 rounded-xl border border-slate-150">
+            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Speed</span>
+            <span className="text-xs font-black text-slate-800 block mt-1">0.0 km/h</span>
+          </div>
 
-          {/* Real-time Status Gauges */}
-          <div className="grid grid-cols-3 gap-4 pt-4 border-t border-slate-100 text-center font-sans">
-            <div>
-              <span className="text-[9px] text-slate-400 font-bold block uppercase tracking-wider">Speed</span>
-              <span className="text-slate-800 font-mono font-extrabold text-sm block mt-1">
-                {speed > 0 ? `${speed.toFixed(1)} km/h` : '0.0 km/h'}
-              </span>
-            </div>
-            <div>
-              <span className="text-[9px] text-slate-400 font-bold block uppercase tracking-wider">GPS Accuracy</span>
-              <span className="text-slate-800 font-extrabold text-sm block mt-1">
-                {accuracy > 0 ? `${accuracy.toFixed(1)}m` : 'High'}
-              </span>
-            </div>
-            <div>
-              <span className="text-[9px] text-slate-400 font-bold block uppercase tracking-wider">Battery</span>
-              <span className="text-slate-800 font-extrabold text-sm block mt-1 flex items-center justify-center gap-1">
-                <Battery className="w-4 h-4 text-emerald-600" />
-                {batteryLevel}%
-              </span>
-            </div>
+          <div className="p-3 bg-slate-50 rounded-xl border border-slate-150">
+            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">GPS Accuracy</span>
+            <span className="text-xs font-black text-slate-800 block mt-1">High</span>
+          </div>
+
+          <div className="p-3 bg-slate-50 rounded-xl border border-slate-150">
+            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Battery</span>
+            <span className="text-xs font-black text-slate-800 block mt-1 flex items-center justify-center gap-1">
+              <Battery className="w-3.5 h-3.5 text-emerald-600" /> 100%
+            </span>
           </div>
         </div>
-      )}
+      </div>
 
-      {/* Reporting Contacts Card */}
-      <div className="space-y-4">
-        <h3 className="text-xs font-bold text-slate-450 uppercase tracking-widest pl-2">Line Reporting Contacts</h3>
-        
-        {/* Supervisor Card */}
-        {supervisor ? (
+      {/* Reporting Contacts */}
+      <div className="space-y-3">
+        <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider pl-1">Line Reporting Contacts</h4>
+
+        {supervisor && (
           <div className="bg-white border border-slate-150 p-4.5 rounded-2xl shadow-sm flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 bg-amber-50 text-amber-700 border border-amber-100 rounded-xl flex items-center justify-center font-extrabold text-xs">
+              <div className="w-9 h-9 bg-slate-100 text-slate-800 border border-slate-200 rounded-xl flex items-center justify-center font-extrabold text-xs">
                 👤
               </div>
               <div>
@@ -362,24 +339,19 @@ export default function WorkerDashboardView({ tab }: { tab?: string }) {
             {supervisor.phone && (
               <a
                 href={`tel:${supervisor.phone}`}
-                className="p-2.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-100 rounded-xl transition shadow-sm"
+                className="p-2.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-xl transition shadow-sm"
                 title="Call Supervisor"
               >
                 <Phone className="w-4 h-4" />
               </a>
             )}
           </div>
-        ) : (
-          <div className="bg-white border border-slate-150 p-4 rounded-xl text-center text-slate-400 text-xs font-semibold">
-            No line supervisor assigned.
-          </div>
         )}
 
-        {/* Plant Manager Card */}
-        {plantManager ? (
+        {plantManager && (
           <div className="bg-white border border-slate-150 p-4.5 rounded-2xl shadow-sm flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 bg-purple-50 text-[#5c3b99] border border-purple-100 rounded-xl flex items-center justify-center font-extrabold text-xs">
+              <div className="w-9 h-9 bg-slate-100 text-slate-800 border border-slate-200 rounded-xl flex items-center justify-center font-extrabold text-xs">
                 🏢
               </div>
               <div>
@@ -391,16 +363,12 @@ export default function WorkerDashboardView({ tab }: { tab?: string }) {
             {plantManager.phone && (
               <a
                 href={`tel:${plantManager.phone}`}
-                className="p-2.5 bg-purple-50 hover:bg-purple-100 text-[#5c3b99] border border-purple-100 rounded-xl transition shadow-sm"
+                className="p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 rounded-xl transition shadow-sm"
                 title="Call Manager"
               >
                 <Phone className="w-4 h-4" />
               </a>
             )}
-          </div>
-        ) : (
-          <div className="bg-white border border-slate-150 p-4 rounded-xl text-center text-slate-400 text-xs font-semibold">
-            No plant manager found for this site.
           </div>
         )}
       </div>

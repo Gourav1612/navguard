@@ -218,8 +218,10 @@ export default function PlantsView() {
 
       {/* Content Grid */}
       {isLoading ? (
-        <div className="flex justify-center items-center py-20">
-          <Loader2 className="w-8 h-8 text-[#5c3b99] animate-spin" />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-pulse">
+          <div className="h-48 bg-slate-200 rounded-2xl" />
+          <div className="h-48 bg-slate-200 rounded-2xl" />
+          <div className="h-48 bg-slate-200 rounded-2xl" />
         </div>
       ) : filteredPlants.length === 0 ? (
         <div className="bg-white border border-slate-150 rounded-2xl p-12 text-center text-slate-400 font-medium">

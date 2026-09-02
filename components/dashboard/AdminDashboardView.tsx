@@ -34,9 +34,8 @@ import { DashboardSkeleton } from '@/components/ui/Skeleton';
 const AdminMap = dynamic(() => import('@/components/AdminMap').then((m) => m.AdminMap), {
   ssr: false,
   loading: () => (
-    <div className="w-full h-[450px] bg-slate-100 border border-slate-200 rounded-2xl flex items-center justify-center text-slate-400 font-medium">
-      <Loader2 className="w-8 h-8 text-slate-400 animate-spin mr-3" />
-      Loading Map Module...
+    <div className="w-full h-[450px] bg-slate-200 rounded-2xl animate-pulse flex items-center justify-center text-slate-400 font-bold text-sm">
+      Initializing Map Telemetry...
     </div>
   ),
 });

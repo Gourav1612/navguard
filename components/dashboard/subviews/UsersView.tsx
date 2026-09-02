@@ -246,8 +246,13 @@ export default function UsersView() {
       </div>
 
       {usersLoading ? (
-        <div className="flex justify-center items-center py-16">
-          <Loader2 className="w-8 h-8 text-zinc-900 animate-spin" />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 animate-pulse">
+          <div className="h-44 bg-slate-200 rounded-2xl" />
+          <div className="h-44 bg-slate-200 rounded-2xl" />
+          <div className="h-44 bg-slate-200 rounded-2xl" />
+          <div className="h-44 bg-slate-200 rounded-2xl" />
+          <div className="h-44 bg-slate-200 rounded-2xl" />
+          <div className="h-44 bg-slate-200 rounded-2xl" />
         </div>
       ) : filteredUsers.length === 0 ? (
         <div className="bg-white border border-slate-155 rounded-2xl p-12 text-center text-slate-400 text-xs font-semibold">

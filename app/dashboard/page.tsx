@@ -20,9 +20,15 @@ const WorkerDashboardView = dynamic(() => import('@/components/dashboard/WorkerD
 
 function DashboardLoader() {
   return (
-    <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
-      <Loader2 className="w-8 h-8 text-[#5c3b99] animate-spin" />
-      <p className="text-slate-500 font-bold text-sm">Loading view module...</p>
+    <div className="w-full max-w-7xl mx-auto p-6 space-y-6 animate-pulse">
+      <div className="h-8 bg-slate-200 rounded-xl w-1/4" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="h-28 bg-slate-200 rounded-2xl" />
+        <div className="h-28 bg-slate-200 rounded-2xl" />
+        <div className="h-28 bg-slate-200 rounded-2xl" />
+        <div className="h-28 bg-slate-200 rounded-2xl" />
+      </div>
+      <div className="h-96 bg-slate-200 rounded-2xl" />
     </div>
   );
 }
