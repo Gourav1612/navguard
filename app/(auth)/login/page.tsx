@@ -151,7 +151,7 @@ export default function LoginPage() {
             {/* Username / Email Field */}
             <div className="space-y-2">
               <label htmlFor="identifier" className="text-[10px] font-black uppercase tracking-widest text-purple-300 block pl-1">
-                Username / Admin Email
+                Username / Email
               </label>
               <div className="relative rounded-2xl shadow-2xs">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -161,7 +161,7 @@ export default function LoginPage() {
                   id="identifier"
                   type="text"
                   disabled={loading}
-                  placeholder="e.g. worker1 or admin@company.com"
+                  placeholder=""
                   className={`block w-full pl-11 pr-3 py-3.5 bg-[#160d2b]/90 border text-white rounded-2xl text-sm transition focus:outline-none focus:ring-4 focus:ring-purple-500/10 ${
                     errors.identifier
                       ? 'border-red-500/50 focus:ring-red-500/10'
@@ -190,7 +190,7 @@ export default function LoginPage() {
                   id="password"
                   type={showPassword ? 'text' : 'password'}
                   disabled={loading}
-                  placeholder="••••••••"
+                  placeholder="Enter Password"
                   className={`block w-full pl-11 pr-10 py-3.5 bg-[#160d2b]/90 border text-white rounded-2xl text-sm transition focus:outline-none focus:ring-4 focus:ring-purple-500/10 ${
                     errors.password
                       ? 'border-red-500/50 focus:ring-red-500/10'
