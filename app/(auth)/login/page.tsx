@@ -100,14 +100,14 @@ export default function LoginPage() {
       <div className="absolute inset-0 z-0">
         <LoginMapAnimation />
         
-        {/* Dark Tonal Overlays */}
-        <div className="absolute inset-0 bg-[#090A0F]/20 pointer-events-none" />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#090A0F]/80 via-transparent to-[#090A0F]/40 pointer-events-none" />
-        <div className="absolute inset-0 bg-gradient-to-b from-[#090A0F]/40 via-transparent to-[#090A0F]/80 pointer-events-none" />
+        {/* Subtle Map Overlays */}
+        <div className="absolute inset-0 bg-[#090A0F]/5 pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#090A0F]/60 via-transparent to-[#090A0F]/20 pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#090A0F]/20 via-transparent to-[#090A0F]/60 pointer-events-none" />
       </div>
 
-      {/* Left Column: Form Panel */}
-      <div className="w-full md:w-[45%] lg:w-[40%] min-h-screen flex items-center justify-center p-6 sm:p-12 bg-[#090A0F]/65 md:bg-[#090A0F]/70 z-10 relative border-r border-zinc-800/60 backdrop-blur-md">
+      {/* Left Column: Form Panel (Ultra-Clear Crystal Glassmorphism) */}
+      <div className="w-full md:w-[45%] lg:w-[40%] min-h-screen flex items-center justify-center p-6 sm:p-12 bg-black/20 md:bg-[#090A0F]/25 z-10 relative border-r border-white/10 backdrop-blur-xs shadow-2xl">
         <div className="w-full max-w-md space-y-8 animate-in fade-in duration-300">
           
           {/* Brand Header */}
@@ -162,10 +162,10 @@ export default function LoginPage() {
                   type="text"
                   disabled={loading}
                   placeholder="Enter Username or Email"
-                  className={`block w-full pl-11 pr-3 py-3.5 bg-zinc-900/60 border text-white placeholder:text-zinc-500 rounded-xl text-sm transition focus:border-white focus:ring-1 focus:ring-white/40 focus:outline-none ${
+                  className={`block w-full pl-11 pr-3 py-3.5 bg-zinc-950/70 border text-white placeholder:text-zinc-500 rounded-xl text-sm transition focus:border-white focus:ring-1 focus:ring-white/40 focus:outline-none backdrop-blur-md ${
                     errors.identifier
                       ? 'border-red-500/50 focus:ring-red-500/10'
-                      : 'border-zinc-800'
+                      : 'border-zinc-800/80'
                   }`}
                   {...register('identifier')}
                 />
@@ -191,10 +191,10 @@ export default function LoginPage() {
                   type={showPassword ? 'text' : 'password'}
                   disabled={loading}
                   placeholder="Enter Password"
-                  className={`block w-full pl-11 pr-10 py-3.5 bg-zinc-900/60 border text-white placeholder:text-zinc-500 rounded-xl text-sm transition focus:border-white focus:ring-1 focus:ring-white/40 focus:outline-none ${
+                  className={`block w-full pl-11 pr-10 py-3.5 bg-zinc-950/70 border text-white placeholder:text-zinc-500 rounded-xl text-sm transition focus:border-white focus:ring-1 focus:ring-white/40 focus:outline-none backdrop-blur-md ${
                     errors.password
                       ? 'border-red-500/50 focus:ring-red-500/10'
-                      : 'border-zinc-800'
+                      : 'border-zinc-800/80'
                   }`}
                   {...register('password')}
                 />
