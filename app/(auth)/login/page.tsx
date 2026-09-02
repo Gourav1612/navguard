@@ -101,13 +101,13 @@ export default function LoginPage() {
         <LoginMapAnimation />
         
         {/* Dark Tonal Overlays */}
-        <div className="absolute inset-0 bg-[#090A0F]/40 pointer-events-none" />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#090A0F] via-transparent to-[#090A0F]/60 pointer-events-none" />
-        <div className="absolute inset-0 bg-gradient-to-b from-[#090A0F]/60 via-transparent to-[#090A0F] pointer-events-none" />
+        <div className="absolute inset-0 bg-[#090A0F]/20 pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#090A0F]/80 via-transparent to-[#090A0F]/40 pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#090A0F]/40 via-transparent to-[#090A0F]/80 pointer-events-none" />
       </div>
 
       {/* Left Column: Form Panel */}
-      <div className="w-full md:w-[45%] lg:w-[40%] min-h-screen flex items-center justify-center p-6 sm:p-12 bg-[#090A0F]/90 md:bg-[#090A0F]/95 z-10 relative border-r border-zinc-800/80 backdrop-blur-xl">
+      <div className="w-full md:w-[45%] lg:w-[40%] min-h-screen flex items-center justify-center p-6 sm:p-12 bg-[#090A0F]/65 md:bg-[#090A0F]/70 z-10 relative border-r border-zinc-800/60 backdrop-blur-md">
         <div className="w-full max-w-md space-y-8 animate-in fade-in duration-300">
           
           {/* Brand Header */}
