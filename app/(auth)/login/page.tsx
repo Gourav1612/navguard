@@ -106,9 +106,35 @@ export default function LoginPage() {
         <div className="absolute inset-0 bg-gradient-to-b from-[#090A0F]/20 via-transparent to-[#090A0F]/60 pointer-events-none" />
       </div>
 
-      {/* Left Column: Form Panel (Ultra-Clear Crystal Glassmorphism) */}
-      <div className="w-full md:w-[45%] lg:w-[40%] min-h-screen flex items-center justify-center p-6 sm:p-12 bg-black/20 md:bg-[#090A0F]/25 z-10 relative border-r border-white/10 backdrop-blur-xs shadow-2xl">
-        <div className="w-full max-w-md space-y-8 animate-in fade-in duration-300">
+      {/* Left Column: Form Panel */}
+      <div className="w-full md:w-[45%] lg:w-[40%] min-h-screen flex items-center justify-center p-6 sm:p-12 z-10 relative">
+        
+        {/* Glassmorphic Panel Backdrop with Wavy Dashed Edge */}
+        <div className="hidden md:block absolute inset-y-0 left-0 w-[calc(100%+5rem)] lg:w-[calc(100%+7rem)] pointer-events-none z-0">
+          <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+            {/* Glass Fill up to the Wavy Line */}
+            <path
+              d="M0,0 L85,0 C98,20 105,40 78,60 C102,80 95,90 85,100 L0,100 Z"
+              fill="#090A0F"
+              fillOpacity="0.45"
+            />
+            {/* Wavy Dashed Divider Line along the edge */}
+            <path
+              d="M85,0 C98,20 105,40 78,60 C102,80 95,90 85,100"
+              fill="none"
+              stroke="#a1a1aa"
+              strokeWidth="1.2"
+              strokeDasharray="3, 5"
+              opacity="0.6"
+            />
+          </svg>
+        </div>
+
+        {/* Mobile Glass Fill */}
+        <div className="md:hidden absolute inset-0 bg-[#090A0F]/80 backdrop-blur-md z-0 pointer-events-none" />
+
+        {/* Form Container */}
+        <div className="w-full max-w-md space-y-8 animate-in fade-in duration-300 z-10 relative">
           
           {/* Brand Header */}
           <div className="flex items-center justify-between gap-4 w-full">
@@ -228,14 +254,6 @@ export default function LoginPage() {
             </button>
           </form>
         </div>
-      </div>
-
-      {/* Right Column: Wavy Dashed Divider Line */}
-      <div className="hidden md:block md:w-[55%] lg:w-[60%] relative z-10 pointer-events-none">
-        {/* Wavy silver dashed divider stroke */}
-        <svg className="absolute top-0 bottom-0 left-0 w-24 h-full z-20 pointer-events-none -ml-[1px]" viewBox="0 0 100 100" preserveAspectRatio="none">
-          <path d="M0,0 C50,20 70,40 30,60 C70,80 50,90 0,100" fill="none" stroke="#a1a1aa" strokeWidth="1.5" strokeDasharray="3, 5" opacity="0.4" />
-        </svg>
       </div>
     </div>
   );
