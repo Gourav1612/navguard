@@ -83,9 +83,9 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   switch (effectiveRole) {
     case 'admin':
       return (
-        <div className="flex flex-col lg:flex-row min-h-screen bg-[#090A0F] text-zinc-100 w-full">
+        <div className="flex flex-col lg:flex-row min-h-screen bg-[#f4f2f8] w-full">
           <Sidebar />
-          <main className="flex-1 min-w-0 p-4 lg:p-8 overflow-y-auto lg:h-screen bg-[#090A0F]">
+          <main className="flex-1 min-w-0 p-4 lg:p-8 overflow-y-auto lg:h-screen">
             <AdminDashboardView tab={tab} />
           </main>
         </div>

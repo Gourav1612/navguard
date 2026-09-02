@@ -1,14 +1,14 @@
 import { cn } from '@/lib/utils';
 
 const STATUS_COLORS: Record<string, string> = {
-  active: 'bg-emerald-950/30 text-emerald-400 border-emerald-900/40',
-  completed: 'bg-emerald-950/30 text-emerald-400 border-emerald-900/40',
-  inactive: 'bg-zinc-800 text-zinc-400 border-zinc-700',
-  maintenance: 'bg-amber-950/30 text-amber-400 border-amber-900/40',
-  pending: 'bg-amber-950/30 text-amber-400 border-amber-900/40',
-  cancelled: 'bg-red-950/30 text-red-400 border-red-900/40',
-  offline: 'bg-red-950/30 text-red-400 border-red-900/40',
-  stale: 'bg-red-950/30 text-red-400 border-red-900/40',
+  active: 'bg-green-100 text-green-800 border-green-200',
+  inactive: 'bg-slate-100 text-slate-600 border-slate-200',
+  maintenance: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+  completed: 'bg-blue-100 text-blue-800 border-blue-200',
+  pending: 'bg-orange-100 text-orange-800 border-orange-200',
+  cancelled: 'bg-red-100 text-red-800 border-red-200',
+  offline: 'bg-red-100 text-red-800 border-red-200',
+  stale: 'bg-red-100 text-red-800 border-red-200',
 };
 
 interface BadgeProps {
