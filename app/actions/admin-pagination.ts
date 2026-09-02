@@ -81,11 +81,11 @@ export async function getPaginatedAuditLogs(page: number = 1, pageSize: number =
   const auth = await requireRole(['admin']);
   if (auth.error) throw new Error('Unauthorized');
 
-  const supabase = await createSupabaseServerClient();
+  const adminClient = createAdminClient();
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
 
-  const { data, count, error } = await supabase
+  const { data, count, error } = await adminClient
     .from('audit_logs')
     .select(`
       id,
