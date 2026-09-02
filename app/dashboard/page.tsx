@@ -65,7 +65,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     isActive = profile.is_active;
   }
 
-  if (!userRole || !isActive) {
+  if (!userRole) {
     redirect('/login');
   }
 
