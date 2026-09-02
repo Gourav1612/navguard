@@ -41,19 +41,27 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       }
     }
 
+    // Fetch existing auth user metadata to preserve fields and UNLOCK account upon admin edit/password update
+    const { data: { user: existingAuthUser } } = await adminClient.auth.admin.getUserById(id);
+
     // 1. Update user details in Auth if password or email is changed
     const authUpdatePayload: any = {};
     if (parsed.data.email) authUpdatePayload.email = parsed.data.email;
     if (parsed.data.password) authUpdatePayload.password = parsed.data.password;
     
-    // Always sync metadata in auth
+    // Always sync metadata in auth AND unlock account (reset failed login attempts counter)
     authUpdatePayload.user_metadata = {
+      ...existingAuthUser?.user_metadata,
       full_name: parsed.data.full_name,
       username: parsed.data.username || null,
       role: parsed.data.role,
       plant_id: parsed.data.plant_id || null,
       supervisor_id: parsed.data.supervisor_id || null,
       location_interval: parsed.data.location_interval || 10,
+      login_locked: false,
+      login_attempts: 0,
+      password_reset_token: null,
+      password_reset_token_expires: null,
     };
 
     const { error: authErr } = await adminClient.auth.admin.updateUserById(id, authUpdatePayload);

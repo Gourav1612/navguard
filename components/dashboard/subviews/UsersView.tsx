@@ -290,14 +290,15 @@ export default function UsersView() {
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => handleOpenEdit(user)}
-                      className="p-1.5 text-slate-500 hover:bg-slate-50 rounded-lg border border-slate-200 transition"
-                      title="Edit"
+                      className="px-2 py-1 bg-purple-50 hover:bg-purple-100 text-[#5c3b99] rounded-lg border border-purple-200 transition text-[10px] font-bold flex items-center gap-1 cursor-pointer"
+                      title="Edit & Change Password / Unlock Account"
                     >
-                      <Edit2 className="w-3.5 h-3.5" />
+                      <Edit2 className="w-3 h-3" />
+                      <span>Edit & Unlock</span>
                     </button>
                     <button
                       onClick={() => handleDelete(user.id)}
-                      className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg border border-red-100 transition"
+                      className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg border border-red-100 transition cursor-pointer"
                       title="Delete"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
