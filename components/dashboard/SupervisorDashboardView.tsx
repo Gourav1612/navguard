@@ -44,7 +44,7 @@ export default function SupervisorDashboardView({ tab }: { tab?: string }) {
     queryKey: ['supervisor-dashboard'],
     queryFn: async () => {
       const res = await fetch('/api/supervisor/dashboard');
-      if (!res.ok) throw new Error('Failed to load supervisor dashboard');
+      if (!res.ok) return null;
       return res.json();
     },
     refetchInterval: 8000,

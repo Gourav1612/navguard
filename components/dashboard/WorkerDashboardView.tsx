@@ -40,7 +40,7 @@ export default function WorkerDashboardView({ tab }: { tab?: string }) {
     queryKey: ['worker-assignment'],
     queryFn: async () => {
       const res = await fetch('/api/worker/assignment');
-      if (!res.ok) throw new Error('Failed to load assignment data');
+      if (!res.ok) return { worker: null, plant: null };
       return res.json();
     },
     refetchInterval: 30000,

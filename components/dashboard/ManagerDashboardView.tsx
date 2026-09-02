@@ -75,7 +75,7 @@ export default function ManagerDashboardView({ tab }: { tab?: string }) {
         .select('id, full_name, email, phone, role, supervisor_id')
         .eq('plant_id', plantId);
 
-      if (profilesErr) throw profilesErr;
+      if (profilesErr) return { supervisors: [], workers: [], locations: [] };
 
       const profilesList = (profiles || []) as any[];
       const supervisors = profilesList.filter((p) => p.role === 'supervisor');

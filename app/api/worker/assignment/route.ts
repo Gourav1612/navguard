@@ -3,7 +3,7 @@ import { createAdminClient } from '@/lib/supabase/server';
 import { requireRole } from '@/lib/auth-guard';
 
 export async function GET() {
-  const auth = await requireRole(['worker']);
+  const auth = await requireRole(['worker', 'admin', 'supervisor', 'manager']);
   if (auth.error) return auth.error;
 
   const adminClient = createAdminClient();
