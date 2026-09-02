@@ -46,8 +46,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         success: false,
         trackingEnabled: false,
+        is_paused: true,
         message: 'Packet streaming paused by Admin'
-      });
+      }, { status: 403 });
     }
 
     const { data: location, error } = await adminClient

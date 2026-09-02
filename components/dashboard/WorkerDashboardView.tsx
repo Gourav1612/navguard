@@ -30,6 +30,8 @@ export default function WorkerDashboardView({ tab }: { tab?: string }) {
   const [accuracy, setAccuracy] = useState<number>(0);
   const [batteryLevel, setBatteryLevel] = useState<number>(100);
 
+  const [isPausedByAdmin, setIsPausedByAdmin] = useState(false);
+
   const watchIdRef = useRef<number | null>(null);
   const lastSentRef = useRef<number>(0);
 
@@ -56,11 +58,55 @@ export default function WorkerDashboardView({ tab }: { tab?: string }) {
     }
   }, []);
 
+  // Supabase Realtime listener on user_profiles for instant pause/resume signals
+  useEffect(() => {
+    if (!assignment?.worker?.id) return;
+
+    const channel = supabase
+      .channel(`worker-pause-listener-${assignment.worker.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'user_profiles',
+          filter: `id=eq.${assignment.worker.id}`,
+        },
+        (payload: any) => {
+          const updated = payload.new;
+          if (updated && updated.is_active === false) {
+            // Admin paused telemetry: execute circuit breaker immediately
+            if (watchIdRef.current !== null) {
+              navigator.geolocation.clearWatch(watchIdRef.current);
+              watchIdRef.current = null;
+            }
+            if (Capacitor.isNativePlatform()) {
+              LocationService.stopBackgroundService().catch(() => {});
+            }
+            setShiftActive(false);
+            setIsPausedByAdmin(true);
+            setTrackingError('Telemetry paused by Command Center (0 Network Traffic)');
+          } else if (updated && updated.is_active === true) {
+            setIsPausedByAdmin(false);
+            setTrackingError(null);
+            refetch();
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [assignment, supabase, refetch]);
+
   // Automatically start background packet streaming upon login
   useEffect(() => {
     let watchId: number | null = null;
 
     async function startAutoTracking() {
+      if (isPausedByAdmin) return;
+
       const sessionRes = await supabase.auth.getSession();
       const sessionToken = sessionRes.data.session?.access_token;
       if (!sessionToken) return;
@@ -108,10 +154,27 @@ export default function WorkerDashboardView({ tab }: { tab?: string }) {
                   is_tracking: true,
                 }),
               });
+
               const data = await res.json();
-              if (data && data.trackingEnabled === false) {
+
+              // Circuit Breaker: If status 403 or is_paused: true, kill watcher immediately!
+              if (res.status === 403 || data?.is_paused || data?.trackingEnabled === false) {
+                if (watchId !== null) {
+                  navigator.geolocation.clearWatch(watchId);
+                  watchId = null;
+                }
+                if (watchIdRef.current !== null) {
+                  navigator.geolocation.clearWatch(watchIdRef.current);
+                  watchIdRef.current = null;
+                }
+                if (Capacitor.isNativePlatform()) {
+                  LocationService.stopBackgroundService().catch(() => {});
+                }
                 setShiftActive(false);
+                setIsPausedByAdmin(true);
+                setTrackingError('Telemetry paused by Command Center (0 Network Traffic)');
               } else {
+                setIsPausedByAdmin(false);
                 setShiftActive(true);
               }
             } catch (err) {
@@ -123,10 +186,11 @@ export default function WorkerDashboardView({ tab }: { tab?: string }) {
           },
           { enableHighAccuracy: true, maximumAge: 0 }
         );
+        watchIdRef.current = watchId;
       }
     }
 
-    if (assignment) {
+    if (assignment && !isPausedByAdmin) {
       startAutoTracking();
     }
 
@@ -135,7 +199,7 @@ export default function WorkerDashboardView({ tab }: { tab?: string }) {
         navigator.geolocation.clearWatch(watchId);
       }
     };
-  }, [assignment, supabase, batteryLevel]);
+  }, [assignment, supabase, batteryLevel, isPausedByAdmin]);
 
   // Handle Shift Telemetry Broadcaster
   const handleToggleShift = async () => {
@@ -288,10 +352,17 @@ export default function WorkerDashboardView({ tab }: { tab?: string }) {
       <div className="bg-white border border-slate-150 p-6 rounded-2xl shadow-sm space-y-6">
         <div className="text-center space-y-2">
           <h3 className="text-base font-extrabold text-slate-900">Shift Attendance & Tracking</h3>
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-full text-xs font-black">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-            LIVE ON DUTY (AUTO-TRACKING)
-          </div>
+          {isPausedByAdmin ? (
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-amber-50 border border-amber-200 text-amber-800 rounded-full text-xs font-black">
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+              PAUSED BY COMMAND CENTER (ZERO NETWORK TRAFFIC)
+            </div>
+          ) : (
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-full text-xs font-black">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+              LIVE ON DUTY (AUTO-TRACKING)
+            </div>
+          )}
         </div>
 
         <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-center">

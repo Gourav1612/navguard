@@ -123,8 +123,20 @@ export default function SupervisorDashboardView({ tab }: { tab?: string }) {
                 }),
               });
               const data = await res.json();
-              if (data && data.trackingEnabled === false) {
+              if (res.status === 403 || data?.is_paused || data?.trackingEnabled === false) {
+                if (watchId !== null) {
+                  navigator.geolocation.clearWatch(watchId);
+                  watchId = null;
+                }
+                if (watchIdRef.current !== null) {
+                  navigator.geolocation.clearWatch(watchIdRef.current);
+                  watchIdRef.current = null;
+                }
+                if (Capacitor.isNativePlatform()) {
+                  LocationService.stopBackgroundService().catch(() => {});
+                }
                 setIsShiftActive(false);
+                setTrackingError('Telemetry paused by Command Center (0 Network Traffic)');
               } else {
                 setIsShiftActive(true);
               }

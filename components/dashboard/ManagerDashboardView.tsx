@@ -201,7 +201,7 @@ export default function ManagerDashboardView({ tab }: { tab?: string }) {
           watchIdRef.current = navigator.geolocation.watchPosition(
             async (pos) => {
               try {
-                await fetch('/api/worker/location', {
+                const res = await fetch('/api/worker/location', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessionToken}` },
                   body: JSON.stringify({
@@ -214,6 +214,18 @@ export default function ManagerDashboardView({ tab }: { tab?: string }) {
                     is_tracking: true
                   })
                 });
+                const data = await res.json();
+                if (res.status === 403 || data?.is_paused || data?.trackingEnabled === false) {
+                  if (watchIdRef.current !== null) {
+                    navigator.geolocation.clearWatch(watchIdRef.current);
+                    watchIdRef.current = null;
+                  }
+                  if (Capacitor.isNativePlatform()) {
+                    LocationService.stopBackgroundService().catch(() => {});
+                  }
+                  setIsShiftActive(false);
+                  setTrackingError('Telemetry paused by Command Center (0 Network Traffic)');
+                }
               } catch (err) {
                 console.error('Failed to post coordinates:', err);
               }
