@@ -1,11 +1,10 @@
 {
   "name": "NaviGuard",
   "short_name": "NaviGuard",
-  "description": "Industrial Multi-Plant Workforce Safety & Real-Time Tracking Platform",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#5c3b99",
-  "theme_color": "#5c3b99",
+  "background_color": "#090A0F",
+  "theme_color": "#090A0F",
   "orientation": "portrait-primary",
   "icons": [
     {

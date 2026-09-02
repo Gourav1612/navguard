@@ -14,8 +14,14 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "NaviGuard — School Transport Management & Live Tracking",
-  description: "Real-time school bus GPS tracking, automated ETAs, and role-based transport dashboards for schools, drivers, parents, and students.",
+  title: "NaviGuard",
+  icons: {
+    icon: [
+      { url: "/logo.svg", type: "image/svg+xml" }
+    ],
+    shortcut: "/logo.svg",
+    apple: "/logo.svg",
+  },
 };
 
 export default function RootLayout({
