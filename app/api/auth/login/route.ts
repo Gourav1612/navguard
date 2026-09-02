@@ -37,21 +37,42 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { email, password, ip } = parsed.data;
+    const rawIdentifier = (parsed.data.identifier || parsed.data.email || '').trim();
+    const { password, ip } = parsed.data;
 
-    // Use admin client to query user lockout status
+    // Use admin client to query user profile by Username or Email
     const adminClient = createAdminClient();
-    
-    // Find the user's profile to get their auth user ID
-    const { data: profileObj } = await adminClient
-      .from('user_profiles')
-      .select('id, plant_id, full_name')
-      .eq('email', email)
-      .maybeSingle();
+    const isEmailInput = rawIdentifier.includes('@');
+
+    let profileObj: any = null;
+    if (isEmailInput) {
+      const { data } = await adminClient
+        .from('user_profiles')
+        .select('id, plant_id, full_name, role, email, username')
+        .eq('email', rawIdentifier.toLowerCase())
+        .maybeSingle();
+      profileObj = data;
+    } else {
+      const { data } = await adminClient
+        .from('user_profiles')
+        .select('id, plant_id, full_name, role, email, username')
+        .eq('username', rawIdentifier)
+        .maybeSingle();
+      profileObj = data;
+    }
+
+    const targetEmail = profileObj?.email || (isEmailInput ? rawIdentifier.toLowerCase() : null);
+
+    if (!targetEmail) {
+      return NextResponse.json(
+        { error: 'Invalid username or password.', code: 'UNAUTHORIZED' },
+        { status: 401 }
+      );
+    }
 
     let fetchedUser: any = null;
     if (profileObj) {
-      const { data: { user }, error: userError } = await adminClient.auth.admin.getUserById(profileObj.id);
+      const { data: { user } } = await adminClient.auth.admin.getUserById(profileObj.id);
       if (user) {
         fetchedUser = user;
       }
@@ -61,8 +82,13 @@ export async function POST(req: NextRequest) {
       const attempts = Number(fetchedUser.user_metadata?.login_attempts || 0);
       const isLocked = fetchedUser.user_metadata?.login_locked === true || attempts >= 5;
       if (isLocked) {
+        const isAdmin = profileObj?.role === 'admin';
+        const msg = isAdmin
+          ? 'Account is locked due to too many failed login attempts. Please check your email for reset instructions.'
+          : 'Account is locked due to 5 failed login attempts. Please contact your Administrator to unlock or reset your password.';
+
         return NextResponse.json(
-          { error: 'Account is locked due to too many failed login attempts. Please check your email for reset instructions.', code: 'UNAUTHORIZED' },
+          { error: msg, code: 'UNAUTHORIZED' },
           { status: 401 }
         );
       }
@@ -72,7 +98,7 @@ export async function POST(req: NextRequest) {
     const supabase = await createSupabaseServerClient();
     
     const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-      email,
+      email: targetEmail,
       password,
     });
 
@@ -81,13 +107,14 @@ export async function POST(req: NextRequest) {
         const currentAttempts = Number(fetchedUser.user_metadata?.login_attempts || 0);
         const newAttempts = currentAttempts + 1;
         const reachedLimit = newAttempts >= 5;
+        const isAdmin = profileObj.role === 'admin';
+        
         const lastSentAt = Number(fetchedUser.user_metadata?.password_reset_token_sent_at || 0);
-        // Rate-limiting: Only dispatch a new email if 2 minutes have passed since last dispatch
         const canSendEmail = Date.now() - lastSentAt > 2 * 60 * 1000;
-        const resetToken = reachedLimit ? (canSendEmail || !fetchedUser.user_metadata?.password_reset_token ? crypto.randomUUID() : fetchedUser.user_metadata.password_reset_token) : null;
-        const resetTokenExpires = reachedLimit ? Date.now() + 10 * 60 * 1000 : null;
+        const resetToken = reachedLimit && isAdmin ? (canSendEmail || !fetchedUser.user_metadata?.password_reset_token ? crypto.randomUUID() : fetchedUser.user_metadata.password_reset_token) : null;
+        const resetTokenExpires = reachedLimit && isAdmin ? Date.now() + 10 * 60 * 1000 : null;
 
-        // Update failed attempts counter, reset token, and rate-limit timestamp
+        // Update failed attempts counter and status
         await adminClient.auth.admin.updateUserById(profileObj.id, {
           user_metadata: {
             ...fetchedUser.user_metadata,
@@ -95,67 +122,74 @@ export async function POST(req: NextRequest) {
             login_locked: reachedLimit ? true : false,
             password_reset_token: resetToken,
             password_reset_token_expires: resetTokenExpires,
-            password_reset_token_sent_at: reachedLimit && canSendEmail ? Date.now() : lastSentAt,
+            password_reset_token_sent_at: reachedLimit && isAdmin && canSendEmail ? Date.now() : lastSentAt,
           }
         });
 
         if (reachedLimit) {
-          if (canSendEmail) {
-            // Dispatch reset password link via email
-            try {
-              const origin = getAppOrigin();
-              const resetUrl = `${origin}/reset-password?token=${resetToken}&email=${encodeURIComponent(email)}`;
-              const html = `
-                <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 32px 24px; max-width: 500px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 16px; background-color: #ffffff;">
-                  <div style="text-align: center; margin-bottom: 24px;">
-                    <div style="width: 56px; height: 56px; background-color: #f3e8ff; border-radius: 16px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 12px;">
-                      <span style="font-size: 28px;">🔑</span>
+          if (isAdmin) {
+            if (canSendEmail) {
+              // Dispatch reset password link via email ONLY for Admin
+              try {
+                const origin = getAppOrigin();
+                const resetUrl = `${origin}/reset-password?token=${resetToken}&email=${encodeURIComponent(targetEmail)}`;
+                const html = `
+                  <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 32px 24px; max-width: 500px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 16px; background-color: #ffffff;">
+                    <div style="text-align: center; margin-bottom: 24px;">
+                      <div style="width: 56px; height: 56px; background-color: #f3e8ff; border-radius: 16px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 12px;">
+                        <span style="font-size: 28px;">🔑</span>
+                      </div>
+                      <h2 style="color: #581c87; margin: 0 0 6px 0; font-weight: 800; font-size: 20px;">Admin Password Reset Request</h2>
+                      <p style="color: #64748b; font-size: 13px; margin: 0;">NaviGuard System Command</p>
                     </div>
-                    <h2 style="color: #581c87; margin: 0 0 6px 0; font-weight: 800; font-size: 20px;">Password Reset Request</h2>
-                    <p style="color: #64748b; font-size: 13px; margin: 0;">NaviGuard Account Security</p>
+
+                    <p style="color: #334155; font-size: 14px; line-height: 1.6; margin-bottom: 16px;">
+                      Hello ${profileObj.full_name || 'System Administrator'}, <strong>5 consecutive failed login attempts</strong> were recorded for your Admin account (${targetEmail}).
+                    </p>
+
+                    <div style="text-align: center; margin: 28px 0;">
+                      <a href="${resetUrl}" target="_blank" style="background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%); color: #ffffff; padding: 14px 28px; text-decoration: none; font-weight: 800; border-radius: 12px; display: inline-block; font-size: 14px;">Reset Admin Password</a>
+                    </div>
                   </div>
+                `;
 
-                  <p style="color: #334155; font-size: 14px; line-height: 1.6; margin-bottom: 16px;">
-                    Hello ${profileObj.full_name || 'NaviGuard User'}, <strong>5 consecutive failed login attempts</strong> were recorded for your account (${email}).
-                  </p>
-                  <p style="color: #334155; font-size: 14px; line-height: 1.6; margin-bottom: 24px;">
-                    To set a new password for your account, click the secure button below:
-                  </p>
-
-                  <div style="text-align: center; margin: 28px 0;">
-                    <a href="${resetUrl}" target="_blank" style="background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%); color: #ffffff; padding: 14px 28px; text-decoration: none; font-weight: 800; border-radius: 12px; display: inline-block; font-size: 14px; box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);">Reset Account Password</a>
-                  </div>
-
-                  <p style="color: #64748b; font-size: 12px; line-height: 1.5; margin-bottom: 24px;">
-                    ⏱️ This link is valid for <strong>10 minutes</strong>. If you did not attempt to log in, please ignore this email.
-                  </p>
-
-                  <div style="border-t: 1px solid #f1f5f9; pt-16px; margin-top: 24px; text-align: center;">
-                    <p style="color: #94a3b8; font-size: 11px; margin: 0;">NaviGuard Automated Security System</p>
-                  </div>
-                </div>
-              `;
-
-              await sendVerificationEmail({
-                to: email,
-                subject: '🔑 NaviGuard — Password Reset Link (5 Failed Login Attempts)',
-                otp: resetToken!,
-                html,
-              });
-            } catch (mailErr) {
-              console.error('Failed to send reset link email:', mailErr);
+                await sendVerificationEmail({
+                  to: targetEmail,
+                  subject: '🔑 NaviGuard Admin — Password Reset Link (5 Failed Login Attempts)',
+                  otp: resetToken!,
+                  html,
+                });
+              } catch (mailErr) {
+                console.error('Failed to send reset link email:', mailErr);
+              }
             }
-          }
 
-          return NextResponse.json(
-            { error: 'Account is locked due to too many failed login attempts. Please check your email for reset instructions.', code: 'UNAUTHORIZED' },
-            { status: 401 }
-          );
+            return NextResponse.json(
+              { error: 'Account is locked due to too many failed login attempts. Please check your email for reset instructions.', code: 'UNAUTHORIZED' },
+              { status: 401 }
+            );
+          } else {
+            // Non-Admin: Record an urgent Audit Log Lockout Alert for Admin
+            await adminClient.from('audit_logs').insert({
+              plant_id: profileObj.plant_id,
+              user_id: profileObj.id,
+              action: 'DELETE',
+              table_name: 'user_profiles (LOCKOUT ALERT)',
+              record_id: profileObj.id,
+              ip_address: ip || req.headers.get('x-forwarded-for') || undefined,
+              user_agent: req.headers.get('user-agent') || undefined,
+            });
+
+            return NextResponse.json(
+              { error: 'Account is locked due to 5 failed login attempts. Please contact your Administrator to unlock or reset your password.', code: 'UNAUTHORIZED' },
+              { status: 401 }
+            );
+          }
         }
       }
 
       return NextResponse.json(
-        { error: 'Invalid email or password.', code: 'UNAUTHORIZED' },
+        { error: 'Invalid username or password.', code: 'UNAUTHORIZED' },
         { status: 401 }
       );
     }

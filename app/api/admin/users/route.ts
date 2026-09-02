@@ -20,6 +20,7 @@ export async function GET(req: NextRequest) {
         id,
         role,
         full_name,
+        username,
         email,
         phone,
         avatar_url,
@@ -96,6 +97,7 @@ export async function POST(req: NextRequest) {
       email_confirm: true,
       user_metadata: {
         full_name: parsed.data.full_name,
+        username: parsed.data.username || null,
         role: parsed.data.role,
         plant_id: parsed.data.plant_id || null,
         supervisor_id: parsed.data.supervisor_id || null,
@@ -107,10 +109,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: authErr?.message || 'Auth registration failed' }, { status: 500 });
     }
 
-    // 2. The trigger handles profile creation. Update phone, is_active, and details explicitly to confirm sync
+    // 2. The trigger handles profile creation. Update username, phone, is_active, and details explicitly
     const { data: profile, error: profileErr } = await adminClient
       .from('user_profiles')
       .update({
+        username: parsed.data.username || null,
         phone: parsed.data.phone || null,
         is_active: parsed.data.is_active ?? true,
         location_interval: parsed.data.location_interval || 10,

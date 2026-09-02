@@ -29,12 +29,18 @@ export async function POST(request: Request) {
     // Fetch user profile by email
     const { data: profile } = await adminClient
       .from('user_profiles')
-      .select('id')
+      .select('id, role')
       .eq('email', cleanEmail)
       .single();
 
     if (!profile) {
       return NextResponse.json({ error: 'User account not found.' }, { status: 404 });
+    }
+
+    if (profile.role !== 'admin') {
+      return NextResponse.json({
+        error: 'Email reset links are restricted to System Administrators. Non-admin personnel must contact their Admin to unlock or reset password.'
+      }, { status: 403 });
     }
 
     // Fetch user auth record

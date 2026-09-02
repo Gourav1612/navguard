@@ -49,6 +49,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     // Always sync metadata in auth
     authUpdatePayload.user_metadata = {
       full_name: parsed.data.full_name,
+      username: parsed.data.username || null,
       role: parsed.data.role,
       plant_id: parsed.data.plant_id || null,
       supervisor_id: parsed.data.supervisor_id || null,
@@ -63,6 +64,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     // 2. Update user_profiles details
     const profileUpdatePayload: any = {};
     if (parsed.data.full_name !== undefined) profileUpdatePayload.full_name = parsed.data.full_name;
+    if (parsed.data.username !== undefined) profileUpdatePayload.username = parsed.data.username || null;
     if (parsed.data.role !== undefined) profileUpdatePayload.role = parsed.data.role;
     if (parsed.data.plant_id !== undefined) profileUpdatePayload.plant_id = parsed.data.plant_id || null;
     if (parsed.data.supervisor_id !== undefined) profileUpdatePayload.supervisor_id = parsed.data.supervisor_id || null;

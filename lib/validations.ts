@@ -6,6 +6,7 @@ export const PasswordSchema = z.string()
 
 export const CreateUserSchema = z.object({
   full_name: z.string().min(2, 'Name must be at least 2 characters').max(100),
+  username: z.string().min(2, 'Username must be at least 2 characters').max(50).regex(/^[a-zA-Z0-9_-]+$/, 'Username can only contain letters, numbers, underscores, and hyphens').optional().nullable().or(z.literal('')),
   email: z.string().email('Enter a valid email address').max(254, 'Email must not exceed 254 characters'),
   phone: z.string().regex(/^\+?[1-9]\d{7,14}$/, 'Enter a valid phone number').optional().nullable().or(z.literal('')),
   password: PasswordSchema,
@@ -50,7 +51,8 @@ export const LocationSchema = z.object({
 });
 
 export const LoginSchema = z.object({
-  email: z.string().email('Enter a valid email address').max(254, 'Email must not exceed 254 characters'),
+  identifier: z.string().min(2, 'Username or Email is required').max(254),
+  email: z.string().optional(),
   password: z.string().min(1, 'Password is required').max(128, 'Password must not exceed 128 characters'),
   ip: z.string().optional(),
 });

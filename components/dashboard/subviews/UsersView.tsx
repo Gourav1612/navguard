@@ -87,6 +87,7 @@ export default function UsersView() {
     setShowPassword(false);
     reset({
       full_name: '',
+      username: '',
       email: '',
       phone: '',
       password: '',
@@ -105,6 +106,7 @@ export default function UsersView() {
     setShowPassword(false);
     reset({
       full_name: user.full_name,
+      username: user.username || '',
       email: user.email,
       phone: user.phone || '',
       password: '',
@@ -304,6 +306,7 @@ export default function UsersView() {
                 </div>
 
                 <div className="space-y-1.5 pt-2 text-xs font-semibold text-slate-600">
+                  {user.username && <p><span className="text-slate-400 font-bold block text-[9px] uppercase tracking-wider">Username</span><span className="font-mono text-purple-700 font-bold">@{user.username}</span></p>}
                   <p><span className="text-slate-400 font-bold block text-[9px] uppercase tracking-wider">Email Address</span>{user.email}</p>
                   {user.phone && <p><span className="text-slate-400 font-bold block text-[9px] uppercase tracking-wider">Contact Phone</span>{user.phone}</p>}
                 </div>
@@ -400,6 +403,17 @@ export default function UsersView() {
                     <option value="manager">Plant Manager</option>
                   </select>
                 </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Username (For Non-Admin Login)</label>
+                <input
+                  type="text"
+                  {...register('username')}
+                  placeholder="e.g. rajesh_kumar or worker1"
+                  className="block w-full py-2.5 px-3 bg-slate-50 border border-slate-200 focus:border-[#5c3b99] rounded-xl text-xs font-bold text-slate-800 focus:outline-none"
+                />
+                {errors.username && <p className="text-red-500 text-[9px] font-bold">{errors.username.message}</p>}
               </div>
 
               <div className="grid grid-cols-2 gap-4">

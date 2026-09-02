@@ -39,15 +39,15 @@ export default function LoginPage() {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<LoginFormValues>({
+  } = useForm<any>({
     resolver: zodResolver(LoginSchema),
     defaultValues: {
-      email: '',
+      identifier: '',
       password: '',
     },
   });
 
-  const onSubmit = async (values: LoginFormValues) => {
+  const onSubmit = async (values: any) => {
     setError(null);
     setLoading(true);
 
@@ -71,7 +71,8 @@ export default function LoginPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...values,
+          identifier: values.identifier,
+          password: values.password,
           ip: detectedIp,
         }),
       });
@@ -133,7 +134,7 @@ export default function LoginPage() {
               Sign in to account<span className="text-purple-500">.</span>
             </h2>
             <p className="text-slate-400 text-xs font-semibold pt-1">
-              Eliminating school bus tracking uncertainty.
+              Eliminating workforce tracking uncertainty.
             </p>
           </div>
 
@@ -147,31 +148,31 @@ export default function LoginPage() {
 
           {/* Form */}
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            {/* Email Field */}
+            {/* Username / Email Field */}
             <div className="space-y-2">
-              <label htmlFor="email" className="text-[10px] font-black uppercase tracking-widest text-purple-300 block pl-1">
-                Email Address
+              <label htmlFor="identifier" className="text-[10px] font-black uppercase tracking-widest text-purple-300 block pl-1">
+                Username / Admin Email
               </label>
               <div className="relative rounded-2xl shadow-2xs">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                   <Mail className="h-4.5 w-4.5 text-purple-400" />
                 </div>
                 <input
-                  id="email"
-                  type="email"
+                  id="identifier"
+                  type="text"
                   disabled={loading}
-                  placeholder="name@school.edu"
+                  placeholder="e.g. worker1 or admin@company.com"
                   className={`block w-full pl-11 pr-3 py-3.5 bg-[#160d2b]/90 border text-white rounded-2xl text-sm transition focus:outline-none focus:ring-4 focus:ring-purple-500/10 ${
-                    errors.email
+                    errors.identifier
                       ? 'border-red-500/50 focus:ring-red-500/10'
                       : 'border-[#301c56] focus:border-purple-500'
                   }`}
-                  {...register('email')}
+                  {...register('identifier')}
                 />
               </div>
-              {errors.email && (
+              {errors.identifier && (
                 <p className="text-xs font-semibold text-red-400 mt-1.5 flex items-center gap-1">
-                  <AlertCircle className="w-3.5 h-3.5" /> {errors.email.message}
+                  <AlertCircle className="w-3.5 h-3.5" /> {String((errors.identifier as any)?.message || '')}
                 </p>
               )}
             </div>
@@ -208,7 +209,7 @@ export default function LoginPage() {
               </div>
               {errors.password && (
                 <p className="text-xs font-semibold text-red-400 mt-1.5 flex items-center gap-1">
-                  <AlertCircle className="w-3.5 h-3.5" /> {errors.password.message}
+                  <AlertCircle className="w-3.5 h-3.5" /> {String((errors.password as any)?.message || '')}
                 </p>
               )}
             </div>
