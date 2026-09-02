@@ -233,21 +233,12 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* Right Column: Overlay Wave and Masks */}
+      {/* Right Column: Wavy Dashed Divider Line */}
       <div className="hidden md:block md:w-[55%] lg:w-[60%] relative z-10 pointer-events-none">
-        
-        {/* Wavy solid color mask */}
-        <svg className="absolute top-0 bottom-0 left-0 w-24 h-full text-[#090A0F] opacity-90 fill-current z-20 pointer-events-none -ml-[1px]" viewBox="0 0 100 100" preserveAspectRatio="none">
-          <path d="M0,0 C50,20 70,40 30,60 C70,80 50,90 0,100 Z" />
-        </svg>
-
-        {/* Wavy silver dashed stroke */}
+        {/* Wavy silver dashed divider stroke */}
         <svg className="absolute top-0 bottom-0 left-0 w-24 h-full z-20 pointer-events-none -ml-[1px]" viewBox="0 0 100 100" preserveAspectRatio="none">
-          <path d="M0,0 C50,20 70,40 30,60 C70,80 50,90 0,100" fill="none" stroke="#71717a" strokeWidth="1.5" strokeDasharray="3, 5" opacity="0.6" />
+          <path d="M0,0 C50,20 70,40 30,60 C70,80 50,90 0,100" fill="none" stroke="#a1a1aa" strokeWidth="1.5" strokeDasharray="3, 5" opacity="0.4" />
         </svg>
-
-        {/* Gradient overlay */}
-        <div className="absolute inset-y-0 left-0 w-48 bg-gradient-to-r from-[#090A0F]/90 via-[#090A0F]/50 to-transparent z-10 pointer-events-none" />
       </div>
     </div>
   );
