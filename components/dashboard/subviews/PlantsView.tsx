@@ -200,7 +200,7 @@ export default function PlantsView() {
         </div>
         <button
           onClick={handleOpenCreate}
-          className="flex items-center justify-center gap-1.5 px-4 py-2.5 bg-[#5c3b99] hover:bg-[#432775] text-white text-xs font-extrabold rounded-xl transition shadow-sm cursor-pointer"
+          className="flex items-center justify-center gap-1.5 px-4 py-2.5 bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-extrabold rounded-xl transition shadow-sm cursor-pointer"
         >
           <Plus className="w-4 h-4" />
           Add New Plant

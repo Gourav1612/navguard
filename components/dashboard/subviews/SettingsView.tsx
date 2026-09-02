@@ -113,7 +113,7 @@ export default function SettingsView() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-            <Settings className="w-6 h-6 text-[#5c3b99]" /> Security & Account
+            <Settings className="w-6 h-6 text-zinc-900" /> Security & Account
           </h2>
           <p className="text-slate-500 text-sm font-medium">
             Manage your Super Admin credentials, password verification, and authentication settings.
@@ -127,7 +127,7 @@ export default function SettingsView() {
               setPwdError(null);
               setPwdSuccess(null);
             }}
-            className="text-xs font-bold text-[#5c3b99] hover:underline cursor-pointer"
+            className="text-xs font-bold text-zinc-900 hover:underline cursor-pointer"
           >
             Reset Form
           </button>
@@ -150,14 +150,14 @@ export default function SettingsView() {
 
       <div className="bg-white border border-slate-150 rounded-2xl p-6 shadow-sm space-y-6">
         <h3 className="text-base font-extrabold text-slate-800 border-b pb-3 border-slate-100 flex items-center gap-2">
-          <ShieldCheck className="w-5 h-5 text-[#5c3b99]" /> Password Reset Credentials
+          <ShieldCheck className="w-5 h-5 text-zinc-900" /> Password Reset Credentials
         </h3>
 
         {otpStep === 'initial' && (
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 bg-gradient-to-br from-slate-50 to-purple-50/40 border border-purple-100 rounded-2xl">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 bg-slate-50 border border-slate-200 rounded-2xl">
             <div className="space-y-1">
-              <h4 className="text-xs font-bold text-purple-950 uppercase tracking-wider flex items-center gap-1.5">
-                <Mail className="w-4 h-4 text-[#5c3b99]" /> Verification Code (OTP) Required
+              <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                <Mail className="w-4 h-4 text-slate-700" /> Verification Code (OTP) Required
               </h4>
               <p className="text-slate-500 text-xs font-medium max-w-md leading-relaxed">
                 Click to request a secure 6-digit verification code sent to your registered admin email address.
@@ -167,7 +167,7 @@ export default function SettingsView() {
               type="button"
               disabled={otpSending}
               onClick={handleRequestPasswordOtp}
-              className="px-5 py-3.5 bg-[#5c3b99] hover:bg-[#432775] text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm whitespace-nowrap cursor-pointer disabled:opacity-50"
+              className="px-5 py-3.5 bg-zinc-900 hover:bg-zinc-800 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm whitespace-nowrap cursor-pointer disabled:opacity-50"
             >
               {otpSending ? (
                 <>
@@ -186,8 +186,8 @@ export default function SettingsView() {
 
         {(otpStep === 'otp_sent' || otpStep === 'success') && (
           <form onSubmit={handleVerifyOtpAndChangePassword} className="space-y-4">
-            <div className="p-3.5 bg-purple-50 border border-purple-200 rounded-xl text-xs text-purple-900 font-semibold flex items-center gap-2">
-              <KeyRound className="w-4 h-4 text-[#5c3b99] flex-shrink-0" />
+            <div className="p-3.5 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-800 font-semibold flex items-center gap-2">
+              <KeyRound className="w-4 h-4 text-slate-700 flex-shrink-0" />
               <span>Verification code transmitted to: <strong>{adminEmail}</strong></span>
             </div>
 
@@ -200,7 +200,7 @@ export default function SettingsView() {
                 value={otpCode}
                 onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
                 placeholder="e.g. 123456"
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 focus:border-[#5c3b99] rounded-xl text-lg font-black tracking-widest font-mono focus:outline-none transition"
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 focus:border-zinc-900 rounded-xl text-lg font-black tracking-widest font-mono focus:outline-none transition"
               />
             </div>
 
@@ -215,7 +215,7 @@ export default function SettingsView() {
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     placeholder="Min 6 characters"
-                    className="w-full pl-4 pr-10 py-3 bg-slate-50 border border-slate-200 focus:border-[#5c3b99] rounded-xl text-xs font-bold text-slate-800 focus:outline-none transition"
+                    className="w-full pl-4 pr-10 py-3 bg-slate-50 border border-slate-200 focus:border-zinc-900 rounded-xl text-xs font-bold text-slate-800 focus:outline-none transition"
                   />
                   <button
                     type="button"
@@ -237,7 +237,7 @@ export default function SettingsView() {
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="Confirm password"
-                    className="w-full pl-4 pr-10 py-3 bg-slate-50 border border-slate-200 focus:border-[#5c3b99] rounded-xl text-xs font-bold text-slate-800 focus:outline-none transition"
+                    className="w-full pl-4 pr-10 py-3 bg-slate-50 border border-slate-200 focus:border-zinc-900 rounded-xl text-xs font-bold text-slate-800 focus:outline-none transition"
                   />
                   <Lock className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2" />
                 </div>
@@ -249,7 +249,7 @@ export default function SettingsView() {
                 type="button"
                 disabled={resendCooldown > 0 || otpSending}
                 onClick={handleRequestPasswordOtp}
-                className="text-xs font-bold text-[#5c3b99] hover:underline disabled:text-slate-400 transition cursor-pointer bg-transparent border-0 p-0"
+                className="text-xs font-bold text-zinc-900 hover:underline disabled:text-slate-400 transition cursor-pointer bg-transparent border-0 p-0"
               >
                 {resendCooldown > 0 ? `Resend OTP code in ${resendCooldown}s` : 'Resend Code'}
               </button>
@@ -257,7 +257,7 @@ export default function SettingsView() {
               <button
                 type="submit"
                 disabled={otpVerifying || otpCode.length !== 6 || newPassword.length < 6 || newPassword !== confirmPassword}
-                className="px-5 py-3.5 bg-[#5c3b99] hover:bg-[#432775] text-white rounded-xl text-xs font-black uppercase tracking-widest transition flex items-center justify-center gap-2 shadow-sm cursor-pointer disabled:opacity-50"
+                className="px-5 py-3.5 bg-zinc-900 hover:bg-zinc-800 text-white rounded-xl text-xs font-black uppercase tracking-widest transition flex items-center justify-center gap-2 shadow-sm cursor-pointer disabled:opacity-50"
               >
                 {otpVerifying ? (
                   <Loader2 className="w-4 h-4 animate-spin" />

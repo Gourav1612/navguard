@@ -105,7 +105,7 @@ export function Sidebar() {
       {/* Brand Header */}
       <div className="flex flex-col gap-3 px-6 py-5 border-b border-zinc-800/80">
         <div className="flex items-center gap-3">
-          <img src="/logo.png" alt="Logo" className="w-8 h-8 object-contain bg-zinc-900 border border-zinc-800 rounded-xl p-1" />
+          <img src="/logo.svg" alt="Logo" className="w-8 h-8 object-contain rounded-xl" />
           <div>
             <h1 className="font-extrabold text-sm tracking-wide leading-none text-white">NaviGuard</h1>
             <span className="text-[9px] text-zinc-400 font-mono uppercase tracking-widest block mt-1">Workforce Command</span>
@@ -198,7 +198,7 @@ export function Sidebar() {
           : "bg-[#090A0F] border-b border-zinc-800/80"
       )}>
         <div className="flex items-center gap-3">
-          <img src="/logo.png" alt="Logo" className="w-8 h-8 object-contain bg-zinc-900 border border-zinc-800 rounded-lg p-0.5" />
+          <img src="/logo.svg" alt="Logo" className="w-8 h-8 object-contain rounded-lg" />
           <span className="font-extrabold text-sm tracking-wide">NaviGuard</span>
         </div>
         <button

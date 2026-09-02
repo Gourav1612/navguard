@@ -116,7 +116,7 @@ export default function AdminAuditLogs() {
                   if (log.action === 'INSERT' || log.action === 'CREATE') actionColor = 'bg-emerald-50 text-emerald-800 border-emerald-100';
                   else if (log.action === 'UPDATE') actionColor = 'bg-blue-50 text-blue-800 border-blue-100';
                   else if (log.action === 'DELETE') actionColor = 'bg-rose-50 text-rose-800 border-rose-100';
-                  else if (log.action === 'LOGIN') actionColor = 'bg-purple-50 text-purple-800 border-purple-100';
+                  else if (log.action === 'LOGIN') actionColor = 'bg-slate-100 text-slate-800 border-slate-200';
 
                   return (
                     <tr key={log.id} className="hover:bg-slate-50/30 transition duration-150 font-medium">

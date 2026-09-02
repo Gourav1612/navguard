@@ -203,14 +203,13 @@ export default function UsersView() {
         </div>
         <button
           onClick={handleOpenCreate}
-          className="flex items-center justify-center gap-1.5 px-4 py-2.5 bg-[#5c3b99] hover:bg-[#432775] text-white text-xs font-extrabold rounded-xl transition shadow-sm cursor-pointer"
+          className="flex items-center justify-center gap-1.5 px-4 py-2.5 bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-extrabold rounded-xl transition shadow-sm cursor-pointer"
         >
           <Plus className="w-4 h-4" />
           Onboard Personnel
         </button>
       </div>
 
-      {/* Roster Controls Row */}
       <div className="flex flex-wrap items-center gap-4">
         <div className="flex items-center bg-white border border-slate-150 rounded-xl px-3.5 py-1 w-full max-w-xs shadow-sm">
           <Search className="w-4.5 h-4.5 text-slate-400 mr-2" />
@@ -219,64 +218,63 @@ export default function UsersView() {
             placeholder="Search by name or email..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full text-xs font-medium bg-transparent text-slate-800 focus:outline-none py-2.5"
+            className="w-full py-2 text-xs font-semibold text-slate-800 focus:outline-none placeholder:text-slate-400 bg-transparent"
           />
         </div>
 
-        <select
-          value={roleFilter}
-          onChange={(e) => setRoleFilter(e.target.value)}
-          className="text-xs font-bold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer shadow-sm"
-        >
-          <option value="">All Roles</option>
-          <option value="manager">Plant Manager</option>
-          <option value="supervisor">Supervisor</option>
-          <option value="worker">Worker</option>
-        </select>
+        <div className="flex items-center gap-2">
+          <select
+            value={roleFilter}
+            onChange={(e) => setRoleFilter(e.target.value)}
+            className="bg-white border border-slate-150 text-slate-700 text-xs font-bold px-3 py-2.5 rounded-xl shadow-sm focus:outline-none cursor-pointer"
+          >
+            <option value="all">All Roles</option>
+            <option value="admin">Admin</option>
+            <option value="manager">Plant Manager</option>
+            <option value="supervisor">Supervisor</option>
+            <option value="worker">Worker</option>
+          </select>
 
-        <select
-          value={plantFilter}
-          onChange={(e) => setPlantFilter(e.target.value)}
-          className="text-xs font-bold text-slate-700 bg-white border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer shadow-sm"
-        >
-          <option value="">All Sites</option>
-          {plants.map((p: any) => (
-            <option key={p.id} value={p.id}>{p.name}</option>
-          ))}
-        </select>
+          <select
+            value={plantFilter}
+            onChange={(e) => setPlantFilter(e.target.value)}
+            className="bg-white border border-slate-150 text-slate-700 text-xs font-bold px-3 py-2.5 rounded-xl shadow-sm focus:outline-none cursor-pointer"
+          >
+            <option value="all">All Sites</option>
+            {plants.map((p: any) => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
-      {/* Content Grid */}
       {usersLoading ? (
-        <div className="flex justify-center items-center py-20">
-          <Loader2 className="w-8 h-8 text-[#5c3b99] animate-spin" />
+        <div className="flex justify-center items-center py-16">
+          <Loader2 className="w-8 h-8 text-zinc-900 animate-spin" />
         </div>
       ) : filteredUsers.length === 0 ? (
-        <div className="bg-white border border-slate-150 rounded-2xl p-12 text-center text-slate-400 font-medium">
-          No personnel profiles found matching filters.
+        <div className="bg-white border border-slate-155 rounded-2xl p-12 text-center text-slate-400 text-xs font-semibold">
+          No personnel accounts match your search filters.
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredUsers.map((user: any) => (
-            <div key={user.id} className="bg-white border border-slate-150 rounded-2xl shadow-sm hover:shadow-md transition overflow-hidden">
-              <div className="p-5 space-y-4">
-                <div className="flex justify-between items-start gap-2">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          {filteredUsers.map((user: any) => {
+            let roleBadge = 'bg-blue-100 text-blue-800 border-blue-200';
+            if (user.role === 'admin') roleBadge = 'bg-red-100 text-red-800 border-red-200';
+            if (user.role === 'manager') roleBadge = 'bg-slate-200 text-slate-800 border-slate-300';
+            if (user.role === 'supervisor') roleBadge = 'bg-amber-100 text-amber-800 border-amber-200';
+
+            return (
+              <div key={user.id} className="bg-white border border-slate-150 rounded-2xl p-5 shadow-sm space-y-4 hover:border-slate-300 transition duration-200">
+                <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-3">
-                    <div className="p-2.5 bg-purple-50 border border-purple-100 rounded-xl text-[#5c3b99]">
-                      <User className="w-5 h-5" />
+                    <div className="w-10 h-10 bg-slate-100 border border-slate-200 text-slate-700 rounded-xl flex items-center justify-center font-extrabold text-sm shadow-2xs">
+                      {user.role === 'manager' ? '🏢' : user.role === 'supervisor' ? '👤' : user.role === 'admin' ? '🛡️' : '👷'}
                     </div>
                     <div>
-                      <h4 className="font-extrabold text-slate-900 text-sm leading-tight">{user.full_name}</h4>
+                      <h3 className="font-extrabold text-slate-900 text-sm leading-tight">{user.full_name}</h3>
                       <div className="flex items-center gap-1.5 mt-1">
-                        <span className={`px-2 py-0.5 inline-block text-[9px] font-bold rounded-lg uppercase ${
-                          user.role === 'admin'
-                            ? 'bg-red-100 text-red-700 border border-red-200'
-                            : user.role === 'manager' 
-                              ? 'bg-purple-100 text-purple-700 border border-purple-200' 
-                              : user.role === 'supervisor' 
-                                ? 'bg-amber-100 text-amber-700 border border-amber-200' 
-                                : 'bg-blue-100 text-blue-700 border border-blue-200'
-                        }`}>
+                        <span className={`px-2 py-0.5 inline-block text-[9px] font-bold rounded-lg uppercase border ${roleBadge}`}>
                           {user.role === 'admin' ? 'System Admin' : user.role === 'manager' ? 'Plant Manager' : user.role === 'supervisor' ? 'Supervisor' : 'Worker'}
                         </span>
                         <span className={`inline-flex items-center text-[9px] font-bold ${user.is_active ? 'text-green-600' : 'text-red-500'}`}>
@@ -290,7 +288,7 @@ export default function UsersView() {
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => handleOpenEdit(user)}
-                      className="px-2 py-1 bg-purple-50 hover:bg-purple-100 text-[#5c3b99] rounded-lg border border-purple-200 transition text-[10px] font-bold flex items-center gap-1 cursor-pointer"
+                      className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg border border-slate-200 transition text-[10px] font-bold flex items-center gap-1 cursor-pointer"
                       title="Edit & Change Password / Unlock Account"
                     >
                       <Edit2 className="w-3 h-3" />
@@ -307,7 +305,7 @@ export default function UsersView() {
                 </div>
 
                 <div className="space-y-1.5 pt-2 text-xs font-semibold text-slate-600">
-                  {user.username && <p><span className="text-slate-400 font-bold block text-[9px] uppercase tracking-wider">Username</span><span className="font-mono text-purple-700 font-bold">@{user.username}</span></p>}
+                  {user.username && <p><span className="text-slate-400 font-bold block text-[9px] uppercase tracking-wider">Username</span><span className="font-mono text-slate-900 font-bold">@{user.username}</span></p>}
                   <p><span className="text-slate-400 font-bold block text-[9px] uppercase tracking-wider">Email Address</span>{user.email}</p>
                   {user.phone && <p><span className="text-slate-400 font-bold block text-[9px] uppercase tracking-wider">Contact Phone</span>{user.phone}</p>}
                 </div>
@@ -329,7 +327,6 @@ export default function UsersView() {
                   </div>
                 </div>
 
-                {/* Packet Streaming Toggle Button for Admin */}
                 <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
                   <button
                     type="button"
@@ -344,148 +341,133 @@ export default function UsersView() {
                     <Radio className="w-3.5 h-3.5 animate-pulse" />
                     {user.is_active ? 'Packets: STREAMING' : 'Packets: PAUSED'}
                   </button>
-                  <span className="text-[10px] text-slate-400 font-bold">
+                  <span className="text-[9px] font-mono text-slate-400 font-semibold">
                     Interval: {user.location_interval || 10}s
                   </span>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
-      {/* Onboarding Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-[9999] animate-in fade-in duration-200">
-          <div className="bg-white border border-slate-150 rounded-3xl p-6 max-w-md w-full space-y-5 shadow-2xl relative animate-in zoom-in-95 duration-250">
-            <button
-              onClick={() => setShowModal(false)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-slate-650 p-1.5 rounded-lg transition"
-            >
-              <X className="w-4.5 h-4.5" />
-            </button>
-
-            <div className="space-y-1">
-              <h3 className="font-black text-slate-900 text-base">
-                {editingUser ? 'Edit User Profile' : 'Onboard Workforce Personnel'}
-              </h3>
-              <p className="text-[11px] text-slate-400 font-medium">
-                Create user profile and credentials to grant panel access.
-              </p>
+        <div className="fixed inset-0 bg-black/45 backdrop-blur-2xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl animate-in zoom-in-95 duration-150">
+            <div className="px-6 py-4 bg-slate-50 border-b border-slate-150 flex items-center justify-between">
+              <div>
+                <h3 className="font-extrabold text-slate-900 text-sm">{editingUser ? 'Edit Personnel Account' : 'Onboard New Personnel'}</h3>
+                <span className="text-[10px] text-slate-400 font-bold block mt-0.5">Fill details to provision credentials & permissions</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowModal(false)}
+                className="text-slate-400 hover:text-slate-650 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
 
-            {formError && (
-              <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-red-800 text-[10px] font-bold">
-                <AlertCircle className="w-4 h-4 mt-0.5 text-red-650 flex-shrink-0" />
-                <span>{formError}</span>
-              </div>
-            )}
+            <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4">
+              {formError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-800 text-xs font-semibold flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0 text-red-650" />
+                  <span>{formError}</span>
+                </div>
+              )}
 
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Full Name</label>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Full Name</label>
                   <input
                     type="text"
                     {...register('full_name')}
-                    placeholder="e.g. Rajesh Kumar"
-                    className="block w-full py-2.5 px-3 bg-slate-50 border border-slate-200 focus:border-[#5c3b99] rounded-xl text-xs font-bold text-slate-800 focus:outline-none"
+                    placeholder="e.g. Rahul Sharma"
+                    className="block w-full py-2.5 px-3 bg-slate-50 border border-slate-200 focus:border-zinc-900 rounded-xl text-xs font-bold text-slate-800 focus:outline-none"
                   />
-                  {errors.full_name && <p className="text-red-500 text-[9px] font-bold">{errors.full_name.message}</p>}
+                  {errors.full_name && <p className="text-[10px] text-red-500 font-semibold">{String(errors.full_name.message)}</p>}
                 </div>
+
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">User Role</label>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Username</label>
+                  <input
+                    type="text"
+                    {...register('username')}
+                    placeholder="e.g. rahul_s"
+                    className="block w-full py-2.5 px-3 bg-slate-50 border border-slate-200 focus:border-zinc-900 rounded-xl text-xs font-bold text-slate-800 focus:outline-none font-mono"
+                  />
+                  {errors.username && <p className="text-[10px] text-red-500 font-semibold">{String(errors.username.message)}</p>}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Email Address</label>
+                  <input
+                    type="email"
+                    {...register('email')}
+                    placeholder="rahul@company.com"
+                    className="block w-full py-2.5 px-3 bg-slate-50 border border-slate-200 focus:border-zinc-900 rounded-xl text-xs font-bold text-slate-800 focus:outline-none"
+                  />
+                  {errors.email && <p className="text-[10px] text-red-500 font-semibold">{String(errors.email.message)}</p>}
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Contact Phone</label>
+                  <input
+                    type="text"
+                    {...register('phone')}
+                    placeholder="Optional phone number"
+                    className="block w-full py-2.5 px-3 bg-slate-50 border border-slate-200 focus:border-zinc-900 rounded-xl text-xs font-bold text-slate-800 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                    {editingUser ? 'New Password (Optional)' : 'Account Password'}
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      {...register('password')}
+                      placeholder={editingUser ? 'Leave blank to keep current' : 'Min 6 characters'}
+                      className="block w-full py-2.5 pl-3 pr-8 bg-slate-50 border border-slate-200 focus:border-zinc-900 rounded-xl text-xs font-bold text-slate-800 focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    >
+                      {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                  {errors.password && <p className="text-[10px] text-red-500 font-semibold">{String(errors.password.message)}</p>}
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Account Role</label>
                   <select
                     {...register('role')}
-                    className="block w-full py-2.5 px-3 bg-slate-50 border border-slate-200 focus:border-[#5c3b99] rounded-xl text-xs font-bold text-slate-700 focus:outline-none cursor-pointer"
+                    className="block w-full py-2.5 px-3 bg-slate-50 border border-slate-200 focus:border-zinc-900 rounded-xl text-xs font-bold text-slate-700 focus:outline-none cursor-pointer"
                   >
                     <option value="worker">Worker</option>
                     <option value="supervisor">Supervisor</option>
                     <option value="manager">Plant Manager</option>
+                    <option value="admin">System Admin</option>
                   </select>
                 </div>
               </div>
 
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Username (For Non-Admin Login)</label>
-                <input
-                  type="text"
-                  {...register('username')}
-                  placeholder="e.g. rajesh_kumar or worker1"
-                  className="block w-full py-2.5 px-3 bg-slate-50 border border-slate-200 focus:border-[#5c3b99] rounded-xl text-xs font-bold text-slate-800 focus:outline-none"
-                />
-                {errors.username && <p className="text-red-500 text-[9px] font-bold">{errors.username.message}</p>}
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Email Address</label>
-                  <input
-                    type="email"
-                    {...register('email')}
-                    disabled={!!editingUser}
-                    placeholder="e.g. rajesh@indiawalls.com"
-                    className="block w-full py-2.5 px-3 bg-slate-50 border border-slate-200 focus:border-[#5c3b99] rounded-xl text-xs font-bold text-slate-800 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
-                  />
-                  {errors.email && <p className="text-red-500 text-[9px] font-bold">{errors.email.message}</p>}
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Contact Phone</label>
-                  <input
-                    type="text"
-                    {...register('phone')}
-                    placeholder="e.g. +919876543210"
-                    className="block w-full py-2.5 px-3 bg-slate-50 border border-slate-200 focus:border-[#5c3b99] rounded-xl text-xs font-bold text-slate-800 focus:outline-none"
-                  />
-                  {errors.phone && <p className="text-red-500 text-[9px] font-bold">{errors.phone.message}</p>}
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
-                  {editingUser ? 'Update Password (Optional)' : 'Access Password'}
-                </label>
-                <div className="relative">
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    {...register('password')}
-                    placeholder={editingUser ? 'Leave blank to preserve current' : 'At least 8 characters...'}
-                    className="block w-full py-2.5 pl-3 pr-10 bg-slate-50 border border-slate-200 focus:border-[#5c3b99] rounded-xl text-xs font-bold text-slate-800 focus:outline-none"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-650 transition cursor-pointer p-0.5"
-                    tabIndex={-1}
-                    title={showPassword ? "Hide password" : "Show password"}
-                  >
-                    {showPassword ? <EyeOff className="w-4 h-4 text-slate-500" /> : <Eye className="w-4 h-4 text-slate-400" />}
-                  </button>
-                </div>
-                {errors.password && <p className="text-red-500 text-[9px] font-bold">{errors.password.message}</p>}
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
-                  Location Update Interval (Seconds)
-                </label>
-                <input
-                  type="number"
-                  {...register('location_interval')}
-                  placeholder="e.g. 10"
-                  className="block w-full py-2.5 px-3 bg-slate-50 border border-slate-200 focus:border-[#5c3b99] rounded-xl text-xs font-bold text-slate-800 focus:outline-none"
-                />
-                {errors.location_interval && <p className="text-red-500 text-[9px] font-bold">{errors.location_interval.message}</p>}
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Assign Plant Site</label>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Assign Plant Site</label>
                   <select
                     {...register('plant_id')}
-                    className="block w-full py-2.5 px-3 bg-slate-50 border border-slate-200 focus:border-[#5c3b99] rounded-xl text-xs font-bold text-slate-700 focus:outline-none cursor-pointer"
+                    className="block w-full py-2.5 px-3 bg-slate-50 border border-slate-200 focus:border-zinc-900 rounded-xl text-xs font-bold text-slate-700 focus:outline-none cursor-pointer"
                   >
-                    <option value="">Select Site (Or None)</option>
+                    <option value="">No Plant Assigned</option>
                     {plants.map((p: any) => (
                       <option key={p.id} value={p.id}>{p.name}</option>
                     ))}
@@ -493,11 +475,11 @@ export default function UsersView() {
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Supervisor (Worker only)</label>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Assign Supervisor</label>
                   <select
                     {...register('supervisor_id')}
                     disabled={selectedRole !== 'worker'}
-                    className="block w-full py-2.5 px-3 bg-slate-50 border border-slate-200 focus:border-[#5c3b99] rounded-xl text-xs font-bold text-slate-700 focus:outline-none cursor-pointer disabled:opacity-50"
+                    className="block w-full py-2.5 px-3 bg-slate-50 border border-slate-200 focus:border-zinc-900 rounded-xl text-xs font-bold text-slate-700 focus:outline-none cursor-pointer disabled:opacity-50"
                   >
                     <option value="">Select Supervisor</option>
                     {supervisorsList.map((s: any) => (
@@ -512,7 +494,7 @@ export default function UsersView() {
                   type="checkbox"
                   id="is_active"
                   {...register('is_active')}
-                  className="rounded border-slate-300 text-purple-650 focus:ring-purple-500 h-4 w-4"
+                  className="rounded border-slate-300 text-zinc-900 focus:ring-zinc-900 h-4 w-4"
                 />
                 <label htmlFor="is_active" className="text-xs font-bold text-slate-600 cursor-pointer">
                   Activate this user profile immediately
@@ -530,7 +512,7 @@ export default function UsersView() {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="flex-1 py-3 bg-[#5c3b99] hover:bg-[#432775] text-white text-xs font-extrabold rounded-xl shadow-md transition cursor-pointer flex items-center justify-center gap-1.5"
+                  className="flex-1 py-3 bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-extrabold rounded-xl shadow-md transition cursor-pointer flex items-center justify-center gap-1.5"
                 >
                   {submitting ? (
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />

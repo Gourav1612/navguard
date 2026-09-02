@@ -113,7 +113,7 @@ export default function LoginPage() {
           {/* Brand Header */}
           <div className="flex items-center justify-between gap-4 w-full">
             <div className="flex items-center gap-3">
-              <img src="/logo.png" alt="NaviGuard Logo" className="w-10 h-10 object-contain bg-zinc-900 border border-zinc-800 rounded-xl p-1" />
+              <img src="/logo.svg" alt="NaviGuard Logo" className="w-10 h-10 object-contain rounded-xl" />
               <span className="font-extrabold text-base tracking-wider text-white">NaviGuard</span>
             </div>
             {showDownloadBtn && (

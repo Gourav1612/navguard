@@ -1,0 +1,45 @@
+<svg width="400" height="400" viewBox="0 0 400 400" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Deep AMOLED Black Background Canvas -->
+  <rect width="400" height="400" rx="80" fill="#090A0F"/>
+  
+  <!-- Subtle Outer Radar Geofence Ring -->
+  <circle cx="200" cy="180" r="115" stroke="#1F232E" stroke-width="2" stroke-dasharray="6 6"/>
+  <circle cx="200" cy="180" r="85" stroke="#2A2F3D" stroke-width="1.5"/>
+
+  <!-- Minimal Industrial Shield Outline (Safety/Guard) -->
+  <path d="M200 80L265 110V180C265 225 200 265 200 265C200 265 135 225 135 180V110L200 80Z" 
+        fill="#12141A" 
+        stroke="#4B5563" 
+        stroke-width="3" 
+        stroke-linejoin="round"/>
+
+  <!-- High-Precision Navigation Arrow / Pointer (Navi) -->
+  <!-- Angled dynamically pointing North-East (Telemetry/Motion) -->
+  <path d="M200 125L235 195L200 180L165 195L200 125Z" 
+        fill="#FFFFFF"/>
+        
+  <!-- Radar Target Core Pin -->
+  <circle cx="200" cy="178" r="4" fill="#090A0F"/>
+
+  <!-- Typography: Modern Industrial Monospace / Clean Sans -->
+  <text x="200" y="325" 
+        text-anchor="middle" 
+        fill="#FFFFFF" 
+        font-family="system-ui, -apple-system, sans-serif" 
+        font-weight="800" 
+        font-size="28" 
+        letter-spacing="6">
+    NAVIGUARD
+  </text>
+
+  <!-- Subtitle Tagline -->
+  <text x="200" y="348" 
+        text-anchor="middle" 
+        fill="#6B7280" 
+        font-family="system-ui, -apple-system, sans-serif" 
+        font-weight="600" 
+        font-size="11" 
+        letter-spacing="3">
+    WORKFORCE TELEMETRY
+  </text>
+</svg>
