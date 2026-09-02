@@ -20,7 +20,6 @@ export async function GET(req: NextRequest) {
         id,
         role,
         full_name,
-        username,
         email,
         phone,
         avatar_url,
@@ -46,11 +45,19 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    // Format relation response objects if they are returned as arrays
+    // Fetch auth users to get user_metadata.username
+    const { data: authUsersData } = await adminClient.auth.admin.listUsers();
+    const authUsersMap = new Map((authUsersData?.users || []).map((u) => [u.id, u]));
+
+    // Format relation response objects and attach username
     const formatted = (users || []).map((u: any) => {
       const plantObj = Array.isArray(u.plant) ? u.plant[0] : u.plant;
+      const authUser = authUsersMap.get(u.id);
+      const username = u.username || authUser?.user_metadata?.username || (u.email ? u.email.split('@')[0] : '');
+
       return {
         ...u,
+        username,
         plant: plantObj || null,
         supervisor: null,
       };
@@ -109,24 +116,42 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: authErr?.message || 'Auth registration failed' }, { status: 500 });
     }
 
-    // 2. The trigger handles profile creation. Update username, phone, is_active, and details explicitly
-    const { data: profile, error: profileErr } = await adminClient
+    // 2. The trigger handles profile creation. Update details explicitly
+    const profilePayload: any = {
+      phone: parsed.data.phone || null,
+      is_active: parsed.data.is_active ?? true,
+      location_interval: parsed.data.location_interval || 10,
+    };
+    if (parsed.data.username) profilePayload.username = parsed.data.username;
+
+    let { data: profile, error: profileErr } = await adminClient
       .from('user_profiles')
-      .update({
-        username: parsed.data.username || null,
-        phone: parsed.data.phone || null,
-        is_active: parsed.data.is_active ?? true,
-        location_interval: parsed.data.location_interval || 10,
-      })
+      .update(profilePayload)
       .eq('id', authUser.user.id)
       .select()
       .single();
 
-    if (profileErr) {
+    if (profileErr && profilePayload.username) {
+      // Fallback if username column does not exist in remote table
+      delete profilePayload.username;
+      const fallbackRes = await adminClient
+        .from('user_profiles')
+        .update(profilePayload)
+        .eq('id', authUser.user.id)
+        .select()
+        .single();
+      profile = fallbackRes.data;
+      profileErr = fallbackRes.error;
+    }
+
+    if (profileErr && !profile) {
       return NextResponse.json({ error: profileErr.message }, { status: 500 });
     }
 
-    return NextResponse.json(profile);
+    return NextResponse.json({
+      ...(profile || {}),
+      username: parsed.data.username || authUser.user.email?.split('@')[0] || '',
+    });
   } catch (err: any) {
     return NextResponse.json({ error: err.message || 'Server error' }, { status: 500 });
   }

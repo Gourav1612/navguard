@@ -45,23 +45,34 @@ export async function POST(req: NextRequest) {
     const isEmailInput = rawIdentifier.includes('@');
 
     let profileObj: any = null;
+    let targetEmail: string | null = null;
+
     if (isEmailInput) {
+      targetEmail = rawIdentifier.toLowerCase();
       const { data } = await adminClient
         .from('user_profiles')
-        .select('id, plant_id, full_name, role, email, username')
-        .eq('email', rawIdentifier.toLowerCase())
+        .select('id, plant_id, full_name, role, email')
+        .eq('email', targetEmail)
         .maybeSingle();
       profileObj = data;
     } else {
-      const { data } = await adminClient
-        .from('user_profiles')
-        .select('id, plant_id, full_name, role, email, username')
-        .eq('username', rawIdentifier)
-        .maybeSingle();
-      profileObj = data;
-    }
+      // Find auth user by user_metadata.username or email prefix
+      const { data: authUsersData } = await adminClient.auth.admin.listUsers();
+      const matchedUser = (authUsersData?.users || []).find((u) => {
+        const uName = u.user_metadata?.username || (u.email ? u.email.split('@')[0] : '');
+        return uName.toLowerCase() === rawIdentifier.toLowerCase();
+      });
 
-    const targetEmail = profileObj?.email || (isEmailInput ? rawIdentifier.toLowerCase() : null);
+      if (matchedUser && matchedUser.email) {
+        targetEmail = matchedUser.email;
+        const { data } = await adminClient
+          .from('user_profiles')
+          .select('id, plant_id, full_name, role, email')
+          .eq('id', matchedUser.id)
+          .maybeSingle();
+        profileObj = data;
+      }
+    }
 
     if (!targetEmail) {
       return NextResponse.json(

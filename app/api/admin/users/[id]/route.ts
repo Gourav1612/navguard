@@ -72,14 +72,26 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     if (parsed.data.is_active !== undefined) profileUpdatePayload.is_active = parsed.data.is_active;
     if (parsed.data.location_interval !== undefined) profileUpdatePayload.location_interval = parsed.data.location_interval;
 
-    const { data: profile, error: profileErr } = await adminClient
+    let { data: profile, error: profileErr } = await adminClient
       .from('user_profiles')
       .update(profileUpdatePayload)
       .eq('id', id)
       .select()
       .single();
 
-    if (profileErr) {
+    if (profileErr && profileUpdatePayload.username) {
+      delete profileUpdatePayload.username;
+      const fallbackRes = await adminClient
+        .from('user_profiles')
+        .update(profileUpdatePayload)
+        .eq('id', id)
+        .select()
+        .single();
+      profile = fallbackRes.data;
+      profileErr = fallbackRes.error;
+    }
+
+    if (profileErr && !profile) {
       return NextResponse.json({ error: profileErr.message }, { status: 500 });
     }
 
