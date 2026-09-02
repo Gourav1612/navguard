@@ -45,21 +45,39 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    // Fetch auth users to get user_metadata.username
+    // Fetch auth users to get user_metadata.username and user_metadata.supervisor_id
     const { data: authUsersData } = await adminClient.auth.admin.listUsers();
     const authUsersMap = new Map((authUsersData?.users || []).map((u) => [u.id, u]));
 
-    // Format relation response objects and attach username
+    // Build user profiles map for resolving supervisor details
+    const profilesMap = new Map((users || []).map((u: any) => [u.id, u]));
+
+    // Format relation response objects and attach username and supervisor
     const formatted = (users || []).map((u: any) => {
       const plantObj = Array.isArray(u.plant) ? u.plant[0] : u.plant;
       const authUser = authUsersMap.get(u.id);
       const username = u.username || authUser?.user_metadata?.username || (u.email ? u.email.split('@')[0] : '');
+      const supervisorId = u.supervisor_id || authUser?.user_metadata?.supervisor_id || null;
+
+      let supervisorObj = null;
+      if (supervisorId) {
+        const supProfile = profilesMap.get(supervisorId);
+        const supAuth = authUsersMap.get(supervisorId);
+        const supName = supProfile?.full_name || supAuth?.user_metadata?.full_name || 'Supervisor';
+        const supEmail = supProfile?.email || supAuth?.email || '';
+        supervisorObj = {
+          id: supervisorId,
+          full_name: supName,
+          email: supEmail,
+        };
+      }
 
       return {
         ...u,
         username,
+        supervisor_id: supervisorId,
         plant: plantObj || null,
-        supervisor: null,
+        supervisor: supervisorObj,
       };
     });
 
@@ -119,6 +137,7 @@ export async function POST(req: NextRequest) {
     // 2. The trigger handles profile creation. Update details explicitly
     const profilePayload: any = {
       phone: parsed.data.phone || null,
+      supervisor_id: parsed.data.supervisor_id || null,
       is_active: parsed.data.is_active ?? true,
       location_interval: parsed.data.location_interval || 10,
     };

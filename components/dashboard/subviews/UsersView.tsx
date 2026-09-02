@@ -112,7 +112,7 @@ export default function UsersView() {
       password: '',
       role: user.role,
       plant_id: user.plant?.id || '',
-      supervisor_id: user.supervisor?.id || '',
+      supervisor_id: user.supervisor_id || user.supervisor?.id || '',
       is_active: user.is_active,
       location_interval: user.location_interval || 10,
     });
