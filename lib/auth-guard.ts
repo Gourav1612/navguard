@@ -65,14 +65,7 @@ export async function requireRole(allowedRoles: string[], options?: { skipMfa?: 
     };
   }
 
-  if (!profile.is_active) {
-    return {
-      error: NextResponse.json(
-        { error: 'Account disabled', code: 'FORBIDDEN' },
-        { status: 403 }
-      ),
-    };
-  }
+  // Note: is_active is used for telemetry streaming pause/resume, handled specifically in /api/worker/location
 
   if (!allowedRoles.includes(profile.role)) {
     return {
