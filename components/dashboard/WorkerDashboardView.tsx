@@ -289,7 +289,10 @@ export default function WorkerDashboardView({ tab }: { tab?: string }) {
     if (assignment?.worker?.id && !isPausedByAdmin) {
       startAutoTracking();
     }
+  }, [assignment?.worker?.id, isPausedByAdmin, startAutoTracking]);
 
+  // Cleanup on component unmount ONLY
+  useEffect(() => {
     return () => {
       if (watchIdRef.current !== null) {
         navigator.geolocation.clearWatch(watchIdRef.current);
@@ -300,7 +303,7 @@ export default function WorkerDashboardView({ tab }: { tab?: string }) {
         timerIdRef.current = null;
       }
     };
-  }, [assignment?.worker?.id, isPausedByAdmin, startAutoTracking]);
+  }, []);
 
   // Handle Shift Telemetry Broadcaster
   const handleToggleShift = async () => {

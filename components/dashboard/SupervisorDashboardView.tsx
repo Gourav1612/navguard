@@ -293,7 +293,10 @@ export default function SupervisorDashboardView({ tab }: { tab?: string }) {
     if (supervisorProfile?.id && !isPausedByAdmin) {
       startAutoTracking();
     }
+  }, [supervisorProfile?.id, isPausedByAdmin, startAutoTracking]);
 
+  // Cleanup on component unmount ONLY
+  useEffect(() => {
     return () => {
       if (watchIdRef.current !== null) {
         navigator.geolocation.clearWatch(watchIdRef.current);
@@ -304,7 +307,7 @@ export default function SupervisorDashboardView({ tab }: { tab?: string }) {
         timerIdRef.current = null;
       }
     };
-  }, [supervisorProfile?.id, isPausedByAdmin, startAutoTracking]);
+  }, []);
 
   // Handle Shift Toggle (GPS Telemetry Broadcaster)
   const toggleShift = async () => {
