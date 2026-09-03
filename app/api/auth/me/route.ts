@@ -30,12 +30,7 @@ export async function GET() {
       );
     }
 
-    if (!profile.is_active) {
-      return NextResponse.json(
-        { error: 'Account disabled', code: 'FORBIDDEN' },
-        { status: 403 }
-      );
-    }
+    // Note: is_active controls location telemetry streaming, handled specifically in /api/worker/location
 
     return NextResponse.json(profile);
   } catch (err: any) {

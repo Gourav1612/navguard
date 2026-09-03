@@ -98,10 +98,12 @@ export function BottomNav({ children }: { children: React.ReactNode }) {
     }
   };
 
-  if (!user || user.role === 'admin') {
+  if (user && user.role === 'admin') {
     // Admins use the sidebar, return kids layout
     return <div className="min-h-screen bg-slate-50 flex flex-col">{children}</div>;
   }
+
+  const activeUser = user || { full_name: 'Worker', email: '', role: 'worker' as const };
 
   // Define tabs based on role
   const roleTabs: Record<string, Array<{ name: string; href: string; icon: any }>> = {
@@ -116,7 +118,7 @@ export function BottomNav({ children }: { children: React.ReactNode }) {
     ],
   };
 
-  const tabs = roleTabs[user.role] || [];
+  const tabs = roleTabs[activeUser.role] || [];
 
   if (isPipMode) {
     return <div className="fixed inset-0 w-screen h-screen bg-white z-[99999]">{children}</div>;
@@ -133,7 +135,7 @@ export function BottomNav({ children }: { children: React.ReactNode }) {
               <img src="/logo.svg" alt="Logo" className="w-9 h-9 object-contain rounded-xl" />
               <div>
                 <h1 className="font-extrabold text-sm tracking-wide text-white leading-none">NaviGuard</h1>
-                <span className="text-[9px] text-zinc-400 font-bold uppercase tracking-widest block mt-1">{user.role} Portal</span>
+                <span className="text-[9px] text-zinc-400 font-bold uppercase tracking-widest block mt-1">{activeUser.role} Portal</span>
               </div>
             </div>
             <PortalSwitcher />
@@ -168,11 +170,11 @@ export function BottomNav({ children }: { children: React.ReactNode }) {
         <div className="p-4 border-t border-zinc-800/80 bg-zinc-950/40">
           <div className="flex items-center gap-3 mb-4 px-2">
             <div className="flex items-center justify-center w-8 h-8 bg-zinc-800 rounded-full text-white font-bold text-xs">
-              {user.full_name ? user.full_name[0] : 'U'}
+              {activeUser.full_name ? activeUser.full_name[0] : 'U'}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-bold truncate text-white leading-none">{user.full_name}</p>
-              <span className="text-[9px] text-zinc-400 font-mono block mt-1 truncate">{user.email}</span>
+              <p className="text-xs font-bold truncate text-white leading-none">{activeUser.full_name}</p>
+              <span className="text-[9px] text-zinc-400 font-mono block mt-1 truncate">{activeUser.email}</span>
             </div>
           </div>
 
@@ -230,8 +232,8 @@ export function BottomNav({ children }: { children: React.ReactNode }) {
                 />
                 <div className="absolute right-0 mt-2 w-48 bg-white rounded-2xl shadow-xl py-1 z-50 border border-slate-100 animate-in fade-in slide-in-from-top-2 duration-150 overflow-hidden">
                   <div className="px-4 py-3 border-b border-slate-100 bg-[#f6f5fa]">
-                    <p className="text-[10px] font-bold text-slate-800 uppercase tracking-widest">{user.role}</p>
-                    <p className="text-sm font-bold text-slate-800 truncate mt-0.5">{user.full_name}</p>
+                    <p className="text-[10px] font-bold text-slate-800 uppercase tracking-widest">{activeUser.role}</p>
+                    <p className="text-sm font-bold text-slate-800 truncate mt-0.5">{activeUser.full_name}</p>
                   </div>
                   <button
                     onClick={handleLogout}
