@@ -34,12 +34,17 @@ function DashboardLoader() {
 }
 
 interface PageProps {
-  searchParams: Promise<{ tab?: string }>;
+  searchParams: Promise<{ tab?: string; view?: string }>;
 }
 
 export default async function DashboardPage({ searchParams }: PageProps) {
   const resolvedParams = await searchParams;
   const tab = resolvedParams.tab || '';
+
+  // Auto-strip legacy ?view= parameter from URL address bar
+  if (resolvedParams.view) {
+    redirect(tab ? `/dashboard?tab=${tab}` : '/dashboard');
+  }
 
   const supabase = await createSupabaseServerClient();
   const {
