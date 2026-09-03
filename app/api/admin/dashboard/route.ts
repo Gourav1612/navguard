@@ -51,7 +51,8 @@ export async function GET() {
           full_name,
           role,
           plant_id,
-          supervisor_id
+          supervisor_id,
+          is_active
         )
       `);
 

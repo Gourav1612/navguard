@@ -119,6 +119,23 @@ export default function AdminDashboardView({ tab: initialTab }: { tab?: string }
     };
   }, [isMainDashboard, supabase, refetch]);
 
+  const togglePacketStreaming = async (userId?: string, currentIsActive?: boolean) => {
+    if (!userId) return;
+    try {
+      const res = await fetch(`/api/admin/users/${userId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          is_active: !currentIsActive,
+        }),
+      });
+      if (!res.ok) throw new Error('Failed to toggle tracking state');
+      refetch();
+    } catch (err: any) {
+      alert(err.message || 'Failed to toggle packet streaming state');
+    }
+  };
+
   // Dynamic Routing based on Search Param tab
   switch (tab) {
     case 'plants':
@@ -168,63 +185,91 @@ export default function AdminDashboardView({ tab: initialTab }: { tab?: string }
   ];
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-200">
-      {/* Header Info */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div className="space-y-6 pb-12">
+      {/* Scope Selector Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-150 shadow-sm">
         <div>
-          <h2 className="text-2xl font-black text-slate-900 tracking-tight">Workforce Command Center</h2>
+          <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">Workforce Command Center</h2>
+          <p className="text-slate-500 text-xs font-medium mt-0.5">Real-time GPS telemetry, active personnel monitoring, and geofence telemetry</p>
         </div>
-
-        {/* Global Plant Filter */}
-        <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-1.5 shadow-sm">
-          <span className="text-[10px] font-bold text-slate-400 uppercase">Plant Scope:</span>
-          <select
-            value={selectedPlantId}
-            onChange={(e) => setSelectedPlantId(e.target.value)}
-            className="text-xs font-bold text-slate-700 bg-transparent border-0 focus:outline-none cursor-pointer"
-          >
-            <option value="all">All Plants</option>
-            {plants.map((p: any) => (
-              <option key={p.id} value={p.id}>{p.name} ({p.code})</option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      {/* Metrics Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat) => (
-          <div
-            key={stat.name}
-            className="flex items-center p-6 bg-white border border-slate-150 rounded-2xl shadow-sm transition hover:shadow-md"
-          >
-            <div className={`p-4 rounded-xl border ${stat.color} mr-4 relative`}>
-              <stat.icon className="w-6 h-6" />
-              {stat.pulse && (
-                <span className="absolute top-1 right-1 flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-                </span>
-              )}
-            </div>
-            <div>
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">{stat.name}</p>
-              <h4 className="text-3xl font-extrabold text-slate-900 leading-tight mt-1">{stat.value}</h4>
-            </div>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3.5 py-2 rounded-xl">
+            <Building className="w-4 h-4 text-slate-400" />
+            <select
+              value={selectedPlantId}
+              onChange={(e) => setSelectedPlantId(e.target.value)}
+              className="bg-transparent text-xs font-extrabold text-slate-700 focus:outline-none cursor-pointer"
+            >
+              <option value="all">All Plant Sites Scope</option>
+              {plants.map((plant: any) => (
+                <option key={plant.id} value={plant.id}>{plant.name} ({plant.code})</option>
+              ))}
+            </select>
           </div>
-        ))}
+
+          <button
+            onClick={() => refetch()}
+            className="p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition cursor-pointer"
+            title="Refresh Real-time Telemetry"
+          >
+            <Radio className={`w-4 h-4 ${isLoading ? 'animate-spin text-zinc-900' : 'text-slate-600'}`} />
+          </button>
+        </div>
       </div>
 
-      {/* Map Segment */}
-      <div className="space-y-3 relative">
-        <div className="flex justify-between items-center">
-          <h3 className="text-lg font-bold text-slate-800 tracking-tight">Active Plant Mapping</h3>
-          <span className="flex items-center gap-1 text-[10px] font-bold text-slate-450 uppercase">
-            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-            Real-time feed active
+      {/* Primary KPI Metrics */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white border border-slate-150 p-5 rounded-2xl shadow-sm flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-zinc-900 text-white flex items-center justify-center font-black shadow-md">
+            <Building className="w-6 h-6" />
+          </div>
+          <div>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Total Plant Sites</span>
+            <span className="text-2xl font-black text-slate-900 tracking-tight">{data?.metrics?.total_plants ?? 0}</span>
+          </div>
+        </div>
+
+        <div className="bg-white border border-slate-150 p-5 rounded-2xl shadow-sm flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-emerald-500 text-white flex items-center justify-center font-black shadow-md">
+            <Radio className="w-6 h-6" />
+          </div>
+          <div>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Live Active Shifts</span>
+            <span className="text-2xl font-black text-slate-900 tracking-tight">{data?.metrics?.active_shifts ?? 0}</span>
+          </div>
+        </div>
+
+        <div className="bg-white border border-slate-150 p-5 rounded-2xl shadow-sm flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center font-black shadow-md">
+            <Users className="w-6 h-6" />
+          </div>
+          <div>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Supervisors</span>
+            <span className="text-2xl font-black text-slate-900 tracking-tight">{data?.metrics?.total_supervisors ?? 0}</span>
+          </div>
+        </div>
+
+        <div className="bg-white border border-slate-150 p-5 rounded-2xl shadow-sm flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-blue-600 text-white flex items-center justify-center font-black shadow-md">
+            <UserCheck className="w-6 h-6" />
+          </div>
+          <div>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Total Workers</span>
+            <span className="text-2xl font-black text-slate-900 tracking-tight">{data?.metrics?.total_workers ?? 0}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Live Map Interface */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between px-1">
+          <h3 className="text-lg font-bold text-slate-800 tracking-tight">Geofence & Personnel Live Radar</h3>
+          <span className="text-xs font-semibold text-slate-500 flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+            Live Sync ({filteredLocations.length} Active Nodes)
           </span>
         </div>
-        <AdminMap plants={plants} locations={filteredLocations} selectedPlantId={selectedPlantId} />
+        <AdminMap plants={plants} locations={filteredLocations} />
       </div>
 
       {/* Personnel Telemetry Table */}
@@ -244,12 +289,13 @@ export default function AdminDashboardView({ tab: initialTab }: { tab?: string }
                   <th className="px-6 py-4">Battery</th>
                   <th className="px-6 py-4">Accuracy</th>
                   <th className="px-6 py-4">Last Update</th>
+                  <th className="px-6 py-4 text-right">Telemetry Control</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
                 {filteredLocations.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-6 py-8 text-center text-slate-400 font-medium">
+                    <td colSpan={8} className="px-6 py-8 text-center text-slate-400 font-medium">
                       No active telemetry data streaming for this scope.
                     </td>
                   </tr>
@@ -257,7 +303,8 @@ export default function AdminDashboardView({ tab: initialTab }: { tab?: string }
                   filteredLocations.map((loc: any) => {
                     const isStale = loc.is_stale;
                     const roleLabel = loc.user?.role === 'manager' ? 'Plant Manager' : loc.user?.role === 'supervisor' ? 'Supervisor' : 'Worker';
-                    
+                    const isActiveTelemetry = loc.user?.is_active !== false;
+
                     return (
                       <tr key={loc.id} className="hover:bg-slate-50/50 transition duration-150">
                         <td className="px-6 py-4.5">
@@ -298,6 +345,19 @@ export default function AdminDashboardView({ tab: initialTab }: { tab?: string }
                           ) : (
                             formatDateTime(loc.recorded_at)
                           )}
+                        </td>
+                        <td className="px-6 py-4.5 text-right">
+                          <button
+                            onClick={() => togglePacketStreaming(loc.user?.id, isActiveTelemetry)}
+                            className={`px-3 py-1.5 text-[10px] font-black rounded-xl transition border cursor-pointer ${
+                              isActiveTelemetry
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-200'
+                                : 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200'
+                            }`}
+                            title={isActiveTelemetry ? 'Click to Pause Packet Streaming' : 'Click to Enable Packet Streaming'}
+                          >
+                            {isActiveTelemetry ? '((o)) STREAMING' : '⏸ PAUSED'}
+                          </button>
                         </td>
                       </tr>
                     );
@@ -368,6 +428,20 @@ export default function AdminDashboardView({ tab: initialTab }: { tab?: string }
                         {isStale ? <span className="text-red-500">Offline</span> : 'Just now'}
                       </span>
                     </div>
+                  </div>
+
+                  <div className="pt-3 border-t border-slate-100 flex justify-between items-center">
+                    <span className="text-[10px] text-slate-400 font-bold uppercase">Telemetry Stream:</span>
+                    <button
+                      onClick={() => togglePacketStreaming(loc.user?.id, loc.user?.is_active !== false)}
+                      className={`px-3 py-1.5 text-[10px] font-black rounded-xl transition border cursor-pointer ${
+                        loc.user?.is_active !== false
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-200'
+                          : 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200'
+                      }`}
+                    >
+                      {loc.user?.is_active !== false ? '((o)) STREAMING' : '⏸ PAUSED'}
+                    </button>
                   </div>
                 </div>
               );
