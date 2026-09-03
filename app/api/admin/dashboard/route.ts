@@ -81,6 +81,7 @@ export async function GET() {
           full_name: userObj.full_name,
           role: userObj.role,
           plant_id: userObj.plant_id,
+          is_active: userObj.is_active,
           supervisor_name: null
         } : null
       };
