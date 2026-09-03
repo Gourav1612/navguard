@@ -104,6 +104,7 @@ export default function WorkerDashboardView({ tab }: { tab?: string }) {
   // Automatically start background packet streaming upon login
   useEffect(() => {
     let watchId: number | null = null;
+    let timerId: any = null;
 
     async function startAutoTracking() {
       if (isPausedByAdmin) return;
@@ -128,59 +129,95 @@ export default function WorkerDashboardView({ tab }: { tab?: string }) {
         }
       }
 
+      let latestCoords: { lat: number; lng: number; speed: number; heading: number; accuracy: number } | null = null;
+
+      const sendLocationPacket = async (coords: { lat: number; lng: number; speed: number; heading: number; accuracy: number }) => {
+        const now = Date.now();
+        const intervalSeconds = assignment?.worker?.location_interval || 10;
+        if (now - lastSentRef.current < intervalSeconds * 1000 - 200) return;
+        lastSentRef.current = now;
+
+        try {
+          const res = await fetch('/api/worker/location', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionToken}` },
+            body: JSON.stringify({
+              lat: coords.lat,
+              lng: coords.lng,
+              speed: coords.speed,
+              heading: coords.heading,
+              accuracy: coords.accuracy,
+              battery_level: batteryLevel,
+              is_tracking: true,
+            }),
+          });
+
+          const data = await res.json();
+
+          // Circuit Breaker: If status 403 or is_paused: true, kill watcher and interval immediately!
+          if (res.status === 403 || data?.is_paused || data?.trackingEnabled === false) {
+            if (watchId !== null) {
+              navigator.geolocation.clearWatch(watchId);
+              watchId = null;
+            }
+            if (watchIdRef.current !== null) {
+              navigator.geolocation.clearWatch(watchIdRef.current);
+              watchIdRef.current = null;
+            }
+            if (timerId !== null) {
+              clearInterval(timerId);
+              timerId = null;
+            }
+            if (Capacitor.isNativePlatform()) {
+              LocationService.stopBackgroundService().catch(() => {});
+            }
+            setShiftActive(false);
+            setIsPausedByAdmin(true);
+            setTrackingError('Telemetry paused by Command Center (0 Network Traffic)');
+          } else {
+            setIsPausedByAdmin(false);
+            setShiftActive(true);
+          }
+        } catch (err) {
+          console.error('Failed to post coordinates:', err);
+        }
+      };
+
       if ('geolocation' in navigator) {
-        watchId = navigator.geolocation.watchPosition(
-          async (pos) => {
+        // Initial location fetch
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
             const currentSpeed = pos.coords.speed ? pos.coords.speed * 3.6 : 0;
             const currentAccuracy = pos.coords.accuracy;
             setSpeed(currentSpeed);
             setAccuracy(currentAccuracy);
+            latestCoords = {
+              lat: pos.coords.latitude,
+              lng: pos.coords.longitude,
+              speed: currentSpeed,
+              heading: pos.coords.heading || 0,
+              accuracy: currentAccuracy,
+            };
+            sendLocationPacket(latestCoords);
+          },
+          () => {},
+          { enableHighAccuracy: true, maximumAge: 0 }
+        );
 
-            const now = Date.now();
-            const intervalSeconds = assignment?.worker?.location_interval || 10;
-            if (now - lastSentRef.current < intervalSeconds * 1000) return;
-            lastSentRef.current = now;
-
-            try {
-              const res = await fetch('/api/worker/location', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionToken}` },
-                body: JSON.stringify({
-                  lat: pos.coords.latitude,
-                  lng: pos.coords.longitude,
-                  speed: currentSpeed,
-                  heading: pos.coords.heading || 0,
-                  accuracy: currentAccuracy,
-                  battery_level: batteryLevel,
-                  is_tracking: true,
-                }),
-              });
-
-              const data = await res.json();
-
-              // Circuit Breaker: If status 403 or is_paused: true, kill watcher immediately!
-              if (res.status === 403 || data?.is_paused || data?.trackingEnabled === false) {
-                if (watchId !== null) {
-                  navigator.geolocation.clearWatch(watchId);
-                  watchId = null;
-                }
-                if (watchIdRef.current !== null) {
-                  navigator.geolocation.clearWatch(watchIdRef.current);
-                  watchIdRef.current = null;
-                }
-                if (Capacitor.isNativePlatform()) {
-                  LocationService.stopBackgroundService().catch(() => {});
-                }
-                setShiftActive(false);
-                setIsPausedByAdmin(true);
-                setTrackingError('Telemetry paused by Command Center (0 Network Traffic)');
-              } else {
-                setIsPausedByAdmin(false);
-                setShiftActive(true);
-              }
-            } catch (err) {
-              console.error('Failed to post coordinates:', err);
-            }
+        // Hardware movement watcher
+        watchId = navigator.geolocation.watchPosition(
+          (pos) => {
+            const currentSpeed = pos.coords.speed ? pos.coords.speed * 3.6 : 0;
+            const currentAccuracy = pos.coords.accuracy;
+            setSpeed(currentSpeed);
+            setAccuracy(currentAccuracy);
+            latestCoords = {
+              lat: pos.coords.latitude,
+              lng: pos.coords.longitude,
+              speed: currentSpeed,
+              heading: pos.coords.heading || 0,
+              accuracy: currentAccuracy,
+            };
           },
           (err) => {
             setTrackingError(err.message || 'GPS access denied.');
@@ -188,6 +225,33 @@ export default function WorkerDashboardView({ tab }: { tab?: string }) {
           { enableHighAccuracy: true, maximumAge: 0 }
         );
         watchIdRef.current = watchId;
+
+        // Dynamic time interval loop (uses configured assignment.worker.location_interval)
+        const intervalMs = Math.max(1000, (assignment?.worker?.location_interval || 10) * 1000);
+        timerId = setInterval(() => {
+          if (latestCoords) {
+            sendLocationPacket(latestCoords);
+          } else {
+            navigator.geolocation.getCurrentPosition(
+              (pos) => {
+                const currentSpeed = pos.coords.speed ? pos.coords.speed * 3.6 : 0;
+                const currentAccuracy = pos.coords.accuracy;
+                setSpeed(currentSpeed);
+                setAccuracy(currentAccuracy);
+                latestCoords = {
+                  lat: pos.coords.latitude,
+                  lng: pos.coords.longitude,
+                  speed: currentSpeed,
+                  heading: pos.coords.heading || 0,
+                  accuracy: currentAccuracy,
+                };
+                sendLocationPacket(latestCoords);
+              },
+              () => {},
+              { enableHighAccuracy: true, maximumAge: 0 }
+            );
+          }
+        }, intervalMs);
       }
     }
 
@@ -198,6 +262,9 @@ export default function WorkerDashboardView({ tab }: { tab?: string }) {
     return () => {
       if (watchId !== null) {
         navigator.geolocation.clearWatch(watchId);
+      }
+      if (timerId !== null) {
+        clearInterval(timerId);
       }
     };
   }, [assignment?.worker?.id, assignment?.worker?.location_interval, supabase, batteryLevel, isPausedByAdmin]);
