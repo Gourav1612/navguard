@@ -13,7 +13,9 @@ import {
   ShieldCheck as ShieldCheckIcon, 
   X,
   MapPin,
-  Clock
+  Clock,
+  Mail,
+  AlertCircle
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { Badge } from '@/components/Badge';
@@ -95,22 +97,53 @@ export default function AdminDashboardView({ tab: initialTab }: { tab?: string }
     }
   };
 
-  const [disablingMfa, setDisablingMfa] = useState(false);
+  const [showMfaModal, setShowMfaModal] = useState(false);
+  const [mfaOtpCode, setMfaOtpCode] = useState('');
+  const [mfaOtpSending, setMfaOtpSending] = useState(false);
+  const [mfaOtpVerifying, setMfaOtpVerifying] = useState(false);
+  const [mfaOtpError, setMfaOtpError] = useState<string | null>(null);
 
-  const handleDisableMfa = async () => {
-    if (!mfaFactorId) return;
-    if (!confirm('Are you sure you want to disable Multi-Factor Authentication (MFA) for your account?')) return;
-    setDisablingMfa(true);
+  const handleStartDisableMfa = async () => {
+    setMfaOtpError(null);
+    setMfaOtpSending(true);
+    setShowMfaModal(true);
+
     try {
-      const { error } = await supabase.auth.mfa.unenroll({ factorId: mfaFactorId });
-      if (error) throw error;
+      const res = await fetch('/api/admin/mfa/send-otp', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to send verification code to email');
+    } catch (err: any) {
+      setMfaOtpError(err.message || 'Failed to send OTP code to email.');
+    } finally {
+      setMfaOtpSending(false);
+    }
+  };
+
+  const handleVerifyDisableMfa = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!mfaFactorId || mfaOtpCode.length !== 6) return;
+
+    setMfaOtpError(null);
+    setMfaOtpVerifying(true);
+
+    try {
+      const res = await fetch('/api/admin/mfa/verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: mfaOtpCode, factorId: mfaFactorId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Verification failed');
+
       setMfaEnabled(false);
       setMfaFactorId(null);
-      alert('Multi-Factor Authentication disabled successfully.');
+      setShowMfaModal(false);
+      setMfaOtpCode('');
+      alert('Multi-Factor Authentication (MFA) has been disabled successfully.');
     } catch (err: any) {
-      alert(err.message || 'Failed to disable MFA');
+      setMfaOtpError(err.message || 'Failed to disable MFA. Please check the code sent to your email.');
     } finally {
-      setDisablingMfa(false);
+      setMfaOtpVerifying(false);
     }
   };
 
@@ -506,15 +539,10 @@ export default function AdminDashboardView({ tab: initialTab }: { tab?: string }
             {mfaEnabled ? (
               <button
                 type="button"
-                onClick={handleDisableMfa}
-                disabled={disablingMfa}
-                className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5 shadow-sm cursor-pointer border border-red-600 disabled:opacity-50"
+                onClick={handleStartDisableMfa}
+                className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5 shadow-sm cursor-pointer border border-red-600"
               >
-                {disablingMfa ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <ShieldAlert className="w-3.5 h-3.5" />
-                )}
+                <ShieldAlert className="w-3.5 h-3.5" />
                 Disable MFA
               </button>
             ) : (
@@ -529,6 +557,83 @@ export default function AdminDashboardView({ tab: initialTab }: { tab?: string }
           </div>
         </div>
       </div>
+
+      {/* Email OTP Disable MFA Verification Modal */}
+      {showMfaModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-150">
+            <div className="flex justify-between items-start">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-red-50 border border-red-100 rounded-xl text-red-600">
+                  <Mail className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-slate-900 text-sm">Security OTP Verification</h3>
+                  <span className="text-[10px] text-slate-400 font-bold block mt-0.5">Enter 6-digit verification code sent to your email</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setShowMfaModal(false); setMfaOtpCode(''); setMfaOtpError(null); }}
+                className="text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {mfaOtpSending ? (
+              <div className="py-8 flex flex-col items-center justify-center text-center space-y-2">
+                <Loader2 className="w-7 h-7 text-zinc-900 animate-spin" />
+                <p className="text-xs text-slate-500 font-medium">Sending verification OTP code to your email...</p>
+              </div>
+            ) : (
+              <form onSubmit={handleVerifyDisableMfa} className="space-y-4 pt-2">
+                {mfaOtpError && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs font-bold text-red-700 flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                    <span>{mfaOtpError}</span>
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-xs font-extrabold text-slate-700 mb-1.5">6-Digit Verification Code</label>
+                  <input
+                    type="text"
+                    maxLength={6}
+                    value={mfaOtpCode}
+                    onChange={(e) => setMfaOtpCode(e.target.value.replace(/\D/g, ''))}
+                    placeholder="Enter 6-digit code..."
+                    className="w-full px-4 py-2.5 border border-slate-250 rounded-xl text-center text-lg font-mono font-bold tracking-widest text-slate-900 focus:outline-none focus:border-zinc-900 bg-slate-50/50"
+                  />
+                </div>
+
+                <div className="flex items-center gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={handleStartDisableMfa}
+                    disabled={mfaOtpSending}
+                    className="flex-1 py-2.5 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition cursor-pointer"
+                  >
+                    Resend Code
+                  </button>
+
+                  <button
+                    type="submit"
+                    disabled={mfaOtpCode.length !== 6 || mfaOtpVerifying}
+                    className="flex-1 py-2.5 text-xs font-bold text-white bg-red-500 hover:bg-red-600 disabled:opacity-50 rounded-xl transition flex items-center justify-center gap-2 cursor-pointer shadow-xs border border-red-600"
+                  >
+                    {mfaOtpVerifying ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      'Verify & Disable'
+                    )}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
