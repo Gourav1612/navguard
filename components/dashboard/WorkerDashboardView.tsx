@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { 
@@ -59,6 +59,156 @@ export default function WorkerDashboardView({ tab }: { tab?: string }) {
       });
     }
   }, []);
+
+  const startAutoTracking = useCallback(async () => {
+    const sessionRes = await supabase.auth.getSession();
+    const sessionToken = sessionRes.data.session?.access_token;
+    if (!sessionToken) return;
+
+    setShiftActive(true);
+    setIsPausedByAdmin(false);
+    setTrackingError(null);
+
+    if (Capacitor.isNativePlatform()) {
+      try {
+        await LocationService.startTracking({
+          token: sessionToken,
+          busId: assignment?.worker?.id || '',
+          tripId: '',
+          serverUrl: `${window.location.origin}/api/worker/location`,
+          isTripActive: true,
+        });
+      } catch (err) {
+        console.error('Failed to start native location tracking:', err);
+      }
+    }
+
+    let latestCoords: { lat: number; lng: number; speed: number; heading: number; accuracy: number } | null = null;
+
+    const sendLocationPacket = async (coords: { lat: number; lng: number; speed: number; heading: number; accuracy: number }) => {
+      const now = Date.now();
+      const intervalSeconds = assignment?.worker?.location_interval || 10;
+      if (now - lastSentRef.current < intervalSeconds * 1000 - 200) return;
+      lastSentRef.current = now;
+
+      try {
+        const res = await fetch('/api/worker/location', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionToken}` },
+          body: JSON.stringify({
+            lat: coords.lat,
+            lng: coords.lng,
+            speed: coords.speed,
+            heading: coords.heading,
+            accuracy: coords.accuracy,
+            battery_level: batteryLevel,
+            is_tracking: true,
+          }),
+        });
+
+        const data = await res.json();
+
+        // Circuit Breaker: If status 403 or is_paused: true, kill watcher and interval immediately!
+        if (res.status === 403 || data?.is_paused || data?.trackingEnabled === false) {
+          if (watchIdRef.current !== null) {
+            navigator.geolocation.clearWatch(watchIdRef.current);
+            watchIdRef.current = null;
+          }
+          if (timerIdRef.current !== null) {
+            clearInterval(timerIdRef.current);
+            timerIdRef.current = null;
+          }
+          if (Capacitor.isNativePlatform()) {
+            LocationService.stopBackgroundService().catch(() => {});
+          }
+          setShiftActive(false);
+          setIsPausedByAdmin(true);
+          setTrackingError('Telemetry paused by Command Center (0 Network Traffic)');
+        } else {
+          setIsPausedByAdmin(false);
+          setShiftActive(true);
+        }
+      } catch (err) {
+        console.error('Failed to post coordinates:', err);
+      }
+    };
+
+    if ('geolocation' in navigator) {
+      // Initial location fetch probe
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const currentSpeed = pos.coords.speed ? pos.coords.speed * 3.6 : 0;
+          const currentAccuracy = pos.coords.accuracy;
+          setSpeed(currentSpeed);
+          setAccuracy(currentAccuracy);
+          latestCoords = {
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+            speed: currentSpeed,
+            heading: pos.coords.heading || 0,
+            accuracy: currentAccuracy,
+          };
+          sendLocationPacket(latestCoords);
+        },
+        () => {},
+        { enableHighAccuracy: true, maximumAge: 0 }
+      );
+
+      // Hardware GPS watcher
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+      }
+      watchIdRef.current = navigator.geolocation.watchPosition(
+        (pos) => {
+          const currentSpeed = pos.coords.speed ? pos.coords.speed * 3.6 : 0;
+          const currentAccuracy = pos.coords.accuracy;
+          setSpeed(currentSpeed);
+          setAccuracy(currentAccuracy);
+          latestCoords = {
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+            speed: currentSpeed,
+            heading: pos.coords.heading || 0,
+            accuracy: currentAccuracy,
+          };
+        },
+        (err) => {
+          setTrackingError(err.message || 'GPS access denied.');
+        },
+        { enableHighAccuracy: true, maximumAge: 0 }
+      );
+
+      // Dynamic time interval loop
+      if (timerIdRef.current !== null) {
+        clearInterval(timerIdRef.current);
+      }
+      const intervalMs = Math.max(1000, (assignment?.worker?.location_interval || 10) * 1000);
+      timerIdRef.current = setInterval(() => {
+        if (latestCoords) {
+          sendLocationPacket(latestCoords);
+        } else {
+          navigator.geolocation.getCurrentPosition(
+            (pos) => {
+              const currentSpeed = pos.coords.speed ? pos.coords.speed * 3.6 : 0;
+              const currentAccuracy = pos.coords.accuracy;
+              setSpeed(currentSpeed);
+              setAccuracy(currentAccuracy);
+              latestCoords = {
+                lat: pos.coords.latitude,
+                lng: pos.coords.longitude,
+                speed: currentSpeed,
+                heading: pos.coords.heading || 0,
+                accuracy: currentAccuracy,
+              };
+              sendLocationPacket(latestCoords);
+            },
+            () => {},
+            { enableHighAccuracy: true, maximumAge: 0 }
+          );
+        }
+      }, intervalMs);
+    }
+  }, [assignment?.worker?.id, assignment?.worker?.location_interval, batteryLevel, supabase]);
 
   // Supabase Realtime listener on user_profiles for instant pause/resume signals
   useEffect(() => {
@@ -122,6 +272,7 @@ export default function WorkerDashboardView({ tab }: { tab?: string }) {
           } else if (updated && updated.is_active === true) {
             setIsPausedByAdmin(false);
             setTrackingError(null);
+            startAutoTracking();
             refetch();
           }
         }
@@ -131,178 +282,25 @@ export default function WorkerDashboardView({ tab }: { tab?: string }) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [assignment, supabase, refetch, batteryLevel]);
+  }, [assignment, supabase, refetch, batteryLevel, startAutoTracking]);
 
   // Automatically start background packet streaming upon login
   useEffect(() => {
-    let watchId: number | null = null;
-    let timerId: any = null;
-
-    async function startAutoTracking() {
-      if (isPausedByAdmin) return;
-
-      const sessionRes = await supabase.auth.getSession();
-      const sessionToken = sessionRes.data.session?.access_token;
-      if (!sessionToken) return;
-
-      setShiftActive(true);
-
-      if (Capacitor.isNativePlatform()) {
-        try {
-          await LocationService.startTracking({
-            token: sessionToken,
-            busId: assignment?.worker?.id || '',
-            tripId: '',
-            serverUrl: `${window.location.origin}/api/worker/location`,
-            isTripActive: true,
-          });
-        } catch (err) {
-          console.error('Failed to start native location tracking:', err);
-        }
-      }
-
-      let latestCoords: { lat: number; lng: number; speed: number; heading: number; accuracy: number } | null = null;
-
-      const sendLocationPacket = async (coords: { lat: number; lng: number; speed: number; heading: number; accuracy: number }) => {
-        const now = Date.now();
-        const intervalSeconds = assignment?.worker?.location_interval || 10;
-        if (now - lastSentRef.current < intervalSeconds * 1000 - 200) return;
-        lastSentRef.current = now;
-
-        try {
-          const res = await fetch('/api/worker/location', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionToken}` },
-            body: JSON.stringify({
-              lat: coords.lat,
-              lng: coords.lng,
-              speed: coords.speed,
-              heading: coords.heading,
-              accuracy: coords.accuracy,
-              battery_level: batteryLevel,
-              is_tracking: true,
-            }),
-          });
-
-          const data = await res.json();
-
-          // Circuit Breaker: If status 403 or is_paused: true, kill watcher and interval immediately!
-          if (res.status === 403 || data?.is_paused || data?.trackingEnabled === false) {
-            if (watchId !== null) {
-              navigator.geolocation.clearWatch(watchId);
-              watchId = null;
-            }
-            if (watchIdRef.current !== null) {
-              navigator.geolocation.clearWatch(watchIdRef.current);
-              watchIdRef.current = null;
-            }
-            if (timerId !== null) {
-              clearInterval(timerId);
-              timerId = null;
-            }
-            if (Capacitor.isNativePlatform()) {
-              LocationService.stopBackgroundService().catch(() => {});
-            }
-            setShiftActive(false);
-            setIsPausedByAdmin(true);
-            setTrackingError('Telemetry paused by Command Center (0 Network Traffic)');
-          } else {
-            setIsPausedByAdmin(false);
-            setShiftActive(true);
-          }
-        } catch (err) {
-          console.error('Failed to post coordinates:', err);
-        }
-      };
-
-      if ('geolocation' in navigator) {
-        // Initial location fetch
-        navigator.geolocation.getCurrentPosition(
-          (pos) => {
-            const currentSpeed = pos.coords.speed ? pos.coords.speed * 3.6 : 0;
-            const currentAccuracy = pos.coords.accuracy;
-            setSpeed(currentSpeed);
-            setAccuracy(currentAccuracy);
-            latestCoords = {
-              lat: pos.coords.latitude,
-              lng: pos.coords.longitude,
-              speed: currentSpeed,
-              heading: pos.coords.heading || 0,
-              accuracy: currentAccuracy,
-            };
-            sendLocationPacket(latestCoords);
-          },
-          () => {},
-          { enableHighAccuracy: true, maximumAge: 0 }
-        );
-
-        // Hardware movement watcher
-        watchId = navigator.geolocation.watchPosition(
-          (pos) => {
-            const currentSpeed = pos.coords.speed ? pos.coords.speed * 3.6 : 0;
-            const currentAccuracy = pos.coords.accuracy;
-            setSpeed(currentSpeed);
-            setAccuracy(currentAccuracy);
-            latestCoords = {
-              lat: pos.coords.latitude,
-              lng: pos.coords.longitude,
-              speed: currentSpeed,
-              heading: pos.coords.heading || 0,
-              accuracy: currentAccuracy,
-            };
-          },
-          (err) => {
-            setTrackingError(err.message || 'GPS access denied.');
-          },
-          { enableHighAccuracy: true, maximumAge: 0 }
-        );
-        watchIdRef.current = watchId;
-
-        if (timerIdRef.current !== null) {
-          clearInterval(timerIdRef.current);
-        }
-        const intervalMs = Math.max(1000, (assignment?.worker?.location_interval || 10) * 1000);
-        timerIdRef.current = setInterval(() => {
-          if (latestCoords) {
-            sendLocationPacket(latestCoords);
-          } else {
-            navigator.geolocation.getCurrentPosition(
-              (pos) => {
-                const currentSpeed = pos.coords.speed ? pos.coords.speed * 3.6 : 0;
-                const currentAccuracy = pos.coords.accuracy;
-                setSpeed(currentSpeed);
-                setAccuracy(currentAccuracy);
-                latestCoords = {
-                  lat: pos.coords.latitude,
-                  lng: pos.coords.longitude,
-                  speed: currentSpeed,
-                  heading: pos.coords.heading || 0,
-                  accuracy: currentAccuracy,
-                };
-                sendLocationPacket(latestCoords);
-              },
-              () => {},
-              { enableHighAccuracy: true, maximumAge: 0 }
-            );
-          }
-        }, intervalMs);
-      }
-    }
-
-    if (assignment && !isPausedByAdmin) {
+    if (assignment?.worker?.id && !isPausedByAdmin) {
       startAutoTracking();
     }
 
     return () => {
-      if (watchId !== null) {
-        navigator.geolocation.clearWatch(watchId);
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+        watchIdRef.current = null;
       }
       if (timerIdRef.current !== null) {
         clearInterval(timerIdRef.current);
         timerIdRef.current = null;
       }
     };
-  }, [assignment?.worker?.id, assignment?.worker?.location_interval, supabase, batteryLevel, isPausedByAdmin]);
+  }, [assignment?.worker?.id, isPausedByAdmin, startAutoTracking]);
 
   // Handle Shift Telemetry Broadcaster
   const handleToggleShift = async () => {
