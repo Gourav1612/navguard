@@ -349,10 +349,10 @@ export default function AdminDashboardView({ tab: initialTab }: { tab?: string }
                         <td className="px-6 py-4.5 text-right">
                           <button
                             onClick={() => togglePacketStreaming(loc.user?.id, isActiveTelemetry)}
-                            className={`px-3 py-1.5 text-[10px] font-black rounded-xl transition border cursor-pointer ${
+                            className={`px-3 py-1.5 text-[10px] font-black rounded-xl transition-all border cursor-pointer shadow-xs ${
                               isActiveTelemetry
-                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-200'
-                                : 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200'
+                                ? 'bg-emerald-500 text-white border-emerald-600 hover:bg-emerald-600'
+                                : 'bg-red-500 text-white border-red-600 hover:bg-red-600'
                             }`}
                             title={isActiveTelemetry ? 'Click to Pause Packet Streaming' : 'Click to Enable Packet Streaming'}
                           >
@@ -434,10 +434,10 @@ export default function AdminDashboardView({ tab: initialTab }: { tab?: string }
                     <span className="text-[10px] text-slate-400 font-bold uppercase">Telemetry Stream:</span>
                     <button
                       onClick={() => togglePacketStreaming(loc.user?.id, loc.user?.is_active !== false)}
-                      className={`px-3 py-1.5 text-[10px] font-black rounded-xl transition border cursor-pointer ${
+                      className={`px-3 py-1.5 text-[10px] font-black rounded-xl transition-all border cursor-pointer shadow-xs ${
                         loc.user?.is_active !== false
-                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-200'
-                          : 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200'
+                          ? 'bg-emerald-500 text-white border-emerald-600 hover:bg-emerald-600'
+                          : 'bg-red-500 text-white border-red-600 hover:bg-red-600'
                       }`}
                     >
                       {loc.user?.is_active !== false ? '((o)) STREAMING' : '⏸ PAUSED'}

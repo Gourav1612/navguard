@@ -331,14 +331,14 @@ export default function UsersView() {
                   <button
                     type="button"
                     onClick={() => togglePacketStreaming(user)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black transition cursor-pointer ${
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black transition-all cursor-pointer border shadow-xs ${
                       user.is_active
-                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100'
-                        : 'bg-red-50 text-red-650 border border-red-200 hover:bg-red-100'
+                        ? 'bg-emerald-500 text-white border-emerald-600 hover:bg-emerald-600'
+                        : 'bg-red-500 text-white border-red-600 hover:bg-red-600'
                     }`}
                     title={user.is_active ? "Click to Pause Packet Streaming" : "Click to Enable Packet Streaming"}
                   >
-                    <Radio className="w-3.5 h-3.5 animate-pulse" />
+                    <Radio className="w-3.5 h-3.5" />
                     {user.is_active ? 'Packets: STREAMING' : 'Packets: PAUSED'}
                   </button>
                   <span className="text-[9px] font-mono text-slate-400 font-semibold">
