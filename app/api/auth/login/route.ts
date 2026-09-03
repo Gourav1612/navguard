@@ -230,15 +230,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (!profile.is_active) {
-      // Deactivated account
-      await supabase.auth.signOut();
-      return NextResponse.json(
-        { error: 'Your account has been deactivated. Please contact support.', code: 'UNAUTHORIZED' },
-        { status: 401 }
-      );
-    }
-
     // Save role & is_active in user_metadata so middleware & server components always have instant access to user role
     await adminClient.auth.admin.updateUserById(authData.user.id, {
       user_metadata: {

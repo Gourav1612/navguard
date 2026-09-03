@@ -96,8 +96,8 @@ export async function proxy(request: NextRequest) {
     }
   }
 
-  // If user profile is not found or is deactivated, force log out & delete all Supabase auth cookies
-  if (!role || !is_active) {
+  // If user profile is not found, force log out & delete all Supabase auth cookies
+  if (!role) {
     if (pathname === '/login') {
       return response;
     }

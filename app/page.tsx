@@ -18,7 +18,7 @@ export default async function RootPage() {
     .eq('id', user.id)
     .single();
 
-  if (!profile || !profile.is_active) {
+  if (!profile) {
     redirect('/login');
   }
 
