@@ -7,7 +7,7 @@ import { Home, Map, ClipboardList, Bell, User, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Capacitor } from '@capacitor/core';
 import { safeSetDriverStatus } from '@/lib/capacitor-plugins';
-import { PortalSwitcher } from '@/components/PortalSwitcher';
+
 
 interface UserProfile {
   full_name: string;
@@ -138,7 +138,6 @@ export function BottomNav({ children }: { children: React.ReactNode }) {
                 <span className="text-[9px] text-zinc-400 font-bold uppercase tracking-widest block mt-1">{activeUser.role} Portal</span>
               </div>
             </div>
-            <PortalSwitcher />
           </div>
 
           {/* Nav Links */}
@@ -211,7 +210,6 @@ export function BottomNav({ children }: { children: React.ReactNode }) {
             <span className="font-extrabold text-sm tracking-wide">NaviGuard</span>
           </div>
           <div className="flex items-center gap-2">
-            <PortalSwitcher />
             {showDownloadBtn && (
               <a
                 href="/NaviGuard.apk"

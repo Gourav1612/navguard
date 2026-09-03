@@ -21,7 +21,7 @@ import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { Capacitor } from '@capacitor/core';
 import { safeSetDriverStatus } from '@/lib/capacitor-plugins';
 
-import { PortalSwitcher } from '@/components/PortalSwitcher';
+
 
 interface UserProfile {
   full_name: string;
@@ -110,9 +110,6 @@ export function Sidebar() {
             <h1 className="font-extrabold text-sm tracking-wide leading-none text-white">NaviGuard</h1>
             <span className="text-[9px] text-zinc-400 font-mono uppercase tracking-widest block mt-1">Workforce Command</span>
           </div>
-        </div>
-        <div className="w-full pt-1">
-          <PortalSwitcher />
         </div>
       </div>
 
@@ -225,7 +222,6 @@ export function Sidebar() {
       {/* Sidebar Mobile Overlay Menu */}
       {isMobileOpen && (
         <div className="lg:hidden fixed inset-x-0 top-[64px] bg-[#090A0F]/95 backdrop-blur-md border-b border-zinc-800 shadow-2xl z-40 animate-in slide-in-from-top duration-300 overflow-hidden flex flex-col p-5 space-y-4">
-          <PortalSwitcher />
           <nav className="space-y-1">
             {!checkingMfa ? (
               navItems.map((item) => {

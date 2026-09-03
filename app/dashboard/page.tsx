@@ -34,13 +34,12 @@ function DashboardLoader() {
 }
 
 interface PageProps {
-  searchParams: Promise<{ tab?: string; view?: string }>;
+  searchParams: Promise<{ tab?: string }>;
 }
 
 export default async function DashboardPage({ searchParams }: PageProps) {
   const resolvedParams = await searchParams;
   const tab = resolvedParams.tab || '';
-  const requestedView = resolvedParams.view || '';
 
   const supabase = await createSupabaseServerClient();
   const {
@@ -69,24 +68,8 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     redirect('/login');
   }
 
-  // Role Hierarchy View Switcher:
-  // Admin: can view 'admin', 'manager', 'supervisor', 'worker'
-  // Manager: can view 'manager', 'supervisor', 'worker'
-  // Supervisor: can view 'supervisor', 'worker'
-  // Worker: can view 'worker'
-  let effectiveRole = userRole;
-  if (requestedView) {
-    if (userRole === 'admin' && ['admin', 'manager', 'supervisor', 'worker'].includes(requestedView)) {
-      effectiveRole = requestedView;
-    } else if (userRole === 'manager' && ['manager', 'supervisor', 'worker'].includes(requestedView)) {
-      effectiveRole = requestedView;
-    } else if (userRole === 'supervisor' && ['supervisor', 'worker'].includes(requestedView)) {
-      effectiveRole = requestedView;
-    }
-  }
-
   // Render correct dashboard view wrapped in the appropriate layout, passing search params
-  switch (effectiveRole) {
+  switch (userRole) {
     case 'admin':
       return (
         <div className="flex flex-col lg:flex-row min-h-screen bg-[#f4f2f8] w-full">
