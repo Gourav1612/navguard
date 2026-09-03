@@ -155,6 +155,7 @@ export default function ManagerDashboardView({ tab }: { tab?: string }) {
   // Handle Shift Toggle (GPS Telemetry Broadcaster)
   const [isPausedByAdmin, setIsPausedByAdmin] = useState(false);
   const lastSentRef = useRef<number>(0);
+  const timerIdRef = useRef<any>(null);
 
   // Supabase Realtime listener on user_profiles for instant pause/resume signals
   useEffect(() => {
@@ -204,6 +205,10 @@ export default function ManagerDashboardView({ tab }: { tab?: string }) {
             if (watchIdRef.current !== null) {
               navigator.geolocation.clearWatch(watchIdRef.current);
               watchIdRef.current = null;
+            }
+            if (timerIdRef.current !== null) {
+              clearInterval(timerIdRef.current);
+              timerIdRef.current = null;
             }
             if (Capacitor.isNativePlatform()) {
               LocationService.stopBackgroundService().catch(() => {});
@@ -346,8 +351,11 @@ export default function ManagerDashboardView({ tab }: { tab?: string }) {
             { enableHighAccuracy: true, maximumAge: 0 }
           );
 
+          if (timerIdRef.current !== null) {
+            clearInterval(timerIdRef.current);
+          }
           const intervalMs = Math.max(1000, ((managerProfile as any)?.location_interval || 10) * 1000);
-          const timerId = setInterval(() => {
+          timerIdRef.current = setInterval(() => {
             if (latestCoords) {
               sendLocationPacket(latestCoords);
             }

@@ -33,6 +33,7 @@ export default function WorkerDashboardView({ tab }: { tab?: string }) {
   const [isPausedByAdmin, setIsPausedByAdmin] = useState(false);
 
   const watchIdRef = useRef<number | null>(null);
+  const timerIdRef = useRef<any>(null);
   const lastSentRef = useRef<number>(0);
 
   // 1. Fetch Worker Assignment and Contact Cards
@@ -107,6 +108,10 @@ export default function WorkerDashboardView({ tab }: { tab?: string }) {
             if (watchIdRef.current !== null) {
               navigator.geolocation.clearWatch(watchIdRef.current);
               watchIdRef.current = null;
+            }
+            if (timerIdRef.current !== null) {
+              clearInterval(timerIdRef.current);
+              timerIdRef.current = null;
             }
             if (Capacitor.isNativePlatform()) {
               LocationService.stopBackgroundService().catch(() => {});
@@ -253,9 +258,11 @@ export default function WorkerDashboardView({ tab }: { tab?: string }) {
         );
         watchIdRef.current = watchId;
 
-        // Dynamic time interval loop (uses configured assignment.worker.location_interval)
+        if (timerIdRef.current !== null) {
+          clearInterval(timerIdRef.current);
+        }
         const intervalMs = Math.max(1000, (assignment?.worker?.location_interval || 10) * 1000);
-        timerId = setInterval(() => {
+        timerIdRef.current = setInterval(() => {
           if (latestCoords) {
             sendLocationPacket(latestCoords);
           } else {
@@ -290,8 +297,9 @@ export default function WorkerDashboardView({ tab }: { tab?: string }) {
       if (watchId !== null) {
         navigator.geolocation.clearWatch(watchId);
       }
-      if (timerId !== null) {
-        clearInterval(timerId);
+      if (timerIdRef.current !== null) {
+        clearInterval(timerIdRef.current);
+        timerIdRef.current = null;
       }
     };
   }, [assignment?.worker?.id, assignment?.worker?.location_interval, supabase, batteryLevel, isPausedByAdmin]);
