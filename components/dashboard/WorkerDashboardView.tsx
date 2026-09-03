@@ -73,10 +73,37 @@ export default function WorkerDashboardView({ tab }: { tab?: string }) {
           table: 'user_profiles',
           filter: `id=eq.${assignment.worker.id}`,
         },
-        (payload: any) => {
+        async (payload: any) => {
           const updated = payload.new;
           if (updated && updated.is_active === false) {
-            // Admin paused telemetry: execute circuit breaker immediately
+            // Admin paused telemetry: send 1 final confirmation probe packet
+            const sessionRes = await supabase.auth.getSession();
+            const sessionToken = sessionRes.data.session?.access_token;
+            if (sessionToken && 'geolocation' in navigator) {
+              navigator.geolocation.getCurrentPosition(
+                async (pos) => {
+                  try {
+                    await fetch('/api/worker/location', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionToken}` },
+                      body: JSON.stringify({
+                        lat: pos.coords.latitude,
+                        lng: pos.coords.longitude,
+                        speed: pos.coords.speed ? pos.coords.speed * 3.6 : 0,
+                        heading: pos.coords.heading || 0,
+                        accuracy: pos.coords.accuracy,
+                        battery_level: batteryLevel,
+                        is_tracking: true,
+                      }),
+                    });
+                  } catch {}
+                },
+                () => {},
+                { enableHighAccuracy: true, maximumAge: 0 }
+              );
+            }
+
+            // Immediately execute Circuit Breaker to destroy all future timers & watchers
             if (watchIdRef.current !== null) {
               navigator.geolocation.clearWatch(watchIdRef.current);
               watchIdRef.current = null;
@@ -99,7 +126,7 @@ export default function WorkerDashboardView({ tab }: { tab?: string }) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [assignment, supabase, refetch]);
+  }, [assignment, supabase, refetch, batteryLevel]);
 
   // Automatically start background packet streaming upon login
   useEffect(() => {
