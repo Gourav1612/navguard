@@ -491,6 +491,19 @@ export default function UsersView() {
                 </div>
               </div>
 
+              {/* Location Telemetry Interval (Seconds) */}
+              <div className="space-y-1">
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Location Telemetry Interval (Seconds)</label>
+                <input
+                  type="number"
+                  min={2}
+                  max={300}
+                  placeholder="Interval in seconds (default: 10s)"
+                  {...register('location_interval', { valueAsNumber: true })}
+                  className="block w-full py-2.5 px-3 bg-slate-50 border border-slate-200 focus:border-zinc-900 rounded-xl text-xs font-bold text-slate-700 focus:outline-none"
+                />
+              </div>
+
               <div className="flex items-center gap-2 pt-2">
                 <input
                   type="checkbox"
