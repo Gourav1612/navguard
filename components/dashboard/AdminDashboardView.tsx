@@ -95,6 +95,25 @@ export default function AdminDashboardView({ tab: initialTab }: { tab?: string }
     }
   };
 
+  const [disablingMfa, setDisablingMfa] = useState(false);
+
+  const handleDisableMfa = async () => {
+    if (!mfaFactorId) return;
+    if (!confirm('Are you sure you want to disable Multi-Factor Authentication (MFA) for your account?')) return;
+    setDisablingMfa(true);
+    try {
+      const { error } = await supabase.auth.mfa.unenroll({ factorId: mfaFactorId });
+      if (error) throw error;
+      setMfaEnabled(false);
+      setMfaFactorId(null);
+      alert('Multi-Factor Authentication disabled successfully.');
+    } catch (err: any) {
+      alert(err.message || 'Failed to disable MFA');
+    } finally {
+      setDisablingMfa(false);
+    }
+  };
+
   useEffect(() => {
     checkMfaStatus();
   }, [tab]);
@@ -484,7 +503,21 @@ export default function AdminDashboardView({ tab: initialTab }: { tab?: string }
           </div>
 
           <div>
-            {!mfaEnabled && (
+            {mfaEnabled ? (
+              <button
+                type="button"
+                onClick={handleDisableMfa}
+                disabled={disablingMfa}
+                className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5 shadow-sm cursor-pointer border border-red-600 disabled:opacity-50"
+              >
+                {disablingMfa ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <ShieldAlert className="w-3.5 h-3.5" />
+                )}
+                Disable MFA
+              </button>
+            ) : (
               <Link
                 href="/admin/mfa-setup"
                 className="px-4 py-2 bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
