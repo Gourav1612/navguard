@@ -63,11 +63,8 @@ export function PortalSwitcher() {
 
   const handleSelect = (key: string) => {
     setOpen(false);
-    if (key === userRole) {
-      router.push('/dashboard');
-    } else {
-      router.push(`/dashboard?view=${key}`);
-    }
+    const targetUrl = key === userRole ? '/dashboard' : `/dashboard?view=${key}`;
+    window.location.href = targetUrl;
   };
 
   return (
