@@ -50,14 +50,18 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     if (parsed.data.password) authUpdatePayload.password = parsed.data.password;
     
     // Always sync metadata in auth AND unlock account (reset failed login attempts counter)
+    // Only update metadata fields that were explicitly provided in the request payload
+    const updatedMetadata = { ...existingAuthUser?.user_metadata };
+    if (parsed.data.full_name !== undefined) updatedMetadata.full_name = parsed.data.full_name;
+    if (parsed.data.username !== undefined) updatedMetadata.username = parsed.data.username || null;
+    if (parsed.data.role !== undefined) updatedMetadata.role = parsed.data.role;
+    if (parsed.data.plant_id !== undefined) updatedMetadata.plant_id = parsed.data.plant_id || null;
+    if (parsed.data.supervisor_id !== undefined) updatedMetadata.supervisor_id = parsed.data.supervisor_id || null;
+    if (parsed.data.location_interval !== undefined) updatedMetadata.location_interval = parsed.data.location_interval;
+    if (parsed.data.is_active !== undefined) updatedMetadata.is_active = parsed.data.is_active;
+
     authUpdatePayload.user_metadata = {
-      ...existingAuthUser?.user_metadata,
-      full_name: parsed.data.full_name,
-      username: parsed.data.username || null,
-      role: parsed.data.role,
-      plant_id: parsed.data.plant_id || null,
-      supervisor_id: parsed.data.supervisor_id || null,
-      location_interval: parsed.data.location_interval || 10,
+      ...updatedMetadata,
       login_locked: false,
       login_attempts: 0,
       password_reset_token: null,

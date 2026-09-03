@@ -125,8 +125,6 @@ export default function UsersView() {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          full_name: user.full_name,
-          role: user.role,
           is_active: !user.is_active,
         }),
       });
