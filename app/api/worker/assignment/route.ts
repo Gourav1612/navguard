@@ -18,6 +18,7 @@ export async function GET() {
         plant_id,
         supervisor_id,
         location_interval,
+        is_active,
         plant:plants(id, name, code, latitude, longitude, radius_meters)
       `)
       .eq('id', auth.profile.id)
@@ -60,6 +61,7 @@ export async function GET() {
         email: workerRaw.email,
         phone: workerRaw.phone,
         location_interval: workerRaw.location_interval,
+        is_active: workerRaw.is_active,
       },
       plant: plantObj || null,
       supervisor,

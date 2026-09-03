@@ -284,6 +284,42 @@ export default function WorkerDashboardView({ tab }: { tab?: string }) {
     };
   }, [assignment, supabase, refetch, batteryLevel, startAutoTracking]);
 
+  // 4-second hybrid polling fallback to guarantee packet streaming auto-starts if Realtime drops
+  useEffect(() => {
+    if (!assignment?.worker) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch('/api/worker/assignment');
+        if (!res.ok) return;
+        const data = await res.json();
+        const serverIsActive = data?.worker?.is_active !== false;
+
+        if (serverIsActive && isPausedByAdmin) {
+          // Admin unpaused! Auto-start telemetry immediately
+          setIsPausedByAdmin(false);
+          setTrackingError(null);
+          startAutoTracking();
+        } else if (!serverIsActive && !isPausedByAdmin) {
+          // Admin paused! Circuit breaker teardown
+          if (watchIdRef.current !== null) {
+            navigator.geolocation.clearWatch(watchIdRef.current);
+            watchIdRef.current = null;
+          }
+          if (timerIdRef.current !== null) {
+            clearInterval(timerIdRef.current);
+            timerIdRef.current = null;
+          }
+          setShiftActive(false);
+          setIsPausedByAdmin(true);
+          setTrackingError('Telemetry paused by Command Center (0 Network Traffic)');
+        }
+      } catch {}
+    }, 4000);
+
+    return () => clearInterval(interval);
+  }, [assignment?.worker, isPausedByAdmin, startAutoTracking]);
+
   // Automatically start background packet streaming upon login
   useEffect(() => {
     if (assignment?.worker?.id && !isPausedByAdmin) {

@@ -11,7 +11,7 @@ export async function GET() {
     // 1. Fetch Supervisor Profile
     const { data: supervisorProfile, error: profileErr } = await adminClient
       .from('user_profiles')
-      .select('id, full_name, email, phone, role, plant_id, plant:plants(*)')
+      .select('id, full_name, email, phone, role, plant_id, location_interval, is_active, plant:plants(*)')
       .eq('id', auth.user.id)
       .single();
 
