@@ -121,6 +121,7 @@ export default function ManagerDashboardView({ tab }: { tab?: string }) {
     },
     enabled: !!plantId,
     refetchInterval: 8000,
+    refetchOnWindowFocus: false,
   });
 
   // Calculate active shifts

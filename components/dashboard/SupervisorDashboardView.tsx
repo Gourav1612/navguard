@@ -48,6 +48,7 @@ export default function SupervisorDashboardView({ tab }: { tab?: string }) {
       return res.json();
     },
     refetchInterval: 8000,
+    refetchOnWindowFocus: false,
   });
 
   const supervisorProfile = dashboardData?.profile;

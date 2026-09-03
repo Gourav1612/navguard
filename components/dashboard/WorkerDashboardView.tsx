@@ -44,6 +44,7 @@ export default function WorkerDashboardView({ tab }: { tab?: string }) {
       return res.json();
     },
     refetchInterval: 30000,
+    refetchOnWindowFocus: false,
   });
 
   // Track battery level dynamically (PWA/web fallback)
@@ -199,7 +200,7 @@ export default function WorkerDashboardView({ tab }: { tab?: string }) {
         navigator.geolocation.clearWatch(watchId);
       }
     };
-  }, [assignment, supabase, batteryLevel, isPausedByAdmin]);
+  }, [assignment?.worker?.id, assignment?.worker?.location_interval, supabase, batteryLevel, isPausedByAdmin]);
 
   // Handle Shift Telemetry Broadcaster
   const handleToggleShift = async () => {
