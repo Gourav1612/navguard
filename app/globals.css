@@ -5,22 +5,22 @@
   --background: #f4f2f8; /* warm lavender-gray surface */
   --foreground: #0f172a; /* text-primary */
   
-  --primary: #5c3b99; /* premium purple */
-  --primary-dark: #3b255e;
+  --primary: #18181b; /* modern dark zinc */
+  --primary-dark: #090a0f;
   --success: #10b981;
   --warning: #f59e0b;
   --danger: #ef4444;
   --surface: #f4f2f8;
   --card: #ffffff;
   --border: #e8e6f0;
-  --text-primary: #1e1b4b;
+  --text-primary: #0f172a;
   --text-secondary: #6b7280;
 }
 
 /* Premium Sidebar Active Curved Navigation Tab */
 .active-nav-item {
   background-color: #f4f2f8 !important; /* matches main content area background */
-  color: #3b255e !important;
+  color: #18181b !important;
   font-weight: 700;
   border-radius: 0 9999px 9999px 0; /* clean pill on the right */
   position: relative;

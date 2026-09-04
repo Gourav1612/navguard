@@ -65,9 +65,7 @@ export default function MfaSetupClient() {
           console.log('[MFA] User already has active verified TOTP. Redirecting to dashboard...');
           setSuccess(true);
           setLoading(false);
-          setTimeout(() => {
-            window.location.href = '/dashboard';
-          }, 1500);
+          window.location.href = '/dashboard';
           return;
         }
 
@@ -158,9 +156,7 @@ export default function MfaSetupClient() {
       setSuccess(true);
       setVerifying(false);
       
-      setTimeout(() => {
-        window.location.href = '/dashboard';
-      }, 1500);
+      window.location.href = '/dashboard';
     } catch (err: any) {
       setError(err.message || 'Verification failed. Please check your authenticator code.');
       setVerifying(false);
@@ -169,9 +165,9 @@ export default function MfaSetupClient() {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-slate-950 text-white">
-        <Loader2 className="w-10 h-10 text-primary-dark animate-spin mb-4" />
-        <p className="text-slate-400 text-sm font-medium">Securing access environment...</p>
+      <div className="flex flex-col items-center justify-center min-h-screen bg-[#090A0F] text-white">
+        <Loader2 className="w-10 h-10 text-white animate-spin mb-4" />
+        <p className="text-zinc-400 text-sm font-medium">Securing access environment...</p>
       </div>
     );
   }
@@ -181,12 +177,12 @@ export default function MfaSetupClient() {
     : null;
 
   return (
-    <div className="flex min-h-screen bg-slate-950 items-center justify-center p-6 relative overflow-hidden">
+    <div className="flex min-h-screen bg-[#090A0F] items-center justify-center p-6 relative overflow-hidden">
       {/* Background Graphic elements */}
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/10 rounded-full blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-emerald-500/10 rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-zinc-700/10 rounded-full blur-[120px] pointer-events-none" />
 
-      <div className="w-full max-w-lg bg-slate-900/40 border border-slate-800/80 backdrop-blur-2xl rounded-3xl p-8 shadow-2xl relative z-10 space-y-6">
+      <div className="w-full max-w-lg bg-zinc-900/60 border border-zinc-800 backdrop-blur-2xl rounded-3xl p-8 shadow-2xl relative z-10 space-y-6">
         
         {success ? (
           <div className="text-center py-8 space-y-4 animate-in fade-in duration-300">
@@ -195,18 +191,18 @@ export default function MfaSetupClient() {
             </div>
             <div className="space-y-1">
               <h3 className="text-xl font-bold text-white tracking-tight">Security Hardening Complete</h3>
-              <p className="text-slate-400 text-sm">MFA factor verified. Redirecting to admin session...</p>
+              <p className="text-zinc-400 text-sm">MFA factor verified. Redirecting to admin session...</p>
             </div>
           </div>
         ) : (
           <>
             {/* Header */}
             <div className="space-y-2 text-center">
-              <div className="flex items-center justify-center w-12 h-12 bg-primary/10 border border-primary/20 rounded-2xl mx-auto text-primary mb-3">
+              <div className="flex items-center justify-center w-12 h-12 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl mx-auto text-emerald-400 mb-3">
                 <Lock className="w-5 h-5" />
               </div>
               <h2 className="text-2xl font-black text-white tracking-tight leading-tight">Admin MFA Mandatory Enrollment</h2>
-              <p className="text-slate-400 text-xs max-w-sm mx-auto leading-relaxed">
+              <p className="text-zinc-400 text-xs max-w-sm mx-auto leading-relaxed">
                 Protect your administrator credentials. Scan the QR code with Google Authenticator, Authy, or Microsoft Authenticator.
               </p>
             </div>
@@ -221,28 +217,28 @@ export default function MfaSetupClient() {
             {/* Step 1: Scan QR Code */}
             <div className="space-y-4">
               <div className="flex items-center gap-2.5">
-                <span className="flex items-center justify-center w-6 h-6 rounded-full bg-slate-800 text-xs font-bold text-slate-300">1</span>
-                <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider">Scan authenticator QR code</h4>
+                <span className="flex items-center justify-center w-6 h-6 rounded-full bg-zinc-800 text-xs font-bold text-zinc-300">1</span>
+                <h4 className="text-xs font-bold text-zinc-300 uppercase tracking-wider">Scan authenticator QR code</h4>
               </div>
               
-              <div className="flex flex-col sm:flex-row items-center gap-6 bg-slate-950/50 border border-slate-800/50 p-6 rounded-2xl">
+              <div className="flex flex-col sm:flex-row items-center gap-6 bg-zinc-950/50 border border-zinc-800/50 p-6 rounded-2xl">
                 {qrCodeSvg && (
-                  <div className="bg-white p-3 rounded-2xl shadow-lg border border-slate-100 flex-shrink-0 animate-in zoom-in-95">
+                  <div className="bg-white p-3 rounded-2xl shadow-lg border border-zinc-100 flex-shrink-0 animate-in zoom-in-95">
                     <img src={qrCodeSvg} alt="MFA QR Code" className="w-36 h-36" />
                   </div>
                 )}
                 <div className="space-y-3 flex-1 text-center sm:text-left">
-                  <p className="text-xs text-slate-400 leading-relaxed">
+                  <p className="text-xs text-zinc-400 leading-relaxed">
                     If you cannot scan the QR code, copy and enter the text key manually into your authenticator app.
                   </p>
                   
                   {secret && (
-                    <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 p-2.5 rounded-xl text-xs font-mono font-bold text-slate-300 max-w-[240px] mx-auto sm:mx-0">
+                    <div className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 p-2.5 rounded-xl text-xs font-mono font-bold text-zinc-300 max-w-[240px] mx-auto sm:mx-0">
                       <span className="truncate flex-1">{secret}</span>
                       <button
                         type="button"
                         onClick={handleCopySecret}
-                        className="text-slate-400 hover:text-white p-1 hover:bg-slate-800 rounded transition"
+                        className="text-zinc-400 hover:text-white p-1 hover:bg-zinc-800 rounded transition cursor-pointer"
                       >
                         {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
                       </button>
@@ -253,10 +249,10 @@ export default function MfaSetupClient() {
             </div>
 
             {/* Step 2: Validate Verification Code */}
-            <form onSubmit={handleVerify} className="space-y-4 pt-2 border-t border-slate-800/50">
+            <form onSubmit={handleVerify} className="space-y-4 pt-2 border-t border-zinc-800/50">
               <div className="flex items-center gap-2.5">
-                <span className="flex items-center justify-center w-6 h-6 rounded-full bg-slate-800 text-xs font-bold text-slate-300">2</span>
-                <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider">Verify Authenticator Code</h4>
+                <span className="flex items-center justify-center w-6 h-6 rounded-full bg-zinc-800 text-xs font-bold text-zinc-300">2</span>
+                <h4 className="text-xs font-bold text-zinc-300 uppercase tracking-wider">Verify Authenticator Code</h4>
               </div>
 
               <div className="space-y-3">
@@ -267,13 +263,13 @@ export default function MfaSetupClient() {
                   disabled={verifying}
                   value={otpCode}
                   onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
-                  className="block w-full py-3.5 px-4 bg-slate-950 border border-slate-800 focus:border-primary/50 text-white rounded-xl text-center text-lg font-bold font-mono tracking-widest transition focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  className="block w-full py-3.5 px-4 bg-zinc-950 border border-zinc-800 focus:border-emerald-500 text-white rounded-xl text-center text-lg font-bold font-mono tracking-widest transition focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
                 />
 
                 <button
                   type="submit"
                   disabled={verifying || otpCode.length !== 6}
-                  className="flex items-center justify-center w-full py-3.5 px-4 bg-primary hover:bg-primary-dark text-white rounded-xl text-sm font-semibold transition hover:shadow-lg shadow-primary/25 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex items-center justify-center w-full py-3.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-sm font-semibold transition shadow-lg shadow-emerald-950/40 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {verifying ? (
                     <>

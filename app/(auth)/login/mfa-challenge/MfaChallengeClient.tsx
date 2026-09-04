@@ -240,21 +240,21 @@ export default function MfaChallengeClient() {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-slate-950 text-white">
-        <Loader2 className="w-10 h-10 text-primary animate-spin mb-4" />
-        <p className="text-slate-400 text-sm font-medium">Initializing Multi-Factor Authentication Challenge...</p>
+      <div className="flex flex-col items-center justify-center min-h-screen bg-[#090A0F] text-white">
+        <Loader2 className="w-10 h-10 text-white animate-spin mb-4" />
+        <p className="text-zinc-400 text-sm font-medium">Securing access environment...</p>
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-screen bg-slate-950 items-center justify-center p-6 relative overflow-hidden">
+    <div className="flex min-h-screen bg-[#090A0F] items-center justify-center p-6 relative overflow-hidden">
       {/* Background Graphic elements */}
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/10 rounded-full blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-emerald-500/10 rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-zinc-700/10 rounded-full blur-[120px] pointer-events-none" />
 
-      <div className="w-full max-w-md bg-slate-900/40 border border-slate-800/80 backdrop-blur-2xl rounded-3xl p-8 shadow-2xl relative z-10 space-y-6">
-        
+      <div className="w-full max-w-md bg-zinc-900/60 border border-zinc-800 backdrop-blur-2xl rounded-3xl p-8 shadow-2xl relative z-10 space-y-6">
+
         {failedAttempts >= 5 ? (
           resetSuccess ? (
             <div className="text-center py-8 space-y-4 animate-in fade-in duration-300">
@@ -263,24 +263,24 @@ export default function MfaChallengeClient() {
               </div>
               <div className="space-y-1">
                 <h3 className="text-xl font-bold text-white tracking-tight">Security Unlocked</h3>
-                <p className="text-slate-400 text-xs">Attempts reset successfully. Loading authenticator view...</p>
+                <p className="text-zinc-400 text-xs">Attempts reset successfully. Loading authenticator view...</p>
               </div>
             </div>
           ) : resetMode ? (
             // Enter Email OTP to unlock
             <>
               <div className="space-y-2 text-center">
-                <div className="flex items-center justify-center w-12 h-12 bg-purple-500/10 border border-purple-500/20 rounded-2xl mx-auto text-purple-400 mb-3">
+                <div className="flex items-center justify-center w-12 h-12 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl mx-auto text-emerald-400 mb-3">
                   <Mail className="w-5 h-5 animate-bounce" />
                 </div>
                 <h2 className="text-2xl font-black text-white tracking-tight leading-tight">Security Unlock</h2>
-                <p className="text-slate-400 text-xs max-w-xs mx-auto leading-relaxed">
+                <p className="text-zinc-400 text-xs max-w-xs mx-auto leading-relaxed">
                   Enter the 6-digit unlock code sent to your registered admin email to reset attempts.
                 </p>
               </div>
 
               {resetError && (
-                <div className="flex items-start gap-3 p-4 bg-red-955/40 border border-red-800/50 rounded-2xl text-red-300 text-xs animate-in shake duration-200">
+                <div className="flex items-start gap-3 p-4 bg-red-950/40 border border-red-800/50 rounded-2xl text-red-300 text-xs animate-in shake duration-200">
                   <ShieldAlert className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
                   <div className="font-medium leading-relaxed">{resetError}</div>
                 </div>
@@ -295,15 +295,15 @@ export default function MfaChallengeClient() {
                     disabled={resetLoading}
                     value={resetCode}
                     onChange={(e) => setResetCode(e.target.value.replace(/\D/g, ''))}
-                    className="block w-full py-3.5 px-4 bg-slate-950 border border-slate-800 focus:border-purple-500/50 text-white rounded-xl text-center text-lg font-bold font-mono tracking-widest transition focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+                    className="block w-full py-3.5 px-4 bg-zinc-950 border border-zinc-800 focus:border-emerald-500 text-white rounded-xl text-center text-lg font-bold font-mono tracking-widest transition focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
                   />
-                  <Key className="w-4 h-4 text-slate-500 absolute left-4 top-1/2 -translate-y-1/2" />
+                  <Key className="w-4 h-4 text-zinc-500 absolute left-4 top-1/2 -translate-y-1/2" />
                 </div>
 
                 <button
                   type="submit"
                   disabled={resetLoading || resetCode.length !== 6}
-                  className="flex items-center justify-center w-full py-4 px-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:opacity-95 text-white rounded-xl text-xs font-black uppercase tracking-widest transition active:scale-[0.99] disabled:opacity-50"
+                  className="flex items-center justify-center w-full py-4 px-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black uppercase tracking-widest transition cursor-pointer active:scale-[0.99] disabled:opacity-50"
                 >
                   {resetLoading ? (
                     <Loader2 className="w-4.5 h-4.5 animate-spin mx-auto" />
@@ -321,16 +321,16 @@ export default function MfaChallengeClient() {
                   <ShieldAlert className="w-5 h-5 animate-pulse" />
                 </div>
                 <h2 className="text-2xl font-black text-white tracking-tight leading-tight">Verification Blocked</h2>
-                <p className="text-slate-400 text-xs max-w-xs mx-auto leading-relaxed">
+                <p className="text-zinc-400 text-xs max-w-xs mx-auto leading-relaxed">
                   You have exceeded the maximum of 5 incorrect MFA attempts.
                 </p>
-                <p className="text-slate-400 text-xs max-w-xs mx-auto leading-relaxed mt-2">
+                <p className="text-zinc-400 text-xs max-w-xs mx-auto leading-relaxed mt-2">
                   To protect your account, please verify your identity using a fallback code sent to your registered admin email.
                 </p>
               </div>
 
               {resetError && (
-                <div className="flex items-start gap-3 p-4 bg-red-955/40 border border-red-800/50 rounded-2xl text-red-300 text-xs animate-in shake duration-200">
+                <div className="flex items-start gap-3 p-4 bg-red-950/40 border border-red-800/50 rounded-2xl text-red-300 text-xs animate-in shake duration-200">
                   <ShieldAlert className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
                   <div className="font-medium leading-relaxed">{resetError}</div>
                 </div>
@@ -340,7 +340,7 @@ export default function MfaChallengeClient() {
                 <button
                   onClick={handleSendResetOtp}
                   disabled={resetLoading}
-                  className="flex items-center justify-center w-full py-4 px-4 bg-gradient-to-r from-red-600 to-amber-600 hover:opacity-95 text-white rounded-xl text-xs font-black uppercase tracking-widest transition active:scale-[0.99] disabled:opacity-50"
+                  className="flex items-center justify-center w-full py-4 px-4 bg-gradient-to-r from-red-600 to-amber-600 hover:opacity-95 text-white rounded-xl text-xs font-black uppercase tracking-widest transition active:scale-[0.99] disabled:opacity-50 cursor-pointer"
                 >
                   {resetLoading ? (
                     <Loader2 className="w-4.5 h-4.5 animate-spin" />
@@ -350,7 +350,7 @@ export default function MfaChallengeClient() {
                 </button>
                 <button
                   onClick={handleSignOut}
-                  className="flex items-center justify-center gap-2 w-full py-3.5 px-4 border border-slate-800 hover:bg-slate-800/50 text-slate-400 rounded-xl text-xs font-semibold uppercase tracking-wider transition cursor-pointer"
+                  className="flex items-center justify-center gap-2 w-full py-3.5 px-4 border border-zinc-800 hover:bg-zinc-800/50 text-zinc-400 rounded-xl text-xs font-semibold uppercase tracking-wider transition cursor-pointer"
                 >
                   <ArrowLeft className="w-4 h-4" />
                   Back to Login
@@ -365,7 +365,7 @@ export default function MfaChallengeClient() {
             </div>
             <div className="space-y-1">
               <h3 className="text-xl font-bold text-white tracking-tight">Authenticator Reset</h3>
-              <p className="text-slate-400 text-xs">MFA disabled successfully. Loading security bind setup...</p>
+              <p className="text-zinc-400 text-xs">MFA disabled successfully. Loading security bind setup...</p>
             </div>
           </div>
         ) : resetMode ? (
@@ -376,12 +376,10 @@ export default function MfaChallengeClient() {
                 <Mail className="w-5 h-5 animate-bounce" />
               </div>
               <h2 className="text-2xl font-black text-white tracking-tight leading-tight">MFA Email Recovery</h2>
-              <p className="text-slate-400 text-xs max-w-xs mx-auto leading-relaxed">
+              <p className="text-zinc-400 text-xs max-w-xs mx-auto leading-relaxed">
                 Enter the 6-digit recovery OTP code sent to your registered admin email.
               </p>
             </div>
-
-
 
             {resetError && (
               <div className="flex items-start gap-3 p-4 bg-red-950/40 border border-red-800/50 rounded-2xl text-red-300 text-xs animate-in shake duration-200">
@@ -399,23 +397,23 @@ export default function MfaChallengeClient() {
                   disabled={resetLoading}
                   value={resetCode}
                   onChange={(e) => setResetCode(e.target.value.replace(/\D/g, ''))}
-                  className="block w-full py-3.5 px-4 bg-slate-950 border border-slate-800 focus:border-red-500/50 text-white rounded-xl text-center text-lg font-bold font-mono tracking-widest transition focus:outline-none focus:ring-2 focus:ring-red-500/20"
+                  className="block w-full py-3.5 px-4 bg-zinc-950 border border-zinc-800 focus:border-red-500/50 text-white rounded-xl text-center text-lg font-bold font-mono tracking-widest transition focus:outline-none focus:ring-2 focus:ring-red-500/20"
                 />
-                <Key className="w-4 h-4 text-slate-500 absolute left-4 top-1/2 -translate-y-1/2" />
+                <Key className="w-4 h-4 text-zinc-500 absolute left-4 top-1/2 -translate-y-1/2" />
               </div>
 
               <div className="flex gap-3">
                 <button
                   type="button"
                   onClick={() => setResetMode(false)}
-                  className="flex-1 py-3 px-4 border border-slate-800 hover:bg-slate-800 text-slate-300 rounded-xl text-sm font-semibold transition cursor-pointer"
+                  className="flex-1 py-3 px-4 border border-zinc-800 hover:bg-zinc-800 text-zinc-300 rounded-xl text-sm font-semibold transition cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={resetLoading || resetCode.length !== 6}
-                  className="flex-1 py-3 px-4 bg-red-600 hover:bg-red-750 text-white rounded-xl text-sm font-semibold transition cursor-pointer disabled:opacity-50"
+                  className="flex-1 py-3 px-4 bg-red-600 hover:bg-red-500 text-white rounded-xl text-sm font-semibold transition cursor-pointer disabled:opacity-50"
                 >
                   {resetLoading ? (
                     <Loader2 className="w-4.5 h-4.5 animate-spin mx-auto" />
@@ -430,11 +428,11 @@ export default function MfaChallengeClient() {
           // Standard MFA Authenticator flow interface
           <>
             <div className="space-y-2 text-center">
-              <div className="flex items-center justify-center w-12 h-12 bg-primary/10 border border-primary/20 rounded-2xl mx-auto text-primary mb-3">
+              <div className="flex items-center justify-center w-12 h-12 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl mx-auto text-emerald-400 mb-3">
                 <Lock className="w-5 h-5 animate-pulse" />
               </div>
               <h2 className="text-2xl font-black text-white tracking-tight leading-tight">Admin MFA Verification</h2>
-              <p className="text-slate-400 text-xs max-w-xs mx-auto leading-relaxed">
+              <p className="text-zinc-400 text-xs max-w-xs mx-auto leading-relaxed">
                 Enter the 6-digit security code generated by your Authenticator app.
               </p>
             </div>
@@ -454,13 +452,13 @@ export default function MfaChallengeClient() {
                 disabled={verifying || success}
                 value={otpCode}
                 onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
-                className="block w-full py-3.5 px-4 bg-slate-950 border border-slate-800 focus:border-primary/50 text-white rounded-xl text-center text-lg font-bold font-mono tracking-widest transition focus:outline-none focus:ring-2 focus:ring-primary/20"
+                className="block w-full py-3.5 px-4 bg-zinc-950 border border-zinc-800 focus:border-emerald-500 text-white rounded-xl text-center text-lg font-bold font-mono tracking-widest transition focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
               />
 
               <button
                 type="submit"
                 disabled={verifying || success || otpCode.length !== 6}
-                className="flex items-center justify-center w-full py-3.5 px-4 bg-primary hover:bg-primary-dark text-white rounded-xl text-sm font-semibold transition hover:shadow-lg shadow-primary/25 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center justify-center w-full py-3.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-sm font-semibold transition shadow-lg shadow-emerald-950/40 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {verifying ? (
                   <>
@@ -481,7 +479,7 @@ export default function MfaChallengeClient() {
                 type="button"
                 onClick={handleSendResetOtp}
                 disabled={resetLoading}
-                className="text-xs font-semibold text-primary hover:text-primary-dark transition cursor-pointer disabled:opacity-50"
+                className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 transition cursor-pointer disabled:opacity-50"
               >
                 {resetLoading ? 'Requesting code...' : 'Lost Authenticator? Reset MFA via Email'}
               </button>
@@ -490,11 +488,11 @@ export default function MfaChallengeClient() {
         )}
 
         {/* Back to sign in page (forces session sign-out) */}
-        <div className="text-center pt-2 border-t border-slate-800/40">
+        <div className="text-center pt-2 border-t border-zinc-800/40">
           <button
             type="button"
             onClick={handleSignOut}
-            className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition font-semibold cursor-pointer"
+            className="inline-flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white transition font-semibold cursor-pointer"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
             Back to sign in page
