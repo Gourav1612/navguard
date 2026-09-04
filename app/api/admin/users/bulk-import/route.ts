@@ -191,12 +191,16 @@ export async function POST(req: NextRequest) {
         is_active: true,
       };
 
-      let { error: profileErr } = await adminClient.from('user_profiles').insert(profilePayload);
+      let { error: profileErr } = await adminClient
+        .from('user_profiles')
+        .upsert(profilePayload, { onConflict: 'id' });
 
       if (profileErr && profilePayload.username) {
         // Fallback if username column is missing from user_profiles table in PostgREST schema cache
         delete profilePayload.username;
-        const fallbackRes = await adminClient.from('user_profiles').insert(profilePayload);
+        const fallbackRes = await adminClient
+          .from('user_profiles')
+          .upsert(profilePayload, { onConflict: 'id' });
         profileErr = fallbackRes.error;
       }
 

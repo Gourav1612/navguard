@@ -457,28 +457,28 @@ export default function UsersView() {
 
       {/* --- Bulk Import Modal --- */}
       {showBulkModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-2xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-150 space-y-0">
-            <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
+          <div className="bg-white border border-slate-200 rounded-2xl sm:rounded-3xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden shadow-2xl animate-in zoom-in-95 duration-150 space-y-0">
+            <div className="px-4 sm:px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <FileSpreadsheet className="w-5 h-5 text-emerald-400" />
                 <div>
-                  <h3 className="font-extrabold text-white text-sm">Bulk Personnel Account Import</h3>
+                  <h3 className="font-extrabold text-white text-xs sm:text-sm">Bulk Personnel Account Import</h3>
                   <span className="text-[10px] text-slate-400 font-semibold block">Provision multiple accounts via .xlsx or .csv</span>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setShowBulkModal(false)}
-                className="text-slate-400 hover:text-white transition cursor-pointer"
+                className="text-slate-400 hover:text-white transition cursor-pointer p-1"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="p-6 space-y-5 max-h-[80vh] overflow-y-auto">
+            <div className="p-4 sm:p-6 space-y-4 sm:space-y-5 overflow-y-auto flex-1 min-h-0">
               {/* Instructions & Sample Download */}
-              <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="p-3.5 sm:p-4 bg-slate-50 border border-slate-200 rounded-2xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
                 <div className="space-y-1">
                   <h4 className="text-xs font-black text-slate-800">Spreadsheet Template Rules</h4>
                   <p className="text-[11px] text-slate-500 font-semibold leading-relaxed">
@@ -489,7 +489,7 @@ export default function UsersView() {
                 <button
                   type="button"
                   onClick={handleDownloadSampleCsv}
-                  className="flex items-center justify-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-100 text-slate-800 border border-slate-250 text-xs font-bold rounded-xl transition cursor-pointer flex-shrink-0 shadow-2xs"
+                  className="flex items-center justify-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-100 text-slate-800 border border-slate-250 text-xs font-bold rounded-xl transition cursor-pointer flex-shrink-0 shadow-2xs w-full sm:w-auto"
                 >
                   <Download className="w-4 h-4 text-emerald-600" />
                   Download Sample CSV
@@ -506,18 +506,18 @@ export default function UsersView() {
 
               {/* Results Summary Box (Post Execution) */}
               {importSummary && (
-                <div className="space-y-4">
-                  <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center justify-between text-xs font-bold">
+                <div className="space-y-3 sm:space-y-4">
+                  <div className="p-3.5 sm:p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs font-bold">
                     <div className="flex items-center gap-2 text-emerald-900">
-                      <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                      <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0" />
                       <span>Batch Completed: {importSummary.successCount} Created, {importSummary.errorCount} Errors</span>
                     </div>
                     <span className="text-slate-500 font-mono text-[11px]">Total Rows: {importSummary.totalRows}</span>
                   </div>
 
-                  {/* Summary Rows Table */}
-                  <div className="border border-slate-200 rounded-2xl overflow-hidden text-xs max-h-60 overflow-y-auto">
-                    <table className="w-full text-left border-collapse">
+                  {/* Summary Rows Table Container (Mobile Responsive with Touch Scroll) */}
+                  <div className="border border-slate-200 rounded-2xl overflow-x-auto overflow-y-auto text-xs max-h-60 touch-pan-x">
+                    <table className="w-full min-w-[480px] text-left border-collapse">
                       <thead className="bg-slate-100 border-b border-slate-200 text-[10px] font-black uppercase text-slate-500 sticky top-0">
                         <tr>
                           <th className="py-2 px-3">Row</th>
@@ -532,17 +532,18 @@ export default function UsersView() {
                           <tr key={idx} className={res.status === 'error' ? 'bg-red-50/50' : 'bg-white'}>
                             <td className="py-2 px-3 font-mono text-[11px]">{res.row}</td>
                             <td className="py-2 px-3 font-bold text-slate-800">{res.name}</td>
-                            <td className="py-2 px-3 text-slate-600">{res.email}</td>
+                            <td className="py-2 px-3 text-slate-600 break-all">{res.email}</td>
                             <td className="py-2 px-3 uppercase text-[10px] font-bold">{res.role}</td>
-                            <td className="py-2 px-3">
+                            <td className="py-2 px-3 max-w-[220px]">
                               {res.status === 'success' ? (
                                 <span className="inline-flex items-center gap-1 text-emerald-600 font-extrabold text-[10px]">
                                   <CheckCircle className="w-3.5 h-3.5" /> Success
                                 </span>
                               ) : (
-                                <span className="inline-flex items-center gap-1 text-red-600 font-bold text-[10px]" title={res.error}>
-                                  <AlertTriangle className="w-3.5 h-3.5 text-red-500" /> {res.error}
-                                </span>
+                                <div className="text-red-600 font-bold text-[10px] leading-tight flex items-start gap-1 break-words">
+                                  <AlertTriangle className="w-3.5 h-3.5 text-red-500 flex-shrink-0 mt-0.5" />
+                                  <span>{res.error}</span>
+                                </div>
                               )}
                             </td>
                           </tr>
@@ -556,14 +557,14 @@ export default function UsersView() {
               {/* Upload Dropzone */}
               {!importSummary && (
                 <div className="space-y-4">
-                  <div className="border-2 border-dashed border-slate-300 hover:border-emerald-500 bg-slate-50/50 p-6 rounded-2xl text-center transition cursor-pointer relative">
+                  <div className="border-2 border-dashed border-slate-300 hover:border-emerald-500 bg-slate-50/50 p-5 sm:p-6 rounded-2xl text-center transition cursor-pointer relative">
                     <input
                       type="file"
                       accept=".csv, .xlsx, .xls"
                       onChange={handleFileChange}
                       className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                     />
-                    <UploadCloud className="w-10 h-10 text-emerald-600 mx-auto mb-2" />
+                    <UploadCloud className="w-9 h-9 sm:w-10 sm:h-10 text-emerald-600 mx-auto mb-2" />
                     <p className="text-xs font-extrabold text-slate-800">
                       {fileName ? `Selected File: ${fileName}` : 'Click or Drag Excel / CSV file here'}
                     </p>
@@ -580,8 +581,8 @@ export default function UsersView() {
                         <span className="text-[10px] font-bold text-slate-400">Showing first 5 rows</span>
                       </div>
 
-                      <div className="border border-slate-200 rounded-2xl overflow-hidden text-xs max-h-48 overflow-y-auto">
-                        <table className="w-full text-left border-collapse">
+                      <div className="border border-slate-200 rounded-2xl overflow-x-auto overflow-y-auto text-xs max-h-48 touch-pan-x">
+                        <table className="w-full min-w-[520px] text-left border-collapse">
                           <thead className="bg-slate-100 border-b border-slate-200 text-[10px] font-black uppercase text-slate-500 sticky top-0">
                             <tr>
                               <th className="py-2 px-3">Name</th>
@@ -613,7 +614,7 @@ export default function UsersView() {
             </div>
 
             {/* Modal Actions */}
-            <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-3">
+            <div className="px-4 sm:px-6 py-3.5 sm:py-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-2.5 sm:gap-3">
               <button
                 type="button"
                 onClick={() => setShowBulkModal(false)}
@@ -632,7 +633,7 @@ export default function UsersView() {
                   {importing ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      Processing Import Batch...
+                      Processing Import...
                     </>
                   ) : (
                     'Process Bulk Import'
