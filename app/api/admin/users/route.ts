@@ -25,6 +25,7 @@ export async function GET(req: NextRequest) {
         avatar_url,
         is_active,
         location_interval,
+        supervisor_id,
         created_at,
         plant:plants(id, name, code)
       `);

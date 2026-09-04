@@ -167,6 +167,7 @@ export async function POST(req: NextRequest) {
           role,
           username,
           full_name: fullName,
+          supervisor_id: supervisorId,
           is_active: true,
         },
       });
