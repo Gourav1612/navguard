@@ -11,14 +11,31 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const rows = Array.isArray(body.rows) ? body.rows : [];
+    const rawRows = Array.isArray(body.rows) ? body.rows : [];
 
-    if (rows.length === 0) {
+    if (rawRows.length === 0) {
       return NextResponse.json(
         { error: 'No data rows found in uploaded file.', code: 'INVALID_DATA' },
         { status: 400 }
       );
     }
+
+    // Attach original row index (1-indexed) to preserve original row numbers
+    const indexedRows = rawRows.map((r: any, i: number) => ({ ...r, __rowNum: i + 1 }));
+
+    // Sort rows so supervisors and managers are processed BEFORE workers
+    // This allows workers to reference supervisors created in the same import batch!
+    const sortedRows = [...indexedRows].sort((a: any, b: any) => {
+      const roleA = String(a.role || a['Role'] || a['role'] || '').trim().toLowerCase();
+      const roleB = String(b.role || b['Role'] || b['role'] || '').trim().toLowerCase();
+      
+      const priority = (role: string) => {
+        if (role === 'manager' || role === 'supervisor') return 1;
+        if (role === 'worker') return 2;
+        return 3;
+      };
+      return priority(roleA) - priority(roleB);
+    });
 
     // Fetch existing plants for name-to-ID resolution
     const { data: plantsData } = await adminClient.from('plants').select('id, name');
@@ -29,22 +46,21 @@ export async function POST(req: NextRequest) {
       .from('user_profiles')
       .select('id, full_name, username, email')
       .eq('role', 'supervisor');
-    const supervisors = supervisorsData || [];
+    const supervisors: any[] = supervisorsData || [];
 
     let successCount = 0;
     let errorCount = 0;
-    const results: Array<{
+    const resultsMap = new Map<number, {
       row: number;
       name: string;
       email: string;
       role: string;
       status: 'success' | 'error';
       error?: string;
-    }> = [];
+    }>();
 
-    for (let i = 0; i < rows.length; i++) {
-      const r = rows[i];
-      const rowNum = i + 1;
+    for (const r of sortedRows) {
+      const rowNum = r.__rowNum;
 
       // Extract & normalize fields
       const fullName = String(r.full_name || r['Full Name'] || r['full_name'] || r['Name'] || '').trim();
@@ -62,51 +78,51 @@ export async function POST(req: NextRequest) {
       // Mandatory Field Validations
       if (!fullName) {
         errorCount++;
-        results.push({ row: rowNum, name: '—', email: email || '—', role: role || '—', status: 'error', error: 'Full Name is required.' });
+        resultsMap.set(rowNum, { row: rowNum, name: '—', email: email || '—', role: role || '—', status: 'error', error: 'Full Name is required.' });
         continue;
       }
       if (!username) {
         errorCount++;
-        results.push({ row: rowNum, name: fullName, email: email || '—', role: role || '—', status: 'error', error: 'Username is required.' });
+        resultsMap.set(rowNum, { row: rowNum, name: fullName, email: email || '—', role: role || '—', status: 'error', error: 'Username is required.' });
         continue;
       }
       if (!email) {
         errorCount++;
-        results.push({ row: rowNum, name: fullName, email: '—', role: role || '—', status: 'error', error: 'Email Address is required.' });
+        resultsMap.set(rowNum, { row: rowNum, name: fullName, email: '—', role: role || '—', status: 'error', error: 'Email Address is required.' });
         continue;
       }
       if (!phone) {
         errorCount++;
-        results.push({ row: rowNum, name: fullName, email, role: role || '—', status: 'error', error: 'Phone Number is required.' });
+        resultsMap.set(rowNum, { row: rowNum, name: fullName, email, role: role || '—', status: 'error', error: 'Phone Number is required.' });
         continue;
       }
       if (!password || password.length < 6) {
         errorCount++;
-        results.push({ row: rowNum, name: fullName, email, role: role || '—', status: 'error', error: 'Password is required and must be at least 6 characters.' });
+        resultsMap.set(rowNum, { row: rowNum, name: fullName, email, role: role || '—', status: 'error', error: 'Password is required and must be at least 6 characters.' });
         continue;
       }
       if (!role) {
         errorCount++;
-        results.push({ row: rowNum, name: fullName, email, role: '—', status: 'error', error: 'Account Role is required.' });
+        resultsMap.set(rowNum, { row: rowNum, name: fullName, email, role: '—', status: 'error', error: 'Account Role is required.' });
         continue;
       }
 
       // Security Check: Disallow Admin role in Bulk Import
       if (role === 'admin') {
         errorCount++;
-        results.push({ row: rowNum, name: fullName, email, role, status: 'error', error: 'Admin accounts cannot be created via bulk import.' });
+        resultsMap.set(rowNum, { row: rowNum, name: fullName, email, role, status: 'error', error: 'Admin accounts cannot be created via bulk import.' });
         continue;
       }
 
       if (!['worker', 'supervisor', 'manager'].includes(role)) {
         errorCount++;
-        results.push({ row: rowNum, name: fullName, email, role, status: 'error', error: `Invalid role '${role}'. Allowed roles: worker, supervisor, manager.` });
+        resultsMap.set(rowNum, { row: rowNum, name: fullName, email, role, status: 'error', error: `Invalid role '${role}'. Allowed roles: worker, supervisor, manager.` });
         continue;
       }
 
       if (!plantName) {
         errorCount++;
-        results.push({ row: rowNum, name: fullName, email, role, status: 'error', error: 'Plant Site Name is required.' });
+        resultsMap.set(rowNum, { row: rowNum, name: fullName, email, role, status: 'error', error: 'Plant Site Name is required.' });
         continue;
       }
 
@@ -114,7 +130,7 @@ export async function POST(req: NextRequest) {
       const matchedPlant = plants.find((p) => p.name.toLowerCase().trim() === plantName.toLowerCase().trim());
       if (!matchedPlant) {
         errorCount++;
-        results.push({ row: rowNum, name: fullName, email, role, status: 'error', error: `Plant site '${plantName}' not found. Please specify a valid plant site.` });
+        resultsMap.set(rowNum, { row: rowNum, name: fullName, email, role, status: 'error', error: `Plant site '${plantName}' not found. Please specify a valid plant site.` });
         continue;
       }
 
@@ -123,7 +139,7 @@ export async function POST(req: NextRequest) {
       if (role === 'worker') {
         if (!supervisorName) {
           errorCount++;
-          results.push({ row: rowNum, name: fullName, email, role, status: 'error', error: 'Supervisor Name or Username is required for Workers.' });
+          resultsMap.set(rowNum, { row: rowNum, name: fullName, email, role, status: 'error', error: 'Supervisor Name or Username is required for Workers.' });
           continue;
         }
 
@@ -136,7 +152,7 @@ export async function POST(req: NextRequest) {
 
         if (!matchedSup) {
           errorCount++;
-          results.push({ row: rowNum, name: fullName, email, role, status: 'error', error: `Supervisor '${supervisorName}' not found. Please specify an existing Supervisor.` });
+          resultsMap.set(rowNum, { row: rowNum, name: fullName, email, role, status: 'error', error: `Supervisor '${supervisorName}' not found. Please specify an existing Supervisor.` });
           continue;
         }
         supervisorId = matchedSup.id;
@@ -157,12 +173,12 @@ export async function POST(req: NextRequest) {
 
       if (authErr || !authUser.user) {
         errorCount++;
-        results.push({ row: rowNum, name: fullName, email, role, status: 'error', error: authErr?.message || 'Failed to create auth account.' });
+        resultsMap.set(rowNum, { row: rowNum, name: fullName, email, role, status: 'error', error: authErr?.message || 'Failed to create auth account.' });
         continue;
       }
 
-      // Insert User Profile
-      const { error: profileErr } = await adminClient.from('user_profiles').insert({
+      // Insert User Profile payload
+      const profilePayload: any = {
         id: authUser.user.id,
         full_name: fullName,
         username,
@@ -173,14 +189,33 @@ export async function POST(req: NextRequest) {
         supervisor_id: supervisorId,
         location_interval: locationInterval,
         is_active: true,
-      });
+      };
+
+      let { error: profileErr } = await adminClient.from('user_profiles').insert(profilePayload);
+
+      if (profileErr && profilePayload.username) {
+        // Fallback if username column is missing from user_profiles table in PostgREST schema cache
+        delete profilePayload.username;
+        const fallbackRes = await adminClient.from('user_profiles').insert(profilePayload);
+        profileErr = fallbackRes.error;
+      }
 
       if (profileErr) {
         // Cleanup Auth user if profile creation fails
         await adminClient.auth.admin.deleteUser(authUser.user.id);
         errorCount++;
-        results.push({ row: rowNum, name: fullName, email, role, status: 'error', error: profileErr.message || 'Failed to create profile record.' });
+        resultsMap.set(rowNum, { row: rowNum, name: fullName, email, role, status: 'error', error: profileErr.message || 'Failed to create profile record.' });
         continue;
+      }
+
+      // If created user is a supervisor, dynamically add them to supervisors list for remaining workers in this batch!
+      if (role === 'supervisor') {
+        supervisors.push({
+          id: authUser.user.id,
+          full_name: fullName,
+          username,
+          email,
+        });
       }
 
       // Write Audit Log
@@ -193,15 +228,18 @@ export async function POST(req: NextRequest) {
       });
 
       successCount++;
-      results.push({ row: rowNum, name: fullName, email, role, status: 'success' });
+      resultsMap.set(rowNum, { row: rowNum, name: fullName, email, role, status: 'success' });
     }
+
+    // Re-order results to match original spreadsheet row order (1..N)
+    const finalResults = rawRows.map((_: any, idx: number) => resultsMap.get(idx + 1)!).filter(Boolean);
 
     return NextResponse.json({
       success: true,
-      totalRows: rows.length,
+      totalRows: rawRows.length,
       successCount,
       errorCount,
-      results,
+      results: finalResults,
     });
   } catch (err: any) {
     return NextResponse.json(
