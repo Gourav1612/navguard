@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
     const indexedRows = rawRows.map((r: any, i: number) => ({ ...r, __rowNum: i + 1 }));
 
     // Sort rows so supervisors and managers are processed BEFORE workers
-    // This allows workers to reference supervisors created in the same import batch!
+    // This allows workers to reference supervisors created/updated in the same import batch!
     const sortedRows = [...indexedRows].sort((a: any, b: any) => {
       const roleA = String(a.role || a['Role'] || a['role'] || '').trim().toLowerCase();
       const roleB = String(b.role || b['Role'] || b['role'] || '').trim().toLowerCase();
@@ -41,12 +41,28 @@ export async function POST(req: NextRequest) {
     const { data: plantsData } = await adminClient.from('plants').select('id, name');
     const plants = plantsData || [];
 
-    // Fetch existing supervisors for name/username resolution
-    const { data: supervisorsData } = await adminClient
+    // Fetch all existing Auth users to check for pre-registered emails
+    const { data: authUsersData } = await adminClient.auth.admin.listUsers();
+    const existingAuthUsers = authUsersData?.users || [];
+    const authUsersByEmail = new Map<string, any>(
+      existingAuthUsers.map((u) => [u.email?.toLowerCase().trim() || '', u])
+    );
+
+    // Fetch existing user profiles for supervisor lookup resolution
+    const { data: existingProfiles } = await adminClient
       .from('user_profiles')
-      .select('id, full_name, username, email')
-      .eq('role', 'supervisor');
-    const supervisors: any[] = supervisorsData || [];
+      .select('id, full_name, username, email, role');
+    const profiles = existingProfiles || [];
+
+    // Build supervisor lookup list (includes existing supervisors)
+    const supervisorsList: Array<{ id: string; full_name: string; username?: string; email?: string }> = profiles
+      .filter((p) => p.role === 'supervisor')
+      .map((p) => ({
+        id: p.id,
+        full_name: p.full_name,
+        username: p.username || '',
+        email: p.email || '',
+      }));
 
     let successCount = 0;
     let errorCount = 0;
@@ -96,11 +112,6 @@ export async function POST(req: NextRequest) {
         resultsMap.set(rowNum, { row: rowNum, name: fullName, email, role: role || '—', status: 'error', error: 'Phone Number is required.' });
         continue;
       }
-      if (!password || password.length < 6) {
-        errorCount++;
-        resultsMap.set(rowNum, { row: rowNum, name: fullName, email, role: role || '—', status: 'error', error: 'Password is required and must be at least 6 characters.' });
-        continue;
-      }
       if (!role) {
         errorCount++;
         resultsMap.set(rowNum, { row: rowNum, name: fullName, email, role: '—', status: 'error', error: 'Account Role is required.' });
@@ -143,11 +154,11 @@ export async function POST(req: NextRequest) {
           continue;
         }
 
-        const matchedSup = supervisors.find(
+        const matchedSup = supervisorsList.find(
           (s) =>
             s.full_name.toLowerCase().trim() === supervisorName.toLowerCase().trim() ||
             (s.username && s.username.toLowerCase().trim() === supervisorName.toLowerCase().trim()) ||
-            s.email.toLowerCase().trim() === supervisorName.toLowerCase().trim()
+            (s.email && s.email.toLowerCase().trim() === supervisorName.toLowerCase().trim())
         );
 
         if (!matchedSup) {
@@ -158,29 +169,66 @@ export async function POST(req: NextRequest) {
         supervisorId = matchedSup.id;
       }
 
-      // Provision Supabase Auth User
-      const { data: authUser, error: authErr } = await adminClient.auth.admin.createUser({
-        email,
-        password,
-        email_confirm: true,
-        user_metadata: {
-          role,
-          username,
-          full_name: fullName,
-          supervisor_id: supervisorId,
-          is_active: true,
-        },
-      });
+      // Check if user already exists in Auth
+      const existingAuthUser = authUsersByEmail.get(email);
+      let targetUserId: string;
 
-      if (authErr || !authUser.user) {
-        errorCount++;
-        resultsMap.set(rowNum, { row: rowNum, name: fullName, email, role, status: 'error', error: authErr?.message || 'Failed to create auth account.' });
-        continue;
+      if (existingAuthUser) {
+        // --- SMART UPDATE MODE ---
+        targetUserId = existingAuthUser.id;
+        const authUpdatePayload: any = {
+          user_metadata: {
+            ...existingAuthUser.user_metadata,
+            role,
+            username,
+            full_name: fullName,
+            supervisor_id: supervisorId,
+            is_active: true,
+          },
+        };
+
+        if (password && password.length >= 6) {
+          authUpdatePayload.password = password;
+        }
+
+        const { error: updateAuthErr } = await adminClient.auth.admin.updateUserById(targetUserId, authUpdatePayload);
+        if (updateAuthErr) {
+          errorCount++;
+          resultsMap.set(rowNum, { row: rowNum, name: fullName, email, role, status: 'error', error: updateAuthErr.message });
+          continue;
+        }
+      } else {
+        // --- CREATE NEW USER MODE ---
+        if (!password || password.length < 6) {
+          errorCount++;
+          resultsMap.set(rowNum, { row: rowNum, name: fullName, email, role, status: 'error', error: 'Password is required and must be at least 6 characters for new users.' });
+          continue;
+        }
+
+        const { data: newAuthData, error: createAuthErr } = await adminClient.auth.admin.createUser({
+          email,
+          password,
+          email_confirm: true,
+          user_metadata: {
+            role,
+            username,
+            full_name: fullName,
+            supervisor_id: supervisorId,
+            is_active: true,
+          },
+        });
+
+        if (createAuthErr || !newAuthData.user) {
+          errorCount++;
+          resultsMap.set(rowNum, { row: rowNum, name: fullName, email, role, status: 'error', error: createAuthErr?.message || 'Failed to create auth account.' });
+          continue;
+        }
+        targetUserId = newAuthData.user.id;
       }
 
-      // Insert User Profile payload
+      // Upsert User Profile Record
       const profilePayload: any = {
-        id: authUser.user.id,
+        id: targetUserId,
         full_name: fullName,
         username,
         email,
@@ -197,7 +245,7 @@ export async function POST(req: NextRequest) {
         .upsert(profilePayload, { onConflict: 'id' });
 
       if (profileErr && profilePayload.username) {
-        // Fallback if username column is missing from user_profiles table in PostgREST schema cache
+        // Schema fallback if username column is missing in PostgREST cache
         delete profilePayload.username;
         const fallbackRes = await adminClient
           .from('user_profiles')
@@ -206,30 +254,29 @@ export async function POST(req: NextRequest) {
       }
 
       if (profileErr) {
-        // Cleanup Auth user if profile creation fails
-        await adminClient.auth.admin.deleteUser(authUser.user.id);
         errorCount++;
-        resultsMap.set(rowNum, { row: rowNum, name: fullName, email, role, status: 'error', error: profileErr.message || 'Failed to create profile record.' });
+        resultsMap.set(rowNum, { row: rowNum, name: fullName, email, role, status: 'error', error: profileErr.message || 'Failed to save profile record.' });
         continue;
       }
 
-      // If created user is a supervisor, dynamically add them to supervisors list for remaining workers in this batch!
+      // If processed account is a Supervisor, add to in-memory cache for remaining workers in batch!
       if (role === 'supervisor') {
-        supervisors.push({
-          id: authUser.user.id,
-          full_name: fullName,
-          username,
-          email,
-        });
+        const existingIdx = supervisorsList.findIndex((s) => s.id === targetUserId);
+        const supItem = { id: targetUserId, full_name: fullName, username, email };
+        if (existingIdx >= 0) {
+          supervisorsList[existingIdx] = supItem;
+        } else {
+          supervisorsList.push(supItem);
+        }
       }
 
       // Write Audit Log
       await adminClient.from('audit_logs').insert({
         plant_id: matchedPlant.id,
         user_id: user.id,
-        action: 'CREATE',
+        action: existingAuthUser ? 'UPDATE' : 'CREATE',
         table_name: 'user_profiles (BULK IMPORT)',
-        record_id: authUser.user.id,
+        record_id: targetUserId,
       });
 
       successCount++;
