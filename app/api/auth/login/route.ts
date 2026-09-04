@@ -5,7 +5,17 @@ import { sendVerificationEmail } from '@/lib/mail';
 import crypto from 'crypto';
 
 function getAppOrigin(req?: NextRequest) {
-  // 1. Environment variable priority (Highest priority for Production deployment e.g. Vercel or custom domain in .env)
+  // 1. Dynamic Host Header from incoming HTTP Request (Highest Priority on Live/Vercel Deployments)
+  if (req) {
+    const host = req.headers.get('x-forwarded-host') || req.headers.get('host');
+    const proto = req.headers.get('x-forwarded-proto') || (req.url.startsWith('https') ? 'https' : 'http');
+    if (host) {
+      return `${proto}://${host}`;
+    }
+    return req.nextUrl.origin;
+  }
+
+  // 2. Environment Variable Fallback (Check if env var is configured)
   const envUrl =
     process.env.NEXT_PUBLIC_APP_URL ||
     process.env.APP_URL ||
@@ -17,16 +27,6 @@ function getAppOrigin(req?: NextRequest) {
       const formattedUrl = envUrl.startsWith('http://') || envUrl.startsWith('https://') ? envUrl : `https://${envUrl}`;
       return new URL(formattedUrl).origin;
     } catch {}
-  }
-
-  // 2. Dynamic Host Header from incoming HTTP Request (works on Vercel, VPS, Docker, or Local dev)
-  if (req) {
-    const host = req.headers.get('x-forwarded-host') || req.headers.get('host');
-    const proto = req.headers.get('x-forwarded-proto') || (req.url.startsWith('https') ? 'https' : 'http');
-    if (host) {
-      return `${proto}://${host}`;
-    }
-    return req.nextUrl.origin;
   }
 
   return '';
