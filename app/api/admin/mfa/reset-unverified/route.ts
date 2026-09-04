@@ -10,7 +10,7 @@ export async function POST() {
   const adminClient = createAdminClient();
 
   try {
-    const { data: factors, error: listErr } = await adminClient.auth.admin.mfa.listFactors({
+    const { data, error: listErr } = await adminClient.auth.admin.mfa.listFactors({
       userId: user.id,
     });
 
@@ -18,16 +18,16 @@ export async function POST() {
       return NextResponse.json({ error: listErr.message }, { status: 500 });
     }
 
-    if (factors?.factors) {
-      const unverifiedTotpFactors = factors.factors.filter(
-        (f: any) => f.factor_type === 'totp' && f.status === 'unverified'
-      );
+    const factorList = (data as any)?.factors || (data as any) || [];
 
-      for (const factor of unverifiedTotpFactors) {
-        await adminClient.auth.admin.mfa.deleteFactor({
-          userId: user.id,
-          id: factor.id,
-        });
+    if (Array.isArray(factorList)) {
+      for (const factor of factorList) {
+        if (factor.factor_type === 'totp' && factor.status === 'unverified') {
+          await adminClient.auth.admin.mfa.deleteFactor({
+            userId: user.id,
+            id: factor.id,
+          });
+        }
       }
     }
 

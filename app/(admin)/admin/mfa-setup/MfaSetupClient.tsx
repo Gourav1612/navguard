@@ -76,18 +76,38 @@ export default function MfaSetupClient() {
 
         // 5. Enroll new TOTP factor
         const suffix = Math.random().toString(36).substring(2, 6).toUpperCase();
-        const { data: enrollData, error: enrollErr } = await supabase.auth.mfa.enroll({
+        let enrollRes = await supabase.auth.mfa.enroll({
           factorType: 'totp',
           friendlyName: user.email ? `${user.email} - ${suffix}` : `Admin - ${suffix}`,
         });
 
-        if (!active) return;
-        if (enrollErr) throw new Error(enrollErr.message);
+        // If initial enrollment failed (e.g. unverified factor already exists), force reset unverified via server and retry once
+        if (enrollRes.error) {
+          console.warn('[MFA] Initial enroll failed:', enrollRes.error.message, 'Resetting factors via server...');
+          await fetch('/api/admin/mfa/reset-unverified', { method: 'POST' });
+          enrollRes = await supabase.auth.mfa.enroll({
+            factorType: 'totp',
+            friendlyName: user.email ? `${user.email} - ${suffix}` : `Admin - ${suffix}`,
+          });
+        }
 
-        setFactorId(enrollData.id);
-        if (enrollData.totp) {
-          setQrCodeSvg(enrollData.totp.qr_code);
-          setSecret(enrollData.totp.secret);
+        if (!active) return;
+        if (enrollRes.error) throw new Error(enrollRes.error.message);
+
+        const enrollData = enrollRes.data;
+        if (enrollData) {
+          setFactorId(enrollData.id);
+          if (enrollData.totp) {
+            let rawQr = enrollData.totp.qr_code || '';
+            if (rawQr && !rawQr.startsWith('data:')) {
+              rawQr = `data:image/svg+xml;utf8,${encodeURIComponent(rawQr)}`;
+            }
+            if (!rawQr && enrollData.totp.uri) {
+              rawQr = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(enrollData.totp.uri)}`;
+            }
+            setQrCodeSvg(rawQr || null);
+            setSecret(enrollData.totp.secret || null);
+          }
         }
       } catch (err: any) {
         console.error('[MFA] Error in checkAndEnroll:', err);
