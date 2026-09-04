@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { createSupabaseServerClient, createAdminClient } from '@/lib/supabase/server';
 import dynamic from 'next/dynamic';
 import { Loader2 } from 'lucide-react';
 import BottomNav from '@/components/BottomNav';
@@ -73,14 +73,23 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     redirect('/login');
   }
 
-  // Mandatory MFA check for Admin accounts (Layer 2 defense-in-depth)
+  // Mandatory MFA check for Admin accounts (Authoritative Supabase Auth DB check)
   if (userRole === 'admin') {
-    const { data: mfaData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-    if (mfaData) {
-      const { currentLevel, nextLevel } = mfaData;
-      if (nextLevel === 'aal1') {
-        redirect('/admin/mfa-setup');
-      } else if (nextLevel === 'aal2' && currentLevel === 'aal1') {
+    const adminClient = createAdminClient();
+    const { data: factorsData } = await adminClient.auth.admin.mfa.listFactors({ userId: user.id });
+    const factorList: any[] = Array.isArray(factorsData)
+      ? factorsData
+      : ((factorsData as any)?.factors || (factorsData as any)?.all || []);
+
+    const hasVerifiedTotp = factorList.some(
+      (f: any) => f.factor_type === 'totp' && f.status === 'verified'
+    );
+
+    if (!hasVerifiedTotp) {
+      redirect('/admin/mfa-setup');
+    } else {
+      const { data: mfaData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      if (mfaData?.currentLevel !== 'aal2') {
         redirect('/login/mfa-challenge');
       }
     }

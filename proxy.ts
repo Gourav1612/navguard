@@ -110,27 +110,39 @@ export async function proxy(request: NextRequest) {
     return loginRedirect;
   }
 
-  // Mandatory MFA checks for admin accounts
+  // Mandatory MFA checks for admin accounts (Authoritative Supabase Auth DB check)
   if (role === 'admin') {
-    const { data: mfaData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    try {
+      const adminClient = createAdminClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!,
+        { auth: { persistSession: false, autoRefreshToken: false } }
+      );
+      const { data: factorsData } = await adminClient.auth.admin.mfa.listFactors({ userId: user.id });
+      const factorList: any[] = Array.isArray(factorsData)
+        ? factorsData
+        : ((factorsData as any)?.factors || (factorsData as any)?.all || []);
 
-    if (mfaData) {
-      const { currentLevel, nextLevel } = mfaData;
+      const hasVerifiedTotp = factorList.some(
+        (f: any) => f.factor_type === 'totp' && f.status === 'verified'
+      );
 
-      // 1. Force enrollment if no factor is set up (nextLevel is aal1)
-      if (nextLevel === 'aal1') {
+      if (!hasVerifiedTotp) {
         if (pathname !== '/admin/mfa-setup') {
           return NextResponse.redirect(new URL('/admin/mfa-setup', request.url));
         }
         return response;
-      }
-      // 2. Force challenge if factor is set up but session is not elevated
-      else if (nextLevel === 'aal2' && currentLevel === 'aal1') {
-        if (pathname !== '/login/mfa-challenge') {
-          return NextResponse.redirect(new URL('/login/mfa-challenge', request.url));
+      } else {
+        const { data: mfaData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+        if (mfaData?.currentLevel !== 'aal2') {
+          if (pathname !== '/login/mfa-challenge') {
+            return NextResponse.redirect(new URL('/login/mfa-challenge', request.url));
+          }
+          return response;
         }
-        return response;
       }
+    } catch (err) {
+      console.error('[Proxy] Error verifying MFA factors:', err);
     }
   }
 
