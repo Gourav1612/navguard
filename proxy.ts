@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 export async function proxy(request: NextRequest) {
-  // Log request method and path to stdout for visibility in production docker logs
+  // Log request method and path to stdout for visibility in production logs
   console.log(`[${request.method}] ${request.nextUrl.pathname}${request.nextUrl.search || ''}`);
 
   let response = NextResponse.next({
@@ -110,7 +110,7 @@ export async function proxy(request: NextRequest) {
     return loginRedirect;
   }
 
-  // MFA checks for admin accounts
+  // Mandatory MFA checks for admin accounts
   if (role === 'admin') {
     const { data: mfaData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
 
@@ -161,6 +161,8 @@ export async function proxy(request: NextRequest) {
 
   return response;
 }
+
+export const middleware = proxy;
 
 export const config = {
   matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],

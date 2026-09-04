@@ -73,6 +73,19 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     redirect('/login');
   }
 
+  // Mandatory MFA check for Admin accounts (Layer 2 defense-in-depth)
+  if (userRole === 'admin') {
+    const { data: mfaData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    if (mfaData) {
+      const { currentLevel, nextLevel } = mfaData;
+      if (nextLevel === 'aal1') {
+        redirect('/admin/mfa-setup');
+      } else if (nextLevel === 'aal2' && currentLevel === 'aal1') {
+        redirect('/login/mfa-challenge');
+      }
+    }
+  }
+
   // Render correct dashboard view wrapped in the appropriate layout, passing search params
   switch (userRole) {
     case 'admin':
