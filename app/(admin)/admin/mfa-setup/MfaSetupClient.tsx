@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
-import { Loader2, ShieldCheck, QrCode, Lock, AlertCircle, Copy, Check } from 'lucide-react';
+import { Loader2, ShieldCheck, Lock, AlertCircle, Copy, Check, RefreshCw } from 'lucide-react';
 
 export default function MfaSetupClient() {
   const router = useRouter();
@@ -20,88 +20,101 @@ export default function MfaSetupClient() {
   const [success, setSuccess] = useState(false);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      if (typeof window !== 'undefined' && window.location.pathname !== '/admin/mfa-setup') {
-        window.history.replaceState(null, '', '/admin/mfa-setup');
-      }
-    }, 200);
-    return () => clearInterval(interval);
-  }, []);
+    let isMounted = true;
 
-  useEffect(() => {
     async function checkAndEnroll() {
+      // Safety timeout: Ensure loading is never stuck indefinitely
+      const timeoutId = setTimeout(() => {
+        if (isMounted) {
+          console.warn('[MFA] Setup check timed out after 5s');
+          setLoading(false);
+        }
+      }, 5000);
+
       try {
-        console.log('[MFA] 1. Starting getUser...');
+        setLoading(true);
+        setError(null);
+
+        // 1. Fetch user session
         const { data: { user }, error: userErr } = await supabase.auth.getUser();
-        console.log('[MFA] 1. getUser completed. User:', user?.id, 'Error:', userErr?.message);
         
         if (userErr || !user) {
-          console.log('[MFA] Redirecting to login: no user session');
-          router.replace('/login');
+          clearTimeout(timeoutId);
+          if (isMounted) router.replace('/login');
           return;
         }
 
-        console.log('[MFA] 2. Starting user_profiles query...');
-        const { data: profile, error: profileErr } = await supabase
+        // 2. Fetch user profile role
+        const { data: profile } = await supabase
           .from('user_profiles')
           .select('role')
           .eq('id', user.id)
           .single();
-        console.log('[MFA] 2. user_profiles query completed. Role:', profile?.role, 'Error:', profileErr?.message);
 
         if (!profile || profile.role !== 'admin') {
-          console.log('[MFA] Redirecting: user is not an admin', profile?.role);
-          router.replace('/');
+          clearTimeout(timeoutId);
+          if (isMounted) router.replace('/');
           return;
         }
 
-        console.log('[MFA] 3. Starting listFactors...');
+        // 3. Reset any pending unverified factors via server admin API first
+        try {
+          await fetch('/api/admin/mfa/reset-unverified', { method: 'POST' });
+        } catch (e) {
+          console.warn('[MFA] Failed to reset unverified factors via API:', e);
+        }
+
+        // 4. Check existing factors
         const { data: factors, error: factorsErr } = await supabase.auth.mfa.listFactors();
-        console.log('[MFA] 3. listFactors completed. Factors:', factors, 'Error:', factorsErr?.message);
         if (factorsErr) throw new Error(factorsErr.message);
 
-        const activeTotp = factors?.all?.find((f: any) => f.factor_type === 'totp' && f.status === 'verified');
+        const activeTotp = factors?.all?.find(
+          (f: any) => f.factor_type === 'totp' && f.status === 'verified'
+        );
+
         if (activeTotp) {
-          console.log('[MFA] User already has active verified TOTP. Redirecting to dashboard...');
-          setSuccess(true);
-          setLoading(false);
-          window.location.href = '/dashboard';
+          clearTimeout(timeoutId);
+          if (isMounted) {
+            setSuccess(true);
+            setLoading(false);
+            window.location.href = '/login/mfa-challenge';
+          }
           return;
         }
 
-        // Clean up any existing unverified or pending factors to prevent "factor already exists" error
-        if (factors?.all && factors.all.length > 0) {
-          console.log('[MFA] Found pending factors. Cleaning up...');
-          for (const factor of factors.all) {
-            await supabase.auth.mfa.unenroll({ factorId: factor.id });
-            console.log('[MFA] Cleaned up factor:', factor.id);
-          }
-        }
-
-        console.log('[MFA] 4. Starting enroll...');
+        // 5. Enroll new TOTP factor
         const suffix = Math.random().toString(36).substring(2, 6).toUpperCase();
         const { data: enrollData, error: enrollErr } = await supabase.auth.mfa.enroll({
           factorType: 'totp',
           friendlyName: user.email ? `${user.email} - ${suffix}` : `Admin - ${suffix}`,
         });
-        console.log('[MFA] 4. enroll completed. EnrollData ID:', enrollData?.id, 'Error:', enrollErr?.message);
 
         if (enrollErr) throw new Error(enrollErr.message);
 
-        setFactorId(enrollData.id);
-        if (enrollData.totp) {
-          setQrCodeSvg(enrollData.totp.qr_code);
-          setSecret(enrollData.totp.secret);
+        clearTimeout(timeoutId);
+        if (isMounted) {
+          setFactorId(enrollData.id);
+          if (enrollData.totp) {
+            setQrCodeSvg(enrollData.totp.qr_code);
+            setSecret(enrollData.totp.secret);
+          }
+          setLoading(false);
         }
-        setLoading(false);
       } catch (err: any) {
-        console.error('[MFA] Error caught in checkAndEnroll:', err);
-        setError(err.message || 'An error occurred during MFA setup initialization.');
-        setLoading(false);
+        clearTimeout(timeoutId);
+        console.error('[MFA] Error in checkAndEnroll:', err);
+        if (isMounted) {
+          setError(err.message || 'An error occurred during MFA setup initialization.');
+          setLoading(false);
+        }
       }
     }
 
     checkAndEnroll();
+
+    return () => {
+      isMounted = false;
+    };
   }, [router, supabase]);
 
   const handleCopySecret = () => {
@@ -166,15 +179,11 @@ export default function MfaSetupClient() {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-[#090A0F] text-white">
-        <Loader2 className="w-10 h-10 text-white animate-spin mb-4" />
+        <Loader2 className="w-10 h-10 text-emerald-400 animate-spin mb-4" />
         <p className="text-zinc-400 text-sm font-medium">Securing access environment...</p>
       </div>
     );
   }
-
-  const qrCodeUrl = qrCodeSvg 
-    ? `data:image/svg+xml;utf8,${encodeURIComponent(qrCodeSvg)}` 
-    : null;
 
   return (
     <div className="flex min-h-screen bg-[#090A0F] items-center justify-center p-6 relative overflow-hidden">
@@ -201,16 +210,25 @@ export default function MfaSetupClient() {
               <div className="flex items-center justify-center w-12 h-12 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl mx-auto text-emerald-400 mb-3">
                 <Lock className="w-5 h-5" />
               </div>
-              <h2 className="text-2xl font-black text-white tracking-tight leading-tight">Admin MFA Mandatory Enrollment</h2>
+              <h2 className="text-2xl font-black text-white tracking-tight leading-tight">Admin MFA Enrollment</h2>
               <p className="text-zinc-400 text-xs max-w-sm mx-auto leading-relaxed">
                 Protect your administrator credentials. Scan the QR code with Google Authenticator, Authy, or Microsoft Authenticator.
               </p>
             </div>
 
             {error && (
-              <div className="flex items-start gap-3 p-4 bg-red-950/40 border border-red-800/50 rounded-2xl text-red-300 text-xs animate-in shake duration-200">
-                <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
-                <div className="font-medium leading-relaxed">{error}</div>
+              <div className="space-y-3">
+                <div className="flex items-start gap-3 p-4 bg-red-950/40 border border-red-800/50 rounded-2xl text-red-300 text-xs animate-in shake duration-200">
+                  <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                  <div className="font-medium leading-relaxed">{error}</div>
+                </div>
+                <button
+                  onClick={() => window.location.reload()}
+                  className="flex items-center justify-center gap-2 w-full py-2.5 px-4 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl text-xs font-semibold transition cursor-pointer"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  Retry MFA Enrollment Setup
+                </button>
               </div>
             )}
 
@@ -222,9 +240,13 @@ export default function MfaSetupClient() {
               </div>
               
               <div className="flex flex-col sm:flex-row items-center gap-6 bg-zinc-950/50 border border-zinc-800/50 p-6 rounded-2xl">
-                {qrCodeSvg && (
+                {qrCodeSvg ? (
                   <div className="bg-white p-3 rounded-2xl shadow-lg border border-zinc-100 flex-shrink-0 animate-in zoom-in-95">
                     <img src={qrCodeSvg} alt="MFA QR Code" className="w-36 h-36" />
+                  </div>
+                ) : (
+                  <div className="w-36 h-36 bg-zinc-900 rounded-2xl flex items-center justify-center border border-zinc-800">
+                    <Loader2 className="w-6 h-6 text-zinc-500 animate-spin" />
                   </div>
                 )}
                 <div className="space-y-3 flex-1 text-center sm:text-left">

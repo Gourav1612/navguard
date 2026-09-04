@@ -13,7 +13,7 @@ import dynamic from 'next/dynamic';
 const LoginMapAnimation = dynamic(() => import('@/components/LoginMapAnimation'), {
   ssr: false,
   loading: () => (
-    <div className="w-full h-full bg-[#0e071e] flex items-center justify-center text-purple-300">
+    <div className="w-full h-full bg-[#090A0F] flex items-center justify-center text-emerald-400">
       <Loader2 className="w-8 h-8 animate-spin" />
     </div>
   ),

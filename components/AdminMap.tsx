@@ -148,7 +148,7 @@ export function AdminMap({ plants = [], locations = [], selectedPlantId = 'all' 
       let iconEmoji = '🔵';
 
       if (role === 'manager') {
-        colorClass = 'bg-purple-600 border-purple-800 text-white'; // Manager: Purple
+        colorClass = 'bg-emerald-600 border-emerald-800 text-white'; // Manager: Emerald
         iconEmoji = '🟣';
       } else if (role === 'supervisor') {
         colorClass = 'bg-amber-500 border-amber-700 text-slate-900'; // Supervisor: Yellow/Amber

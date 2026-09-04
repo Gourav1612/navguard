@@ -36,7 +36,7 @@ export function PaginationControls({
           <span className="font-semibold text-slate-800 dark:text-slate-200">{totalCount}</span> {itemLabel}
         </span>
         {isPending && (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold text-purple-700 bg-purple-50 dark:bg-purple-950/50 dark:text-purple-300 animate-pulse">
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold text-emerald-400 bg-emerald-950/50 dark:bg-emerald-950/50 dark:text-emerald-300 animate-pulse">
             <Loader2 className="w-3 h-3 animate-spin" />
             Updating...
           </span>
@@ -57,7 +57,7 @@ export function PaginationControls({
 
         <div className="flex items-center gap-1 px-2 font-semibold text-xs text-slate-600 dark:text-slate-400">
           <span>Page</span>
-          <span className="px-2 py-0.5 bg-purple-50 dark:bg-purple-950 text-purple-700 dark:text-purple-300 font-bold rounded-md">
+          <span className="px-2 py-0.5 bg-emerald-950/60 dark:bg-emerald-950/60 text-emerald-400 dark:text-emerald-300 font-bold rounded-md">
             {currentPage}
           </span>
           <span>of {Math.max(1, totalPages)}</span>

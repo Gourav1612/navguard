@@ -60,7 +60,7 @@ export async function POST(request: Request) {
         const subject = 'NaviGuard MFA Verification Code';
         const html = `
           <div style="font-family: sans-serif; padding: 24px; max-width: 480px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff;">
-            <h2 style="color: #3b255e; margin-bottom: 8px; font-weight: 800;">MFA Verification Request</h2>
+            <h2 style="color: #10b981; margin-bottom: 8px; font-weight: 800;">MFA Verification Request</h2>
             <p style="color: #475569; font-size: 14px; line-height: 1.5;">A request was made to modify your Multi-Factor Authentication settings on NaviGuard. Your previous verification attempts were exceeded.</p>
             <div style="background-color: #f8fafc; padding: 18px; text-align: center; border-radius: 12px; margin: 20px 0; border: 1px dashed #cbd5e1;">
               <span style="font-size: 28px; font-weight: bold; letter-spacing: 6px; color: #1e293b; font-family: monospace;">${newOtp}</span>
