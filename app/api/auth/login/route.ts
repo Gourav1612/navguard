@@ -104,12 +104,80 @@ export async function POST(req: NextRequest) {
       const isLocked = fetchedUser.user_metadata?.login_locked === true || attempts >= 5;
       if (isLocked) {
         const isAdmin = profileObj?.role === 'admin';
-        const msg = isAdmin
-          ? 'Account is locked due to too many failed login attempts. Please check your email for reset instructions.'
-          : 'Account is locked due to 5 failed login attempts. Please contact your Administrator to unlock or reset your password.';
+        if (isAdmin) {
+          const lastSentAt = Number(fetchedUser.user_metadata?.password_reset_token_sent_at || 0);
+          const canSendEmail = Date.now() - lastSentAt > 2 * 60 * 1000;
+
+          if (canSendEmail) {
+            const newToken = crypto.randomUUID();
+            const tokenExpires = Date.now() + 10 * 60 * 1000;
+
+            await adminClient.auth.admin.updateUserById(profileObj.id, {
+              user_metadata: {
+                ...fetchedUser.user_metadata,
+                login_locked: true,
+                password_reset_token: newToken,
+                password_reset_token_expires: tokenExpires,
+                password_reset_token_sent_at: Date.now(),
+              }
+            });
+
+            const origin = getAppOrigin(req);
+            const resetUrl = `${origin}/reset-password?token=${newToken}&email=${encodeURIComponent(targetEmail!)}`;
+            const html = `
+              <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 36px 24px; max-width: 500px; margin: 0 auto; border: 1px solid #d1fae5; border-radius: 20px; background-color: #ffffff; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);">
+                <div style="text-align: center; margin-bottom: 24px;">
+                  <div style="width: 60px; height: 60px; background-color: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 18px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 14px;">
+                    <span style="font-size: 30px;">🔑</span>
+                  </div>
+                  <h2 style="color: #065f46; margin: 0 0 6px 0; font-weight: 900; font-size: 22px; letter-spacing: -0.3px;">Admin Password Reset Request</h2>
+                  <p style="color: #059669; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; margin: 0;">NaviGuard Security Command</p>
+                </div>
+
+                <div style="background-color: #f0fdf4; border: 1px solid #d1fae5; border-radius: 14px; padding: 18px; margin-bottom: 24px;">
+                  <p style="color: #1e293b; font-size: 14px; line-height: 1.6; margin: 0;">
+                    Hello <strong>${profileObj.full_name || 'System Administrator'}</strong>,<br/><br/>
+                    Your Admin account (<span style="color: #047857; font-weight: 600;">${targetEmail}</span>) is locked. A new password reset link has been generated for your account.
+                  </p>
+                </div>
+
+                <div style="text-align: center; margin: 28px 0;">
+                  <a href="${resetUrl}" target="_blank" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #ffffff; padding: 15px 32px; text-decoration: none; font-weight: 800; border-radius: 14px; display: inline-block; font-size: 14px; letter-spacing: 0.3px; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);">Reset Admin Password</a>
+                </div>
+
+                <div style="border-top: 1px solid #f1f5f9; padding-top: 18px; margin-top: 24px; text-align: center;">
+                  <p style="color: #64748b; font-size: 11px; margin: 0;">
+                    ⏱️ Password reset link is valid for <strong>10 minutes</strong>. If you did not initiate this request, please contact system administration immediately.
+                  </p>
+                </div>
+              </div>
+            `;
+
+            try {
+              await sendVerificationEmail({
+                to: targetEmail!,
+                subject: '🔑 NaviGuard Admin — New Password Reset Link',
+                otp: newToken,
+                html,
+              });
+            } catch (mErr) {
+              console.error('[Login] Failed to re-dispatch reset email:', mErr);
+            }
+
+            return NextResponse.json(
+              { error: 'Account is locked. A NEW password reset link has been dispatched to your email. Please check your inbox.', code: 'UNAUTHORIZED' },
+              { status: 401 }
+            );
+          }
+
+          return NextResponse.json(
+            { error: 'Account is locked. A reset link was recently sent to your email. Please check your inbox or wait 2 minutes to request a new link.', code: 'UNAUTHORIZED' },
+            { status: 401 }
+          );
+        }
 
         return NextResponse.json(
-          { error: msg, code: 'UNAUTHORIZED' },
+          { error: 'Account is locked due to 5 failed login attempts. Please contact your Administrator to unlock or reset your password.', code: 'UNAUTHORIZED' },
           { status: 401 }
         );
       }
