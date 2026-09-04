@@ -1,5 +1,5 @@
 {
-  "version": "1.0.3",
+  "version": "1.0.4",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: update Android app icons and splash with custom NaviGuard logo"
+  "releaseNotes": "Auto-build: change floating overlay bubble color from purple to black (#090A0F)"
 }
