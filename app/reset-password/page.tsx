@@ -111,21 +111,21 @@ function ResetPasswordContent() {
   };
 
   return (
-    <div className="relative min-h-screen bg-[#0e071e] text-slate-100 overflow-hidden flex items-center justify-center p-4">
+    <div className="relative min-h-screen bg-[#090A0F] text-zinc-100 overflow-hidden flex items-center justify-center p-6">
       {/* Background Map & Dark Tonal Overlays */}
       <div className="absolute inset-0 z-0">
         <LoginMapAnimation />
-        <div className="absolute inset-0 bg-[#0e071e]/75 pointer-events-none" />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#0e071e] via-transparent to-[#0e071e]/60 pointer-events-none" />
+        <div className="absolute inset-0 bg-[#090A0F]/70 pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#090A0F] via-transparent to-[#090A0F]/60 pointer-events-none" />
       </div>
 
-      <div className="w-full max-w-md bg-[#130a27]/90 border border-[#2b1754] rounded-3xl p-6 sm:p-10 shadow-2xl space-y-6 z-10 relative backdrop-blur-md animate-in fade-in duration-300">
+      <div className="w-full max-w-md bg-zinc-900/80 border border-zinc-800/80 rounded-3xl p-6 sm:p-10 shadow-2xl space-y-6 z-10 relative backdrop-blur-2xl animate-in fade-in duration-300">
         
         {/* Loading Spinner State */}
         {checkingToken ? (
           <div className="flex flex-col items-center justify-center py-12 space-y-3">
-            <Loader2 className="w-8 h-8 text-purple-400 animate-spin" />
-            <p className="text-xs font-bold text-purple-300">Verifying security token...</p>
+            <Loader2 className="w-8 h-8 text-emerald-400 animate-spin" />
+            <p className="text-xs font-bold text-zinc-400">Verifying security token...</p>
           </div>
         ) : tokenStatus !== 'valid' ? (
           /* Link Expired / Invalid Token Screen */
@@ -138,7 +138,7 @@ function ResetPasswordContent() {
               <h2 className="text-xl font-black text-white">
                 {tokenStatus === 'expired' ? 'Link Expired (10 Min Passed)' : 'Page Not Found / Invalid Link'}
               </h2>
-              <p className="text-xs text-slate-300 leading-relaxed max-w-xs mx-auto font-medium">
+              <p className="text-xs text-zinc-400 leading-relaxed max-w-xs mx-auto font-medium">
                 {tokenStatus === 'expired'
                   ? 'This password reset link has expired after 10 minutes or has already been used. Please log in again to trigger a fresh link.'
                   : 'This password reset link is invalid or has already been used.'}
@@ -148,7 +148,7 @@ function ResetPasswordContent() {
             <button
               type="button"
               onClick={() => router.push('/login')}
-              className="w-full py-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:opacity-95 text-white font-black text-xs uppercase tracking-widest rounded-2xl transition flex items-center justify-center gap-2 shadow-lg shadow-purple-500/20 cursor-pointer"
+              className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs uppercase tracking-widest rounded-xl transition flex items-center justify-center gap-2 shadow-lg shadow-emerald-950/40 cursor-pointer"
             >
               <ArrowLeft className="w-4 h-4" /> Return to Login Screen
             </button>
@@ -158,13 +158,13 @@ function ResetPasswordContent() {
           <>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <img src="/logo.png" alt="NaviGuard Logo" className="w-9 h-9 object-contain bg-purple-500/10 border border-purple-500/20 rounded-2xl p-1" />
-                <span className="font-extrabold text-sm tracking-wider text-purple-100">NaviGuard</span>
+                <img src="/logo.svg" alt="NaviGuard Logo" className="w-10 h-10 object-contain rounded-xl" />
+                <span className="font-extrabold text-sm tracking-wider text-white">NaviGuard</span>
               </div>
               <button
                 type="button"
                 onClick={() => router.push('/login')}
-                className="inline-flex items-center gap-1 text-xs font-bold text-purple-400 hover:text-purple-200 transition"
+                className="inline-flex items-center gap-1 text-xs font-bold text-zinc-400 hover:text-white transition cursor-pointer"
               >
                 <ArrowLeft className="w-3.5 h-3.5" /> Back to Login
               </button>
@@ -172,22 +172,22 @@ function ResetPasswordContent() {
 
             <div className="space-y-1.5 pt-2">
               <h2 className="text-2xl font-black text-white tracking-tight flex items-center gap-2">
-                <ShieldCheck className="w-6 h-6 text-purple-400" /> Reset Password
+                <ShieldCheck className="w-6 h-6 text-emerald-400" /> Reset Password
               </h2>
-              <p className="text-xs text-purple-300/80 font-medium">
-                Set a new password for <strong>{email || 'your account'}</strong>.
+              <p className="text-xs text-zinc-400 font-medium">
+                Set a new password for <strong className="text-emerald-400">{email || 'your account'}</strong>.
               </p>
             </div>
 
             {error && (
-              <div className="flex items-start gap-2.5 p-4 bg-red-955/60 border border-red-800/80 rounded-2xl text-red-200 text-xs font-semibold animate-in shake duration-150">
+              <div className="flex items-start gap-2.5 p-4 bg-red-950/40 border border-red-800/50 rounded-2xl text-red-300 text-xs font-semibold animate-in shake duration-150">
                 <AlertCircle className="w-4.5 h-4.5 text-red-400 flex-shrink-0 mt-0.5" />
                 <span>{error}</span>
               </div>
             )}
 
             {success && (
-              <div className="flex items-start gap-2.5 p-4 bg-emerald-955/60 border border-emerald-800/80 rounded-2xl text-emerald-200 text-xs font-semibold animate-in fade-in duration-150">
+              <div className="flex items-start gap-2.5 p-4 bg-emerald-950/40 border border-emerald-800/50 rounded-2xl text-emerald-300 text-xs font-semibold animate-in fade-in duration-150">
                 <CheckCircle2 className="w-4.5 h-4.5 text-emerald-400 flex-shrink-0 mt-0.5" />
                 <span>{success}</span>
               </div>
@@ -195,12 +195,12 @@ function ResetPasswordContent() {
 
             <form onSubmit={handleSubmit} className="space-y-5 pt-2">
               <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-widest text-purple-300 block pl-1">
+                <label className="text-[10px] font-mono font-black uppercase tracking-widest text-zinc-400 block pl-1">
                   New Password
                 </label>
-                <div className="relative rounded-2xl">
+                <div className="relative rounded-xl">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                    <Lock className="h-4.5 w-4.5 text-purple-400" />
+                    <Lock className="h-4.5 w-4.5 text-zinc-400" />
                   </div>
                   <input
                     type={showPassword ? 'text' : 'password'}
@@ -209,12 +209,12 @@ function ResetPasswordContent() {
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     placeholder="At least 6 characters"
-                    className="block w-full pl-11 pr-10 py-3.5 bg-[#1c0f38] border border-[#371f69] focus:border-purple-400 rounded-2xl text-sm text-white focus:outline-none transition"
+                    className="block w-full pl-11 pr-10 py-3.5 bg-zinc-950/70 border border-zinc-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 text-white placeholder:text-zinc-500 rounded-xl text-sm focus:outline-none transition backdrop-blur-md"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute inset-y-0 right-0 pr-4 flex items-center text-purple-400 hover:text-purple-200"
+                    className="absolute inset-y-0 right-0 pr-4 flex items-center text-zinc-400 hover:text-white cursor-pointer"
                   >
                     {showPassword ? <EyeOff className="h-4.5 w-4.5" /> : <Eye className="h-4.5 w-4.5" />}
                   </button>
@@ -222,12 +222,12 @@ function ResetPasswordContent() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-widest text-purple-300 block pl-1">
+                <label className="text-[10px] font-mono font-black uppercase tracking-widest text-zinc-400 block pl-1">
                   Confirm New Password
                 </label>
-                <div className="relative rounded-2xl">
+                <div className="relative rounded-xl">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                    <Lock className="h-4.5 w-4.5 text-purple-400" />
+                    <Lock className="h-4.5 w-4.5 text-zinc-400" />
                   </div>
                   <input
                     type={showPassword ? 'text' : 'password'}
@@ -236,7 +236,7 @@ function ResetPasswordContent() {
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="Re-type new password"
-                    className="block w-full pl-11 pr-10 py-3.5 bg-[#1c0f38] border border-[#371f69] focus:border-purple-400 rounded-2xl text-sm text-white focus:outline-none transition"
+                    className="block w-full pl-11 pr-10 py-3.5 bg-zinc-950/70 border border-zinc-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 text-white placeholder:text-zinc-500 rounded-xl text-sm focus:outline-none transition backdrop-blur-md"
                   />
                 </div>
               </div>
@@ -244,7 +244,7 @@ function ResetPasswordContent() {
               <button
                 type="submit"
                 disabled={loading || !token || newPassword.length < 6 || newPassword !== confirmPassword}
-                className="w-full py-4 bg-gradient-to-r from-purple-600 via-purple-700 to-indigo-600 hover:opacity-95 text-white font-black text-xs uppercase tracking-widest rounded-2xl transition flex items-center justify-center gap-2 shadow-lg shadow-purple-500/20 cursor-pointer disabled:opacity-50"
+                className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs uppercase tracking-wider rounded-xl transition flex items-center justify-center gap-2 shadow-lg shadow-emerald-950/40 cursor-pointer disabled:opacity-50"
               >
                 {loading ? (
                   <>
@@ -267,7 +267,7 @@ export default function ResetPasswordPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-[#0e071e] flex items-center justify-center text-purple-300">
+        <div className="min-h-screen bg-[#090A0F] flex items-center justify-center text-emerald-400">
           <Loader2 className="w-8 h-8 animate-spin" />
         </div>
       }
