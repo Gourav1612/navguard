@@ -139,6 +139,11 @@ export async function proxy(request: NextRequest) {
             return NextResponse.redirect(new URL('/login/mfa-challenge', request.url));
           }
           return response;
+        } else {
+          // If already fully authenticated (aal2) and trying to access MFA setup or challenge, redirect to dashboard
+          if (pathname === '/admin/mfa-setup' || pathname === '/login/mfa-challenge') {
+            return NextResponse.redirect(new URL('/dashboard', request.url));
+          }
         }
       }
     } catch (err) {

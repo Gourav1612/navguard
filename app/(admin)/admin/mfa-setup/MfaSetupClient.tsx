@@ -77,7 +77,7 @@ export default function MfaSetupClient() {
 
         if (activeTotp) {
           setSuccess(true);
-          window.location.href = '/login/mfa-challenge';
+          window.location.href = '/dashboard';
           return;
         }
 

@@ -44,6 +44,11 @@ export default function MfaChallengeClient() {
         if (!active) return;
         if (mfaErr) throw new Error(mfaErr.message);
 
+        if (mfaData?.currentLevel === 'aal2') {
+          router.replace('/dashboard');
+          return;
+        }
+
         // Fetch active factors list
         const { data: factors, error: listErr } = await supabase.auth.mfa.listFactors();
         if (!active) return;
