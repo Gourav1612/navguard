@@ -4,21 +4,31 @@ import { LoginSchema } from '@/lib/validations';
 import { sendVerificationEmail } from '@/lib/mail';
 import crypto from 'crypto';
 
-function getAppOrigin() {
+function getAppOrigin(req?: NextRequest) {
+  if (req) {
+    const host = req.headers.get('x-forwarded-host') || req.headers.get('host');
+    const proto = req.headers.get('x-forwarded-proto') || 'https';
+    if (host && !host.includes('localhost') && !host.includes('127.0.0.1')) {
+      return `${proto}://${host}`;
+    }
+  }
+
   const configuredUrl =
     process.env.NEXT_PUBLIC_APP_URL ||
     process.env.APP_URL ||
     (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '');
 
-  if (!configuredUrl) {
-    throw new Error('NEXT_PUBLIC_APP_URL environment variable is required but not set');
+  if (configuredUrl) {
+    try {
+      return new URL(configuredUrl).origin;
+    } catch {}
   }
 
-  try {
-    return new URL(configuredUrl).origin;
-  } catch {
-    throw new Error(`Invalid APP_URL config: ${configuredUrl}`);
+  if (req) {
+    return req.nextUrl.origin;
   }
+
+  return 'http://localhost:3000';
 }
 
 export async function POST(req: NextRequest) {
@@ -142,24 +152,33 @@ export async function POST(req: NextRequest) {
             if (canSendEmail) {
               // Dispatch reset password link via email ONLY for Admin
               try {
-                const origin = getAppOrigin();
+                const origin = getAppOrigin(req);
                 const resetUrl = `${origin}/reset-password?token=${resetToken}&email=${encodeURIComponent(targetEmail)}`;
                 const html = `
-                  <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 32px 24px; max-width: 500px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 16px; background-color: #ffffff;">
+                  <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 36px 24px; max-width: 500px; margin: 0 auto; border: 1px solid #d1fae5; border-radius: 20px; background-color: #ffffff; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);">
                     <div style="text-align: center; margin-bottom: 24px;">
-                      <div style="width: 56px; height: 56px; background-color: #f3e8ff; border-radius: 16px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 12px;">
-                        <span style="font-size: 28px;">🔑</span>
+                      <div style="width: 60px; height: 60px; background-color: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 18px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 14px;">
+                        <span style="font-size: 30px;">🔑</span>
                       </div>
-                      <h2 style="color: #581c87; margin: 0 0 6px 0; font-weight: 800; font-size: 20px;">Admin Password Reset Request</h2>
-                      <p style="color: #64748b; font-size: 13px; margin: 0;">NaviGuard System Command</p>
+                      <h2 style="color: #065f46; margin: 0 0 6px 0; font-weight: 900; font-size: 22px; letter-spacing: -0.3px;">Admin Password Reset Request</h2>
+                      <p style="color: #059669; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; margin: 0;">NaviGuard Security Command</p>
                     </div>
 
-                    <p style="color: #334155; font-size: 14px; line-height: 1.6; margin-bottom: 16px;">
-                      Hello ${profileObj.full_name || 'System Administrator'}, <strong>5 consecutive failed login attempts</strong> were recorded for your Admin account (${targetEmail}).
-                    </p>
+                    <div style="background-color: #f0fdf4; border: 1px solid #d1fae5; border-radius: 14px; padding: 18px; margin-bottom: 24px;">
+                      <p style="color: #1e293b; font-size: 14px; line-height: 1.6; margin: 0;">
+                        Hello <strong>${profileObj.full_name || 'System Administrator'}</strong>,<br/><br/>
+                        <strong>5 consecutive failed login attempts</strong> were recorded for your Admin account (<span style="color: #047857; font-weight: 600;">${targetEmail}</span>). To protect system security, your account has been temporarily locked.
+                      </p>
+                    </div>
 
                     <div style="text-align: center; margin: 28px 0;">
-                      <a href="${resetUrl}" target="_blank" style="background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%); color: #ffffff; padding: 14px 28px; text-decoration: none; font-weight: 800; border-radius: 12px; display: inline-block; font-size: 14px;">Reset Admin Password</a>
+                      <a href="${resetUrl}" target="_blank" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #ffffff; padding: 15px 32px; text-decoration: none; font-weight: 800; border-radius: 14px; display: inline-block; font-size: 14px; letter-spacing: 0.3px; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);">Reset Admin Password</a>
+                    </div>
+
+                    <div style="border-top: 1px solid #f1f5f9; padding-top: 18px; margin-top: 24px; text-align: center;">
+                      <p style="color: #64748b; font-size: 11px; margin: 0;">
+                        ⏱️ Password reset link is valid for <strong>10 minutes</strong>. If you did not initiate this request, please contact system administration immediately.
+                      </p>
                     </div>
                   </div>
                 `;
