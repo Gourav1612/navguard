@@ -1,5 +1,5 @@
 {
-  "version": "1.0.4",
+  "version": "1.0.5",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: change floating overlay bubble color from purple to black (#090A0F)"
+  "releaseNotes": "Auto-build: fix java syntax and dangling code blocks in LocationForegroundService for apk build"
 }
