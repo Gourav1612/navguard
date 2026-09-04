@@ -171,7 +171,7 @@ export async function POST(req: NextRequest) {
           }
 
           return NextResponse.json(
-            { error: 'Account is locked. A reset link was recently sent to your email. Please check your inbox or wait 2 minutes to request a new link.', code: 'UNAUTHORIZED' },
+            { error: 'Account is locked due to too many failed login attempts. A password reset link was sent to your email. Please check your inbox.', code: 'UNAUTHORIZED' },
             { status: 401 }
           );
         }
