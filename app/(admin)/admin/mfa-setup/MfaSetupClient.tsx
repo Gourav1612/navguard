@@ -35,16 +35,23 @@ export default function MfaSetupClient() {
           return;
         }
 
-        // 2. Fetch user profile role
-        const { data: profile } = await supabase
-          .from('user_profiles')
-          .select('role')
-          .eq('id', user.id)
-          .single();
+        // 2. Fetch user profile role via metadata or server API (bypassing client-side RLS 500 infinite recursion)
+        let role = user.user_metadata?.role;
+        if (!role) {
+          try {
+            const meRes = await fetch('/api/auth/me');
+            if (meRes.ok) {
+              const meData = await meRes.json();
+              role = meData.role;
+            }
+          } catch (e) {
+            console.warn('[MFA] Failed to fetch /api/auth/me:', e);
+          }
+        }
 
         if (!active) return;
 
-        if (!profile || profile.role !== 'admin') {
+        if (role && role !== 'admin') {
           router.replace('/');
           return;
         }
