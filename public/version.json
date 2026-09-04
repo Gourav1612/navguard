@@ -1,5 +1,5 @@
 {
-  "version": "1.0.2",
+  "version": "1.0.3",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: restore LocationServicePlugin.java to fix Android APK build"
+  "releaseNotes": "Auto-build: update Android app icons and splash with custom NaviGuard logo"
 }
