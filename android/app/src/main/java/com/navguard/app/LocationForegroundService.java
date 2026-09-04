@@ -659,7 +659,7 @@ public class LocationForegroundService extends Service {
                 final int[]     snapEdge  = {1};    // default right edge
                 final boolean[] isPeeked  = {false};
 
-                // ── Build the bubble view (purple circle with location icon) ──────────────
+                // ── Build the bubble view (black circle with location icon) ──────────────
                 final android.widget.FrameLayout container = new android.widget.FrameLayout(this);
 
                 // Circle background layer
@@ -667,7 +667,7 @@ public class LocationForegroundService extends Service {
                     @Override
                     protected void onDraw(android.graphics.Canvas canvas) {
                         android.graphics.Paint p = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
-                        p.setColor(Color.parseColor("#5c3b99"));
+                        p.setColor(Color.parseColor("#090A0F"));
                         float r = Math.min(getWidth(), getHeight()) / 2f;
                         canvas.drawCircle(r, r, r, p);
                         // White ring
@@ -734,7 +734,7 @@ public class LocationForegroundService extends Service {
                                 @Override
                                 protected void onDraw(android.graphics.Canvas canvas) {
                                     android.graphics.Paint p = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
-                                    p.setColor(Color.parseColor("#995c3b99")); // 60% opaque purple
+                                    p.setColor(Color.parseColor("#CC090A0F")); // 80% opaque dark black
                                     int w = getWidth(), h = getHeight();
                                     android.graphics.Path path = new android.graphics.Path();
                                     if (isRight) {
@@ -796,7 +796,7 @@ public class LocationForegroundService extends Service {
                             @Override
                             protected void onDraw(android.graphics.Canvas canvas) {
                                 android.graphics.Paint p = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
-                                p.setColor(Color.parseColor("#5c3b99"));
+                                p.setColor(Color.parseColor("#090A0F"));
                                 float r = Math.min(getWidth(), getHeight()) / 2f;
                                 canvas.drawCircle(r, r, r, p);
                                 p.setStyle(android.graphics.Paint.Style.STROKE);

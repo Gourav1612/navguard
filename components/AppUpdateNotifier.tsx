@@ -130,7 +130,7 @@ export default function AppUpdateNotifier() {
       <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-md" />
 
       {/* Glassmorphic Alert Box */}
-      <div className="relative bg-[#130b24]/90 border border-purple-500/20 rounded-3xl p-6 max-w-sm w-full shadow-2xl text-center space-y-5 animate-in zoom-in-95 duration-250">
+      <div className="relative bg-[#090A0F]/95 border border-emerald-500/20 rounded-3xl p-6 max-w-sm w-full shadow-2xl text-center space-y-5 animate-in zoom-in-95 duration-250">
         
         {needsInstallPermission ? (
           // Install permission prompt UI
@@ -166,12 +166,12 @@ export default function AppUpdateNotifier() {
         ) : isDownloading ? (
           // Downloading Progress UI
           <>
-            <div className="mx-auto w-14 h-14 bg-purple-500/10 border border-purple-500/30 rounded-2xl flex items-center justify-center text-purple-400">
+            <div className="mx-auto w-14 h-14 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl flex items-center justify-center text-emerald-400">
               <Loader2 className="w-6 h-6 animate-spin" />
             </div>
 
             <div className="space-y-2">
-              <span className="text-[10px] font-black text-purple-400 uppercase tracking-widest block">downloading update</span>
+              <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest block">downloading update</span>
               <h3 className="text-lg font-black text-white leading-tight">Downloading Files...</h3>
               <p className="text-slate-400 text-xs leading-relaxed font-medium">
                 Downloading latest release package. Please do not close the app.
@@ -180,13 +180,13 @@ export default function AppUpdateNotifier() {
 
             {/* Premium Progress Bar */}
             <div className="space-y-2">
-              <div className="w-full h-2.5 bg-purple-950/40 border border-purple-900/30 rounded-full overflow-hidden">
+              <div className="w-full h-2.5 bg-zinc-900 border border-zinc-800 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full transition-all duration-300 ease-out"
+                  className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full transition-all duration-300 ease-out"
                   style={{ width: `${downloadProgress}%` }}
                 />
               </div>
-              <div className="flex justify-between text-[10px] font-mono text-purple-300 font-bold">
+              <div className="flex justify-between text-[10px] font-mono text-emerald-300 font-bold">
                 <span>PROGRESS</span>
                 <span>{downloadProgress}%</span>
               </div>
@@ -195,16 +195,16 @@ export default function AppUpdateNotifier() {
         ) : (
           // Standard Update Alert UI
           <>
-            <div className="mx-auto w-14 h-14 bg-purple-500/10 border border-purple-500/30 rounded-2xl flex items-center justify-center text-purple-400 relative">
+            <div className="mx-auto w-14 h-14 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl flex items-center justify-center text-emerald-400 relative">
               <Download className="w-6 h-6 animate-bounce" />
               <span className="absolute -top-1 -right-1 flex h-3 w-3">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-3 w-3 bg-purple-500"></span>
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
               </span>
             </div>
 
             <div className="space-y-2">
-              <span className="text-[10px] font-black text-purple-400 uppercase tracking-widest block">new release available</span>
+              <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest block">new release available</span>
               <h3 className="text-lg font-black text-white leading-tight">Update NaviGuard App</h3>
               <p className="text-slate-400 text-xs leading-relaxed font-medium">
                 Version <span className="text-white font-bold">{latestVersion}</span> is now available. Please update the application to ensure live telemetry, ETAs, and geofencing remain fully operational.
@@ -218,7 +218,7 @@ export default function AppUpdateNotifier() {
               </div>
             )}
 
-            <div className="bg-purple-950/30 border border-purple-900/30 rounded-xl p-3 text-left space-y-1 text-[10px] text-purple-200 font-semibold font-mono">
+            <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-3 text-left space-y-1 text-[10px] text-slate-200 font-semibold font-mono">
               <div className="flex justify-between">
                 <span>Installed Version:</span>
                 <span className="text-slate-400 font-normal">{currentVersion}</span>
@@ -232,7 +232,7 @@ export default function AppUpdateNotifier() {
             <div className="flex flex-col gap-2 pt-1">
               <button
                 onClick={handleUpdate}
-                className="w-full py-3.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:opacity-95 text-white text-xs font-black uppercase tracking-widest rounded-xl transition shadow-lg shadow-purple-500/25 active:scale-[0.99] cursor-pointer"
+                className="w-full py-3.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:opacity-95 text-white text-xs font-black uppercase tracking-widest rounded-xl transition shadow-lg shadow-emerald-500/25 active:scale-[0.99] cursor-pointer"
               >
                 Update Now
               </button>
