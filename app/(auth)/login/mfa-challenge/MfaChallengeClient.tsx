@@ -27,19 +27,13 @@ export default function MfaChallengeClient() {
   const [failedAttempts, setFailedAttempts] = useState(0);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      if (typeof window !== 'undefined' && window.location.pathname !== '/login/mfa-challenge') {
-        window.history.replaceState(null, '', '/login/mfa-challenge');
-      }
-    }, 200);
-    return () => clearInterval(interval);
-  }, []);
+    let active = true;
 
-  useEffect(() => {
     async function checkFactors() {
       try {
         // 1. Fetch user to verify active session
         const { data: { user }, error: userErr } = await supabase.auth.getUser();
+        if (!active) return;
         if (userErr || !user) {
           router.replace('/login');
           return;
@@ -47,10 +41,12 @@ export default function MfaChallengeClient() {
 
         // 2. Fetch AAL levels
         const { data: mfaData, error: mfaErr } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+        if (!active) return;
         if (mfaErr) throw new Error(mfaErr.message);
 
         // Fetch active factors list
         const { data: factors, error: listErr } = await supabase.auth.mfa.listFactors();
+        if (!active) return;
         if (listErr) throw new Error(listErr.message);
 
         // Find active TOTP factor
@@ -62,10 +58,14 @@ export default function MfaChallengeClient() {
         }
 
         setFactorId(activeTotp.id);
-        setLoading(false);
       } catch (err: any) {
-        setError(err.message || 'An error occurred during verification initialization.');
-        setLoading(false);
+        if (active) {
+          setError(err.message || 'An error occurred during verification initialization.');
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
       }
     }
 
@@ -75,7 +75,11 @@ export default function MfaChallengeClient() {
       const attemptsStr = localStorage.getItem('mfa_failed_attempts') || '0';
       setFailedAttempts(Number(attemptsStr));
     }
-  }, [router, supabase]);
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // Standard authenticator verify
   const handleVerify = async (e: React.FormEvent) => {

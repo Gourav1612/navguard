@@ -20,27 +20,18 @@ export default function MfaSetupClient() {
   const [success, setSuccess] = useState(false);
 
   useEffect(() => {
-    let isMounted = true;
+    let active = true;
 
     async function checkAndEnroll() {
-      // Safety timeout: Ensure loading is never stuck indefinitely
-      const timeoutId = setTimeout(() => {
-        if (isMounted) {
-          console.warn('[MFA] Setup check timed out after 5s');
-          setLoading(false);
-        }
-      }, 5000);
-
       try {
-        setLoading(true);
         setError(null);
 
         // 1. Fetch user session
         const { data: { user }, error: userErr } = await supabase.auth.getUser();
-        
+        if (!active) return;
+
         if (userErr || !user) {
-          clearTimeout(timeoutId);
-          if (isMounted) router.replace('/login');
+          router.replace('/login');
           return;
         }
 
@@ -51,9 +42,10 @@ export default function MfaSetupClient() {
           .eq('id', user.id)
           .single();
 
+        if (!active) return;
+
         if (!profile || profile.role !== 'admin') {
-          clearTimeout(timeoutId);
-          if (isMounted) router.replace('/');
+          router.replace('/');
           return;
         }
 
@@ -64,8 +56,12 @@ export default function MfaSetupClient() {
           console.warn('[MFA] Failed to reset unverified factors via API:', e);
         }
 
+        if (!active) return;
+
         // 4. Check existing factors
         const { data: factors, error: factorsErr } = await supabase.auth.mfa.listFactors();
+        if (!active) return;
+
         if (factorsErr) throw new Error(factorsErr.message);
 
         const activeTotp = factors?.all?.find(
@@ -73,12 +69,8 @@ export default function MfaSetupClient() {
         );
 
         if (activeTotp) {
-          clearTimeout(timeoutId);
-          if (isMounted) {
-            setSuccess(true);
-            setLoading(false);
-            window.location.href = '/login/mfa-challenge';
-          }
+          setSuccess(true);
+          window.location.href = '/login/mfa-challenge';
           return;
         }
 
@@ -89,22 +81,21 @@ export default function MfaSetupClient() {
           friendlyName: user.email ? `${user.email} - ${suffix}` : `Admin - ${suffix}`,
         });
 
+        if (!active) return;
         if (enrollErr) throw new Error(enrollErr.message);
 
-        clearTimeout(timeoutId);
-        if (isMounted) {
-          setFactorId(enrollData.id);
-          if (enrollData.totp) {
-            setQrCodeSvg(enrollData.totp.qr_code);
-            setSecret(enrollData.totp.secret);
-          }
-          setLoading(false);
+        setFactorId(enrollData.id);
+        if (enrollData.totp) {
+          setQrCodeSvg(enrollData.totp.qr_code);
+          setSecret(enrollData.totp.secret);
         }
       } catch (err: any) {
-        clearTimeout(timeoutId);
         console.error('[MFA] Error in checkAndEnroll:', err);
-        if (isMounted) {
+        if (active) {
           setError(err.message || 'An error occurred during MFA setup initialization.');
+        }
+      } finally {
+        if (active) {
           setLoading(false);
         }
       }
@@ -113,9 +104,9 @@ export default function MfaSetupClient() {
     checkAndEnroll();
 
     return () => {
-      isMounted = false;
+      active = false;
     };
-  }, [router, supabase]);
+  }, []); // Run ONCE on mount
 
   const handleCopySecret = () => {
     if (secret) {
