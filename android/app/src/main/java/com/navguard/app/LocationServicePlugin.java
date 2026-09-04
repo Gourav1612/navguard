@@ -19,7 +19,7 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 public class LocationServicePlugin extends Plugin {
 
     /**
-     * Called from JavaScript when the driver starts a trip.
+     * Called from JavaScript when the driver starts tracking.
      * Stores credentials in SharedPreferences so the native service
      * can access them even after the WebView is killed.
      */
@@ -94,7 +94,6 @@ public class LocationServicePlugin extends Plugin {
         TripStatusReceiver.scheduleNextPoll(getContext());
         Log.d("LocationServicePlugin", "Started trip status polling");
 
-        // Overlay bubble and PiP triggers disabled (background location service runs independently via ForegroundService)
         com.getcapacitor.JSObject result = new com.getcapacitor.JSObject();
         result.put("overlayPermissionNeeded", false);
         call.resolve(result);
@@ -130,8 +129,6 @@ public class LocationServicePlugin extends Plugin {
             Log.e("LocationServicePlugin", "Failed to delete tracking_credentials.json", e);
         }
 
-        // Disable Auto-PiP on Android 12+ dynamically when tracking stops (must run on UI thread)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && getActivity() != null) {
         call.resolve();
     }
 
@@ -181,7 +178,7 @@ public class LocationServicePlugin extends Plugin {
     }
 
     /**
-     * Set driver login/dashboard status so PiP triggers are conditionally configured.
+     * Set driver login/dashboard status.
      */
     @PluginMethod
     public void setDriverStatus(PluginCall call) {
@@ -204,28 +201,6 @@ public class LocationServicePlugin extends Plugin {
             Log.e("LocationServicePlugin", "setDriverStatus: Failed to stop service", e);
         }
 
-        boolean isTripActive = prefs.getBoolean("is_trip_active", false);
-
-        // Dynamically enable/disable Auto-PiP parameters on Android 12+ (must run on UI thread)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && getActivity() != null) {
-            getActivity().runOnUiThread(() -> {
-                try {
-                    android.app.PictureInPictureParams.Builder builder = new android.app.PictureInPictureParams.Builder();
-                    builder.setAutoEnterEnabled(isDriver);
-
-                    if (isDriver) {
-                        android.util.Rational aspectRatio = new android.util.Rational(3, 4);
-                        builder.setAspectRatio(aspectRatio);
-                    }
-
-                    getActivity().setPictureInPictureParams(builder.build());
-                    Log.d("LocationServicePlugin", "setDriverStatus: Configured Auto-PiP dynamically to " + isDriver);
-                } catch (Exception e) {
-                    Log.e("LocationServicePlugin", "Failed to configure Auto-PiP in setDriverStatus", e);
-                }
-            });
-        }
-
         call.resolve();
     }
 
@@ -240,21 +215,6 @@ public class LocationServicePlugin extends Plugin {
                 Context.MODE_PRIVATE
         );
         prefs.edit().putBoolean("is_trip_active", isTripActive).apply();
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && getActivity() != null) {
-            getActivity().runOnUiThread(() -> {
-                try {
-                    android.app.PictureInPictureParams.Builder builder = new android.app.PictureInPictureParams.Builder();
-                    builder.setAutoEnterEnabled(true);
-                    android.util.Rational aspectRatio = new android.util.Rational(3, 4);
-                    builder.setAspectRatio(aspectRatio);
-                    getActivity().setPictureInPictureParams(builder.build());
-                    Log.d("LocationServicePlugin", "setTripStatus: Configured Auto-PiP to true");
-                } catch (Exception e) {
-                    Log.e("LocationServicePlugin", "Failed to configure Auto-PiP in setTripStatus", e);
-                }
-            });
-        }
         call.resolve();
     }
 
