@@ -5,30 +5,31 @@ import { sendVerificationEmail } from '@/lib/mail';
 import crypto from 'crypto';
 
 function getAppOrigin(req?: NextRequest) {
-  if (req) {
-    const host = req.headers.get('x-forwarded-host') || req.headers.get('host');
-    const proto = req.headers.get('x-forwarded-proto') || 'https';
-    if (host && !host.includes('localhost') && !host.includes('127.0.0.1')) {
-      return `${proto}://${host}`;
-    }
-  }
-
-  const configuredUrl =
+  // 1. Environment variable priority (Highest priority for Production deployment e.g. Vercel or custom domain in .env)
+  const envUrl =
     process.env.NEXT_PUBLIC_APP_URL ||
     process.env.APP_URL ||
+    (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : '') ||
     (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '');
 
-  if (configuredUrl) {
+  if (envUrl && envUrl.trim().length > 0) {
     try {
-      return new URL(configuredUrl).origin;
+      const formattedUrl = envUrl.startsWith('http://') || envUrl.startsWith('https://') ? envUrl : `https://${envUrl}`;
+      return new URL(formattedUrl).origin;
     } catch {}
   }
 
+  // 2. Dynamic Host Header from incoming HTTP Request (works on Vercel, VPS, Docker, or Local dev)
   if (req) {
+    const host = req.headers.get('x-forwarded-host') || req.headers.get('host');
+    const proto = req.headers.get('x-forwarded-proto') || (req.url.startsWith('https') ? 'https' : 'http');
+    if (host) {
+      return `${proto}://${host}`;
+    }
     return req.nextUrl.origin;
   }
 
-  return 'http://localhost:3000';
+  return '';
 }
 
 export async function POST(req: NextRequest) {
