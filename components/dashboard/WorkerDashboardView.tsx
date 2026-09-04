@@ -31,10 +31,49 @@ export default function WorkerDashboardView({ tab }: { tab?: string }) {
   const [batteryLevel, setBatteryLevel] = useState<number>(100);
 
   const [isPausedByAdmin, setIsPausedByAdmin] = useState(false);
+  const [isGpsOff, setIsGpsOff] = useState(false);
 
   const watchIdRef = useRef<number | null>(null);
   const timerIdRef = useRef<any>(null);
   const lastSentRef = useRef<number>(0);
+
+  // Check if Device GPS is enabled on launch
+  const checkGpsStatus = useCallback(async () => {
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const res = await LocationService.isGpsEnabled();
+        if (res && res.enabled === false) {
+          setIsGpsOff(true);
+        } else {
+          setIsGpsOff(false);
+        }
+      } catch (err) {
+        console.error('Failed to check native GPS status:', err);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    checkGpsStatus();
+    const interval = setInterval(checkGpsStatus, 10000);
+    window.addEventListener('focus', checkGpsStatus);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', checkGpsStatus);
+    };
+  }, [checkGpsStatus]);
+
+  const handleTurnOnGps = async () => {
+    if (Capacitor.isNativePlatform()) {
+      try {
+        await LocationService.openGpsSettings();
+      } catch (err) {
+        console.error('Failed to open GPS settings:', err);
+      }
+    } else {
+      alert('Please enable Location / GPS in your device settings.');
+    }
+  };
 
   // 1. Fetch Worker Assignment and Contact Cards
   const { data: assignment, isLoading, refetch } = useQuery({
@@ -593,6 +632,33 @@ export default function WorkerDashboardView({ tab }: { tab?: string }) {
           </div>
         )}
       </div>
+
+      {/* GPS Off Alert Modal */}
+      {isGpsOff && (
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-md" />
+          <div className="relative bg-[#090A0F] border border-amber-500/30 rounded-3xl p-6 max-w-sm w-full shadow-2xl text-center space-y-5 animate-in zoom-in-95 duration-200">
+            <div className="mx-auto w-14 h-14 bg-amber-500/10 border border-amber-500/30 rounded-2xl flex items-center justify-center text-amber-400">
+              <Compass className="w-7 h-7 animate-pulse" />
+            </div>
+
+            <div className="space-y-2">
+              <span className="text-[10px] font-black text-amber-400 uppercase tracking-widest block">location disabled</span>
+              <h3 className="text-lg font-black text-white leading-tight">Turn On Device GPS</h3>
+              <p className="text-slate-400 text-xs leading-relaxed font-medium">
+                NaviGuard requires high-accuracy GPS location services to stream live shift telemetry. Please turn on Location/GPS on your device to proceed.
+              </p>
+            </div>
+
+            <button
+              onClick={handleTurnOnGps}
+              className="w-full py-3.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:opacity-95 text-white text-xs font-black uppercase tracking-widest rounded-xl transition shadow-lg shadow-amber-500/25 active:scale-[0.99] cursor-pointer"
+            >
+              Turn On Location / GPS
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

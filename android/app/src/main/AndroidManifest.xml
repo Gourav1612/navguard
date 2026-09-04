@@ -16,7 +16,6 @@
             android:label="@string/title_activity_main"
             android:theme="@style/AppTheme.NoActionBarLaunch"
             android:launchMode="singleTask"
-            android:supportsPictureInPicture="true"
             android:exported="true">
 
             <intent-filter>
@@ -68,6 +67,5 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
-    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 </manifest>

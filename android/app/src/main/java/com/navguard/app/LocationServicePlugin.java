@@ -94,31 +94,9 @@ public class LocationServicePlugin extends Plugin {
         TripStatusReceiver.scheduleNextPoll(getContext());
         Log.d("LocationServicePlugin", "Started trip status polling");
 
-        // Enable Auto-PiP on Android 12+ dynamically whenever driver tracking is active
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && getActivity() != null) {
-            getActivity().runOnUiThread(() -> {
-                try {
-                    android.app.PictureInPictureParams.Builder builder = new android.app.PictureInPictureParams.Builder();
-                    builder.setAutoEnterEnabled(true);
-                    android.util.Rational aspectRatio = new android.util.Rational(3, 4);
-                    builder.setAspectRatio(aspectRatio);
-                    getActivity().setPictureInPictureParams(builder.build());
-                    Log.d("LocationServicePlugin", "Configured Auto-PiP in startTracking: setAutoEnterEnabled(true)");
-                } catch (Exception e) {
-                    Log.e("LocationServicePlugin", "Failed to set Auto-PiP params", e);
-                }
-            });
-        }
-
-        // Check if overlay (SYSTEM_ALERT_WINDOW) permission is granted.
-        // Return status to React so it can show an in-app Allow/Deny dialog.
-        boolean overlayGranted = true;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            overlayGranted = android.provider.Settings.canDrawOverlays(getContext());
-        }
-
+        // Overlay bubble and PiP triggers disabled (background location service runs independently via ForegroundService)
         com.getcapacitor.JSObject result = new com.getcapacitor.JSObject();
-        result.put("overlayPermissionNeeded", !overlayGranted);
+        result.put("overlayPermissionNeeded", false);
         call.resolve(result);
     }
 
@@ -154,18 +132,6 @@ public class LocationServicePlugin extends Plugin {
 
         // Disable Auto-PiP on Android 12+ dynamically when tracking stops (must run on UI thread)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && getActivity() != null) {
-            getActivity().runOnUiThread(() -> {
-                try {
-                    android.app.PictureInPictureParams.Builder builder = new android.app.PictureInPictureParams.Builder();
-                    builder.setAutoEnterEnabled(false);
-                    getActivity().setPictureInPictureParams(builder.build());
-                    Log.d("LocationServicePlugin", "Disabled Auto-PiP dynamically");
-                } catch (Exception e) {
-                    Log.e("LocationServicePlugin", "Failed to clear Auto-PiP params", e);
-                }
-            });
-        }
-
         call.resolve();
     }
 
@@ -290,5 +256,43 @@ public class LocationServicePlugin extends Plugin {
             });
         }
         call.resolve();
+    }
+
+    /**
+     * Check if device GPS / Location Provider is enabled.
+     */
+    @PluginMethod
+    public void isGpsEnabled(PluginCall call) {
+        boolean gpsEnabled = false;
+        try {
+            android.location.LocationManager lm = (android.location.LocationManager) getContext().getSystemService(Context.LOCATION_SERVICE);
+            if (lm != null) {
+                boolean gps = lm.isProviderEnabled(android.location.LocationManager.GPS_PROVIDER);
+                boolean network = lm.isProviderEnabled(android.location.LocationManager.NETWORK_PROVIDER);
+                gpsEnabled = gps || network;
+            }
+        } catch (Exception e) {
+            Log.e("LocationServicePlugin", "Error checking GPS status", e);
+        }
+
+        com.getcapacitor.JSObject result = new com.getcapacitor.JSObject();
+        result.put("enabled", gpsEnabled);
+        call.resolve(result);
+    }
+
+    /**
+     * Opens Android System Location / GPS settings screen so user can turn on Location.
+     */
+    @PluginMethod
+    public void openGpsSettings(PluginCall call) {
+        try {
+            Intent intent = new Intent(android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS);
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            getContext().startActivity(intent);
+            call.resolve();
+        } catch (Exception e) {
+            Log.e("LocationServicePlugin", "Failed to open GPS settings", e);
+            call.reject("Failed to open location settings");
+        }
     }
 }

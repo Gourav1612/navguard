@@ -635,12 +635,9 @@ public class LocationForegroundService extends Service {
     }
 
     private void showFloatingBubble() {
-        new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
-            if (floatingView != null) return; // Already showing
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
-                Log.w(TAG, "Cannot show overlay: overlay permission not granted");
-                return;
-            }
+        // Floating window overlay disabled (background location service runs independently via ForegroundService)
+        return;
+    }
 
             try {
                 windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
