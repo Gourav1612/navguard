@@ -41,9 +41,10 @@ export async function GET() {
       supervisor = supRaw;
     }
 
-    // Fetch Plant Manager Details (peer manager/s for the same plant)
+    // Fetch Plant Manager Details (peer manager for plant with fallback to plant admin or system admin)
     let plantManager = null;
     if (workerRaw.plant_id) {
+      // 1. Check for dedicated manager assigned to this plant
       const { data: mgrRaw } = await adminClient
         .from('user_profiles')
         .select('id, full_name, email, phone')
@@ -51,7 +52,41 @@ export async function GET() {
         .eq('role', 'manager')
         .limit(1)
         .maybeSingle();
-      plantManager = mgrRaw;
+
+      if (mgrRaw) {
+        plantManager = mgrRaw;
+      } else {
+        // 2. Fallback to plant-assigned admin
+        const { data: plantAdminRaw } = await adminClient
+          .from('user_profiles')
+          .select('id, full_name, email, phone')
+          .eq('plant_id', workerRaw.plant_id)
+          .eq('role', 'admin')
+          .limit(1)
+          .maybeSingle();
+
+        if (plantAdminRaw) {
+          plantManager = plantAdminRaw;
+        } else {
+          // 3. Fallback to main system admin
+          const { data: fallbackAdmin } = await adminClient
+            .from('user_profiles')
+            .select('id, full_name, email, phone')
+            .eq('role', 'admin')
+            .limit(1)
+            .maybeSingle();
+          plantManager = fallbackAdmin;
+        }
+      }
+    } else {
+      // Fallback if worker has no plant assigned
+      const { data: fallbackAdmin } = await adminClient
+        .from('user_profiles')
+        .select('id, full_name, email, phone')
+        .eq('role', 'admin')
+        .limit(1)
+        .maybeSingle();
+      plantManager = fallbackAdmin;
     }
 
     return NextResponse.json({

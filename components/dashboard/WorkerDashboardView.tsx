@@ -545,16 +545,21 @@ export default function WorkerDashboardView({ tab }: { tab?: string }) {
                 <span className="text-[9px] text-slate-400 font-bold block uppercase tracking-wider">Line Supervisor</span>
                 <h4 className="font-extrabold text-slate-900 text-xs sm:text-sm mt-0.5">{supervisor.full_name}</h4>
                 <span className="text-[10px] text-slate-500 block leading-tight">{supervisor.email}</span>
+                {supervisor.phone && (
+                  <span className="text-[10px] text-emerald-600 font-bold block mt-0.5 font-mono">📞 {supervisor.phone}</span>
+                )}
               </div>
             </div>
-            {supervisor.phone && (
+            {supervisor.phone ? (
               <a
                 href={`tel:${supervisor.phone}`}
-                className="p-2.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-xl transition shadow-sm"
+                className="p-2.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-xl transition shadow-sm flex items-center justify-center"
                 title="Call Supervisor"
               >
                 <Phone className="w-4 h-4" />
               </a>
+            ) : (
+              <span className="text-[10px] text-slate-400 italic">No Phone</span>
             )}
           </div>
         )}
@@ -569,16 +574,21 @@ export default function WorkerDashboardView({ tab }: { tab?: string }) {
                 <span className="text-[9px] text-slate-400 font-bold block uppercase tracking-wider">Plant Manager</span>
                 <h4 className="font-extrabold text-slate-900 text-xs sm:text-sm mt-0.5">{plantManager.full_name}</h4>
                 <span className="text-[10px] text-slate-500 block leading-tight">{plantManager.email}</span>
+                {plantManager.phone && (
+                  <span className="text-[10px] text-emerald-600 font-bold block mt-0.5 font-mono">📞 {plantManager.phone}</span>
+                )}
               </div>
             </div>
-            {plantManager.phone && (
+            {plantManager.phone ? (
               <a
                 href={`tel:${plantManager.phone}`}
-                className="p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 rounded-xl transition shadow-sm"
+                className="p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 rounded-xl transition shadow-sm flex items-center justify-center"
                 title="Call Manager"
               >
                 <Phone className="w-4 h-4" />
               </a>
+            ) : (
+              <span className="text-[10px] text-slate-400 italic">No Phone</span>
             )}
           </div>
         )}
