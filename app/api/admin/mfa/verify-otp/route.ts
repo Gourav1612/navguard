@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { requireRole } from '@/lib/auth-guard';
 import { createSupabaseServerClient, createAdminClient } from '@/lib/supabase/server';
 import { sendVerificationEmail } from '@/lib/mail';
+import { generateSecureOtp, timingSafeMatch, safeErrorResponse } from '@/lib/security-utils';
+import { checkRateLimit, getClientIp } from '@/lib/rate-limiter';
 
 export async function POST(request: Request) {
   const auth = await requireRole(['admin'], { skipMfa: true });
@@ -9,16 +11,34 @@ export async function POST(request: Request) {
 
   const supabase = await createSupabaseServerClient();
   const { user } = auth;
+  const clientIp = getClientIp(request);
+
+  // Rate limiting: Max 10 verify attempts per 5 minutes per user and IP
+  const rateLimitUser = checkRateLimit(user.id, {
+    prefix: 'mfa_verify_otp_user',
+    maxRequests: 10,
+    windowSeconds: 300,
+  });
+  if (!rateLimitUser.allowed) return rateLimitUser.response!;
+
+  const rateLimitIp = checkRateLimit(clientIp, {
+    prefix: 'mfa_verify_otp_ip',
+    maxRequests: 15,
+    windowSeconds: 300,
+  });
+  if (!rateLimitIp.allowed) return rateLimitIp.response!;
 
   try {
     const { code, factorId } = await request.json();
 
-    if (!code || code.length !== 6) {
+    if (!code || typeof code !== 'string' || code.trim().length !== 6) {
       return NextResponse.json(
         { error: 'Verification code must be 6 digits.' },
         { status: 400 }
       );
     }
+
+    const cleanCode = code.trim();
 
     // Retrieve temporary code from auth metadata
     const savedOtp = user.user_metadata?.mfa_otp;
@@ -38,13 +58,14 @@ export async function POST(request: Request) {
       );
     }
 
-    if (savedOtp !== code) {
+    // Use timing-safe string comparison to prevent timing attacks
+    if (!timingSafeMatch(String(savedOtp), cleanCode)) {
       const currentAttempts = Number(user.user_metadata?.mfa_otp_attempts || 0);
       const newAttempts = currentAttempts + 1;
 
       if (newAttempts >= 5) {
-        // Generate new 6-digit OTP
-        const newOtp = Math.floor(100000 + Math.random() * 900000).toString();
+        // Generate new 6-digit OTP using CSPRNG
+        const newOtp = generateSecureOtp();
         const expiry = Date.now() + 5 * 60 * 1000; // 5 minutes from now
 
         // Update user metadata in Supabase
@@ -104,10 +125,7 @@ export async function POST(request: Request) {
       });
 
       if (factorErr) {
-        return NextResponse.json(
-          { error: 'Failed to delete MFA factor verification settings.', details: factorErr.message },
-          { status: 500 }
-        );
+        return safeErrorResponse(factorErr, 'Failed to update MFA settings.', 500);
       }
     }
 
@@ -116,21 +134,16 @@ export async function POST(request: Request) {
       data: {
         mfa_otp: null,
         mfa_otp_expires: null,
+        mfa_otp_attempts: 0,
       },
     });
 
     if (clearError) {
-      return NextResponse.json(
-        { error: 'Verification succeeded but session clear failed.', details: clearError },
-        { status: 500 }
-      );
+      return safeErrorResponse(clearError, 'Verification succeeded but session clear failed.', 500);
     }
 
     return NextResponse.json({ success: true });
-  } catch (err: any) {
-    return NextResponse.json(
-      { error: err.message || 'Internal server error' },
-      { status: 500 }
-    );
+  } catch (err: unknown) {
+    return safeErrorResponse(err, 'An error occurred during verification.', 500);
   }
 }

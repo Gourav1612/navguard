@@ -2,37 +2,20 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient, createAdminClient } from '@/lib/supabase/server';
 import { LoginSchema } from '@/lib/validations';
 import { sendVerificationEmail } from '@/lib/mail';
+import { getTrustedAppOrigin, safeErrorResponse } from '@/lib/security-utils';
+import { checkRateLimit, getClientIp } from '@/lib/rate-limiter';
 import crypto from 'crypto';
 
-function getAppOrigin(req?: NextRequest) {
-  // 1. Dynamic Host Header from incoming HTTP Request (Highest Priority on Live/Vercel Deployments)
-  if (req) {
-    const host = req.headers.get('x-forwarded-host') || req.headers.get('host');
-    const proto = req.headers.get('x-forwarded-proto') || (req.url.startsWith('https') ? 'https' : 'http');
-    if (host) {
-      return `${proto}://${host}`;
-    }
-    return req.nextUrl.origin;
-  }
-
-  // 2. Environment Variable Fallback (Check if env var is configured)
-  const envUrl =
-    process.env.NEXT_PUBLIC_APP_URL ||
-    process.env.APP_URL ||
-    (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : '') ||
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '');
-
-  if (envUrl && envUrl.trim().length > 0) {
-    try {
-      const formattedUrl = envUrl.startsWith('http://') || envUrl.startsWith('https://') ? envUrl : `https://${envUrl}`;
-      return new URL(formattedUrl).origin;
-    } catch {}
-  }
-
-  return '';
-}
-
 export async function POST(req: NextRequest) {
+  // Rate limiting: Max 15 login attempts per minute per IP
+  const clientIp = getClientIp(req);
+  const rateLimit = checkRateLimit(clientIp, {
+    prefix: 'login_attempt_ip',
+    maxRequests: 15,
+    windowSeconds: 60,
+  });
+  if (!rateLimit.allowed) return rateLimit.response!;
+
   try {
     const body = await req.json();
     const parsed = LoginSchema.safeParse(body);
@@ -123,7 +106,7 @@ export async function POST(req: NextRequest) {
               }
             });
 
-            const origin = getAppOrigin(req);
+            const origin = getTrustedAppOrigin(req);
             const resetUrl = `${origin}/reset-password?token=${newToken}&email=${encodeURIComponent(targetEmail!)}`;
             const html = `
               <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 36px 24px; max-width: 500px; margin: 0 auto; border: 1px solid #d1fae5; border-radius: 20px; background-color: #ffffff; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);">
@@ -221,7 +204,7 @@ export async function POST(req: NextRequest) {
             if (canSendEmail) {
               // Dispatch reset password link via email ONLY for Admin
               try {
-                const origin = getAppOrigin(req);
+                const origin = getTrustedAppOrigin(req);
                 const resetUrl = `${origin}/reset-password?token=${resetToken}&email=${encodeURIComponent(targetEmail)}`;
                 const html = `
                   <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 36px 24px; max-width: 500px; margin: 0 auto; border: 1px solid #d1fae5; border-radius: 20px; background-color: #ffffff; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);">
@@ -349,10 +332,7 @@ export async function POST(req: NextRequest) {
         plant_id: profile.plant_id,
       },
     });
-  } catch (err: any) {
-    return NextResponse.json(
-      { error: err.message || 'Internal server error', code: 'SERVER_ERROR' },
-      { status: 500 }
-    );
+  } catch (err: unknown) {
+    return safeErrorResponse(err, 'Authentication request failed. Please check your credentials.', 500);
   }
 }

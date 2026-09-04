@@ -2,17 +2,36 @@ import { NextResponse } from 'next/server';
 import { requireRole } from '@/lib/auth-guard';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { sendVerificationEmail } from '@/lib/mail';
+import { generateSecureOtp, safeErrorResponse } from '@/lib/security-utils';
+import { checkRateLimit, getClientIp } from '@/lib/rate-limiter';
 
-export async function POST() {
+export async function POST(request: Request) {
   const auth = await requireRole(['admin'], { skipMfa: true });
   if (auth.error) return auth.error;
 
   const { user, profile } = auth;
+  const clientIp = getClientIp(request);
+
+  // Rate limiting: Max 3 OTP requests per 5 minutes per user and IP
+  const rateLimitUser = checkRateLimit(user.id, {
+    prefix: 'mfa_send_otp_user',
+    maxRequests: 3,
+    windowSeconds: 300,
+  });
+  if (!rateLimitUser.allowed) return rateLimitUser.response!;
+
+  const rateLimitIp = checkRateLimit(clientIp, {
+    prefix: 'mfa_send_otp_ip',
+    maxRequests: 5,
+    windowSeconds: 300,
+  });
+  if (!rateLimitIp.allowed) return rateLimitIp.response!;
+
   const supabase = await createSupabaseServerClient();
 
   try {
-    // Generate 6-digit OTP
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    // Generate cryptographically secure 6-digit OTP using CSPRNG
+    const otp = generateSecureOtp();
     const expiry = Date.now() + 5 * 60 * 1000; // 5 minutes from now
 
     // Update user metadata in Supabase
@@ -25,10 +44,7 @@ export async function POST() {
     });
 
     if (updateError) {
-      return NextResponse.json(
-        { error: 'Failed to save verification code', details: updateError },
-        { status: 500 }
-      );
+      return safeErrorResponse(updateError, 'Failed to save verification code. Please try again.', 500);
     }
 
     // Call mail dispatcher
@@ -52,20 +68,14 @@ export async function POST() {
     });
 
     if (!mailResult.success) {
-      return NextResponse.json(
-        { error: 'Failed to send email verification.', details: mailResult.error },
-        { status: 500 }
-      );
+      return safeErrorResponse(mailResult.error, 'Failed to send email verification code.', 500);
     }
 
     return NextResponse.json({
       success: true,
       message: 'Verification code sent successfully to email.',
     });
-  } catch (err: any) {
-    return NextResponse.json(
-      { error: err.message || 'Internal server error' },
-      { status: 500 }
-    );
+  } catch (err: unknown) {
+    return safeErrorResponse(err, 'An error occurred while generating verification code.', 500);
   }
 }

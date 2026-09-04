@@ -68,11 +68,40 @@ public class AppUpdatePlugin extends Plugin {
         executor.execute(() -> {
             try {
                 URL url = new URL(apkUrl);
+
+                // Security Check 1: Enforce HTTPS only
+                if (!"https".equalsIgnoreCase(url.getProtocol())) {
+                    call.reject("Security error: Insecure HTTP update URLs are strictly prohibited. HTTPS required.");
+                    return;
+                }
+
+                // Security Check 2: Validate allowed host domains
+                String host = url.getHost();
+                boolean isAllowedHost = host != null && (
+                    host.endsWith("supabase.co") ||
+                    host.endsWith("github.com") ||
+                    host.endsWith("githubusercontent.com") ||
+                    host.endsWith("vercel.app") ||
+                    host.equalsIgnoreCase("navguard-eight.vercel.app")
+                );
+
+                if (!isAllowedHost) {
+                    call.reject("Security error: Untrusted download host: " + host);
+                    return;
+                }
+
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("GET");
                 conn.setConnectTimeout(15000);
                 conn.setReadTimeout(15000);
                 conn.connect();
+
+                int responseCode = conn.getResponseCode();
+                if (responseCode != HttpURLConnection.HTTP_OK) {
+                    call.reject("Failed to download update: Server returned HTTP " + responseCode);
+                    conn.disconnect();
+                    return;
+                }
 
                 int fileLength = conn.getContentLength();
                 InputStream is = conn.getInputStream();

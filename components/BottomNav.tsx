@@ -143,9 +143,10 @@ export function BottomNav({ children }: { children: React.ReactNode }) {
           {/* Nav Links */}
           <nav className="pl-4 pr-3 py-6 space-y-1.5">
             {tabs.map((tab) => {
-              const tabUrl = new URL(tab.href, 'http://localhost');
-              const tabQueryParam = tabUrl.searchParams.get('tab') || '';
-              const isActive = pathname === tabUrl.pathname && currentTab === tabQueryParam;
+              const [tabPath, tabQuery] = tab.href.split('?');
+              const searchParams = new URLSearchParams(tabQuery || '');
+              const tabQueryParam = searchParams.get('tab') || '';
+              const isActive = pathname === tabPath && currentTab === tabQueryParam;
               return (
                 <Link
                   key={tab.name}
@@ -254,9 +255,10 @@ export function BottomNav({ children }: { children: React.ReactNode }) {
         {/* Floating Mobile Bottom Navigation Bar (Hidden on md and up) */}
         <nav className="md:hidden fixed bottom-4 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-md bg-white/90 backdrop-blur-md border border-slate-150/80 py-2 px-6 flex items-center justify-around rounded-3xl shadow-[0_10px_30px_-5px_rgba(0,0,0,0.1)] z-30">
           {tabs.map((tab) => {
-            const tabUrl = new URL(tab.href, 'http://localhost');
-            const tabQueryParam = tabUrl.searchParams.get('tab') || '';
-            const isActive = pathname === tabUrl.pathname && currentTab === tabQueryParam;
+            const [tabPath, tabQuery] = tab.href.split('?');
+            const searchParams = new URLSearchParams(tabQuery || '');
+            const tabQueryParam = searchParams.get('tab') || '';
+            const isActive = pathname === tabPath && currentTab === tabQueryParam;
             return (
               <Link
                 key={tab.name}

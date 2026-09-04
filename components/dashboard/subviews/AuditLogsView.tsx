@@ -139,7 +139,7 @@ export default function AdminAuditLogs() {
                           <span className="text-slate-400 italic text-xs">System Task / Trigger</span>
                         )}
                       </td>
-                      <td className="px-6 py-4 font-mono text-xs text-slate-500">{log.ip_address || '127.0.0.1'}</td>
+                      <td className="px-6 py-4 font-mono text-xs text-slate-500">{log.ip_address || '—'}</td>
                       <td className="px-6 py-4 text-slate-500 text-xs">{formatDateTime(log.created_at)}</td>
                     </tr>
                   );

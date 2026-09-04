@@ -1,8 +1,18 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/server';
 import { PasswordSchema } from '@/lib/validations';
+import { timingSafeMatch, safeErrorResponse } from '@/lib/security-utils';
+import { checkRateLimit, getClientIp } from '@/lib/rate-limiter';
 
 export async function POST(request: Request) {
+  const clientIp = getClientIp(request);
+  const rateLimit = checkRateLimit(clientIp, {
+    prefix: 'reset_password_submit_ip',
+    maxRequests: 5,
+    windowSeconds: 900, // 15 minutes
+  });
+  if (!rateLimit.allowed) return rateLimit.response!;
+
   try {
     const { token, email, newPassword } = await request.json();
 
@@ -34,7 +44,7 @@ export async function POST(request: Request) {
       .single();
 
     if (!profile) {
-      return NextResponse.json({ error: 'User account not found.' }, { status: 404 });
+      return NextResponse.json({ error: 'Invalid or expired password reset request.' }, { status: 400 });
     }
 
     if (profile.role !== 'admin') {
@@ -47,7 +57,7 @@ export async function POST(request: Request) {
     const { data: { user }, error: getUserError } = await adminClient.auth.admin.getUserById(profile.id);
 
     if (getUserError || !user) {
-      return NextResponse.json({ error: 'User account not found.' }, { status: 404 });
+      return NextResponse.json({ error: 'Invalid or expired password reset request.' }, { status: 400 });
     }
 
     const savedToken = user.user_metadata?.password_reset_token;
@@ -67,7 +77,8 @@ export async function POST(request: Request) {
       );
     }
 
-    if (savedToken !== cleanToken) {
+    // Use timing-safe token verification
+    if (!timingSafeMatch(String(savedToken), cleanToken)) {
       return NextResponse.json(
         { error: 'Invalid password reset token link.' },
         { status: 400 }
@@ -88,10 +99,7 @@ export async function POST(request: Request) {
     });
 
     if (updateError) {
-      return NextResponse.json(
-        { error: 'Failed to update password: ' + updateError.message },
-        { status: 500 }
-      );
+      return safeErrorResponse(updateError, 'Failed to update password. Please try again.', 500);
     }
 
     // Force global logout on all devices for this user
@@ -105,10 +113,7 @@ export async function POST(request: Request) {
       success: true,
       message: 'Account unlocked and password updated successfully! All active device sessions logged out. You can now sign in.',
     });
-  } catch (err: any) {
-    return NextResponse.json(
-      { error: err.message || 'Server error resetting password' },
-      { status: 500 }
-    );
+  } catch (err: unknown) {
+    return safeErrorResponse(err, 'Server error resetting password.', 500);
   }
 }
