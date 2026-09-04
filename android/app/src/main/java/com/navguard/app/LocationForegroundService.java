@@ -635,327 +635,7 @@ public class LocationForegroundService extends Service {
     }
 
     private void showFloatingBubble() {
-        // Floating window overlay disabled (background location service runs independently via ForegroundService)
-        return;
-    }
-
-            try {
-                windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
-                if (windowManager == null) return;
-
-                final int screenW = getResources().getDisplayMetrics().widthPixels;
-                final int screenH = getResources().getDisplayMetrics().heightPixels;
-                final float density = getResources().getDisplayMetrics().density;
-                final int bubbleSize  = (int) (52 * density);  // full circle diameter
-                final int arrowW      = (int) (18 * density);  // arrow tab width (visible peeking part)
-                final int arrowH      = (int) (36 * density);  // arrow tab height
-                final int bubblePad   = (int) (12 * density);
-                final long PEEK_DELAY_MS = 10_000L; // 10 seconds of inactivity → collapse to arrow
-
-                // Track which edge (0=left, 1=right) and peek state
-                final int[]     snapEdge  = {1};    // default right edge
-                final boolean[] isPeeked  = {false};
-
-                // ── Build the bubble view (black circle with location icon) ──────────────
-                final android.widget.FrameLayout container = new android.widget.FrameLayout(this);
-
-                // Circle background layer
-                final android.view.View circleView = new android.view.View(this) {
-                    @Override
-                    protected void onDraw(android.graphics.Canvas canvas) {
-                        android.graphics.Paint p = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
-                        p.setColor(Color.parseColor("#090A0F"));
-                        float r = Math.min(getWidth(), getHeight()) / 2f;
-                        canvas.drawCircle(r, r, r, p);
-                        // White ring
-                        p.setStyle(android.graphics.Paint.Style.STROKE);
-                        p.setStrokeWidth(3 * density);
-                        p.setColor(Color.WHITE);
-                        canvas.drawCircle(r, r, r - 2 * density, p);
-                    }
-                };
-                circleView.setWillNotDraw(false);
-
-                // GPS icon on top
-                ImageView iconView = new ImageView(this);
-                iconView.setImageResource(android.R.drawable.ic_menu_mylocation);
-                iconView.setPadding(bubblePad, bubblePad, bubblePad, bubblePad);
-                iconView.setColorFilter(Color.WHITE, android.graphics.PorterDuff.Mode.SRC_IN);
-
-                android.widget.FrameLayout.LayoutParams fillLp =
-                        new android.widget.FrameLayout.LayoutParams(bubbleSize, bubbleSize);
-                container.addView(circleView, fillLp);
-                container.addView(iconView, fillLp);
-
-                floatingView = container;
-
-                int layoutFlag = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
-                        ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-                        : WindowManager.LayoutParams.TYPE_PHONE;
-
-                final WindowManager.LayoutParams params = new WindowManager.LayoutParams(
-                        bubbleSize, bubbleSize, layoutFlag,
-                        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
-                                | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
-                                | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
-                        PixelFormat.TRANSLUCENT
-                );
-                params.gravity = Gravity.TOP | Gravity.START;
-                params.x = screenW - bubbleSize - (int)(8 * density);
-                params.y = screenH / 2 - bubbleSize / 2;
-
-                final android.os.Handler handler = new android.os.Handler(android.os.Looper.getMainLooper());
-
-                // ── PEEK (collapse to arrow tab) ────────────────────────────────────────
-                final Runnable peekRunnable = new Runnable() {
-                    @Override
-                    public void run() {
-                        if (floatingView == null || windowManager == null) return;
-                        try {
-                            isPeeked[0] = true;
-                            // Resize window to arrow tab size; slide to screen edge
-                            if (snapEdge[0] == 1) {
-                                params.width  = arrowW;
-                                params.height = arrowH;
-                                params.x      = screenW - arrowW;
-                            } else {
-                                params.width  = arrowW;
-                                params.height = arrowH;
-                                params.x      = 0;
-                            }
-                            params.y = screenH / 2 - arrowH / 2;
-
-                            // Redraw container as a semi-transparent arrow tab
-                            final boolean isRight = (snapEdge[0] == 1);
-                            android.view.View arrowTab = new android.view.View(LocationForegroundService.this) {
-                                @Override
-                                protected void onDraw(android.graphics.Canvas canvas) {
-                                    android.graphics.Paint p = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
-                                    p.setColor(Color.parseColor("#CC090A0F")); // 80% opaque dark black
-                                    int w = getWidth(), h = getHeight();
-                                    android.graphics.Path path = new android.graphics.Path();
-                                    if (isRight) {
-                                        // Tab on right edge: rectangle with left-pointing chevron
-                                        path.moveTo(0, 0);
-                                        path.lineTo(w, 0);
-                                        path.lineTo(w, h);
-                                        path.lineTo(0, h);
-                                        path.lineTo(w * 0.4f, h / 2f);
-                                        path.close();
-                                    } else {
-                                        // Tab on left edge: rectangle with right-pointing chevron
-                                        path.moveTo(w, 0);
-                                        path.lineTo(0, 0);
-                                        path.lineTo(0, h);
-                                        path.lineTo(w, h);
-                                        path.lineTo(w * 0.6f, h / 2f);
-                                        path.close();
-                                    }
-                                    canvas.drawPath(path, p);
-                                }
-                            };
-                            arrowTab.setWillNotDraw(false);
-
-                            // Swap container children for the arrow tab view
-                            android.widget.FrameLayout fc = (android.widget.FrameLayout) floatingView;
-                            fc.removeAllViews();
-                            fc.addView(arrowTab, new android.widget.FrameLayout.LayoutParams(
-                                    android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
-                                    android.widget.FrameLayout.LayoutParams.MATCH_PARENT));
-
-                            windowManager.updateViewLayout(floatingView, params);
-                        } catch (Exception ignored) {}
-                    }
-                };
-
-                // ── EXPAND (restore to full circle bubble) ──────────────────────────────
-                final Runnable[] expandRunnable = {null};
-                expandRunnable[0] = () -> {
-                    if (floatingView == null || windowManager == null) return;
-                    try {
-                        isPeeked[0] = false;
-                        params.width  = bubbleSize;
-                        params.height = bubbleSize;
-
-                        if (snapEdge[0] == 1) {
-                            params.x = screenW - bubbleSize - (int)(8 * density);
-                        } else {
-                            params.x = (int)(8 * density);
-                        }
-
-                        // Restore circle children
-                        android.widget.FrameLayout fc = (android.widget.FrameLayout) floatingView;
-                        fc.removeAllViews();
-                        android.widget.FrameLayout.LayoutParams fillLp2 =
-                                new android.widget.FrameLayout.LayoutParams(bubbleSize, bubbleSize);
-
-                        android.view.View cv2 = new android.view.View(LocationForegroundService.this) {
-                            @Override
-                            protected void onDraw(android.graphics.Canvas canvas) {
-                                android.graphics.Paint p = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
-                                p.setColor(Color.parseColor("#090A0F"));
-                                float r = Math.min(getWidth(), getHeight()) / 2f;
-                                canvas.drawCircle(r, r, r, p);
-                                p.setStyle(android.graphics.Paint.Style.STROKE);
-                                p.setStrokeWidth(3 * density);
-                                p.setColor(Color.WHITE);
-                                canvas.drawCircle(r, r, r - 2 * density, p);
-                            }
-                        };
-                        cv2.setWillNotDraw(false);
-
-                        ImageView iv2 = new ImageView(LocationForegroundService.this);
-                        iv2.setImageResource(android.R.drawable.ic_menu_mylocation);
-                        iv2.setPadding(bubblePad, bubblePad, bubblePad, bubblePad);
-                        iv2.setColorFilter(Color.WHITE, android.graphics.PorterDuff.Mode.SRC_IN);
-
-                        fc.addView(cv2, fillLp2);
-                        fc.addView(iv2, fillLp2);
-
-                        windowManager.updateViewLayout(floatingView, params);
-
-                        // Schedule next auto-peek after 10s
-                        handler.removeCallbacks(peekRunnable);
-                        handler.postDelayed(peekRunnable, PEEK_DELAY_MS);
-                    } catch (Exception ignored) {}
-                };
-
-                // Schedule first auto-peek after 10 seconds
-                handler.postDelayed(peekRunnable, PEEK_DELAY_MS);
-
-                // ── Touch listener ──────────────────────────────────────────────────────
-                floatingView.setOnTouchListener(new View.OnTouchListener() {
-                    private int lastAction;
-                    private int initialX, initialY;
-                    private float initialTouchX, initialTouchY;
-                    private long downTime;
-                    private final long LONG_PRESS_MS = 700;
-                    private boolean longPressFired = false;
-
-                    private final Runnable longPressRunnable = () -> {
-                        android.content.SharedPreferences prefs = getSharedPreferences(PREFS_NAME, android.content.Context.MODE_PRIVATE);
-                        boolean isTripActive = prefs.getBoolean("is_trip_active", false);
-
-                        if (isTripActive) {
-                            Log.d(TAG, "Trip active — ignoring long press bubble dismissal request");
-                            return; // UN-DISMISSABLE DURING ACTIVE TRIP
-                        }
-                        longPressFired = true;
-                        handler.removeCallbacks(peekRunnable);
-                        hideFloatingBubble();
-                        Log.d(TAG, "Bubble dismissed by long-press");
-                    };
-
-                    @Override
-                    public boolean onTouch(View v, MotionEvent event) {
-                        switch (event.getAction()) {
-                            case MotionEvent.ACTION_DOWN:
-                                longPressFired = false;
-                                initialX = params.x;
-                                initialY = params.y;
-                                initialTouchX = event.getRawX();
-                                initialTouchY = event.getRawY();
-                                downTime = System.currentTimeMillis();
-                                lastAction = event.getAction();
-                                if (isPeeked[0]) {
-                                    // Expand immediately on any touch
-                                    handler.post(expandRunnable[0]);
-                                } else {
-                                    handler.removeCallbacks(peekRunnable);
-                                }
-                                handler.postDelayed(longPressRunnable, LONG_PRESS_MS);
-                                return true;
-
-                            case MotionEvent.ACTION_UP:
-                                handler.removeCallbacks(longPressRunnable);
-                                if (!longPressFired) {
-                                    long elapsed = System.currentTimeMillis() - downTime;
-                                    float dx = Math.abs(event.getRawX() - initialTouchX);
-                                    float dy = Math.abs(event.getRawY() - initialTouchY);
-                                    if (elapsed < LONG_PRESS_MS && dx < (int)(8 * density) && dy < (int)(8 * density)) {
-                                        // Tap — launch app
-                                        Intent launchIntent = new Intent(LocationForegroundService.this, MainActivity.class);
-                                        launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-                                        startActivity(launchIntent);
-                                    } else if (!longPressFired) {
-                                        // Drag ended — snap to nearest edge
-                                        int midScreen = screenW / 2;
-                                        if (params.x + bubbleSize / 2 < midScreen) {
-                                            snapEdge[0] = 0;
-                                            params.x = (int)(8 * density);
-                                        } else {
-                                            snapEdge[0] = 1;
-                                            params.x = screenW - bubbleSize - (int)(8 * density);
-                                        }
-                                        if (params.y < 0) params.y = (int)(16 * density);
-                                        if (params.y > screenH - bubbleSize) params.y = screenH - bubbleSize - (int)(16 * density);
-                                        try { windowManager.updateViewLayout(floatingView, params); } catch (Exception ignored) {}
-                                        // Re-schedule auto-peek
-                                        handler.removeCallbacks(peekRunnable);
-                                        handler.postDelayed(peekRunnable, PEEK_DELAY_MS);
-                                    }
-                                }
-                                lastAction = event.getAction();
-                                return true;
-
-                            case MotionEvent.ACTION_MOVE:
-                                handler.removeCallbacks(longPressRunnable);
-                                if (!isPeeked[0]) {
-                                    float newX = event.getRawX() - initialTouchX;
-                                    float newY = event.getRawY() - initialTouchY;
-                                    if (Math.abs(newX) > (int)(4 * density) || Math.abs(newY) > (int)(4 * density)) {
-                                        params.x = initialX + (int) newX;
-                                        params.y = initialY + (int) newY;
-                                        if (params.x < -(bubbleSize / 2)) params.x = -(bubbleSize / 2);
-                                        if (params.x > screenW - bubbleSize / 2) params.x = screenW - bubbleSize / 2;
-                                        if (params.y < 0) params.y = 0;
-                                        if (params.y > screenH - bubbleSize) params.y = screenH - bubbleSize;
-                                        try { windowManager.updateViewLayout(floatingView, params); } catch (Exception ignored) {}
-                                        lastAction = event.getAction();
-                                    }
-                                }
-                                return true;
-
-                            case MotionEvent.ACTION_CANCEL:
-                                handler.removeCallbacks(longPressRunnable);
-                                return true;
-                        }
-                        return false;
-                    }
-                });
-
-                windowManager.addView(floatingView, params);
-                Log.d(TAG, "Floating tracking bubble added successfully");
-            } catch (Exception e) {
-                Log.e(TAG, "Failed to show floating tracking bubble", e);
-            }
-        });
-    }
-
-
-
-    private void startActivityWithBackgroundPrivileges(Intent intent) {
-        try {
-            if (Build.VERSION.SDK_INT >= 34) { // Android 14, 15, 16
-                try {
-                    android.app.ActivityOptions options = android.app.ActivityOptions.makeBasic();
-                    try {
-                        java.lang.reflect.Method method = options.getClass().getMethod("setPendingIntentBackgroundActivityStartMode", int.class);
-                        method.invoke(options, 1); // 1 = MODE_BACKGROUND_ACTIVITY_START_ALLOWED
-                    } catch (Throwable t) {
-                        try {
-                            java.lang.reflect.Method m2 = options.getClass().getMethod("setPendingIntentCreatorBackgroundActivityStartMode", int.class);
-                            m2.invoke(options, 1);
-                        } catch (Throwable ignored) {}
-                    }
-                    startActivity(intent, options.toBundle());
-                    return;
-                } catch (Throwable ignored) {}
-            }
-            startActivity(intent);
-        } catch (Exception e) {
-            Log.e(TAG, "Failed startActivityWithBackgroundPrivileges", e);
-        }
+        // Floating window overlay disabled (background telemetry streaming runs via ForegroundService)
     }
 
     private void hideFloatingBubble() {
@@ -970,6 +650,30 @@ public class LocationForegroundService extends Service {
                 floatingView = null;
                 windowManager = null;
             }
+        }
+    }
+
+    private void startActivityWithBackgroundPrivileges(Intent intent) {
+        try {
+            if (Build.VERSION.SDK_INT >= 34) {
+                try {
+                    android.app.ActivityOptions options = android.app.ActivityOptions.makeBasic();
+                    try {
+                        java.lang.reflect.Method method = options.getClass().getMethod("setPendingIntentBackgroundActivityStartMode", int.class);
+                        method.invoke(options, 1);
+                    } catch (Throwable t) {
+                        try {
+                            java.lang.reflect.Method m2 = options.getClass().getMethod("setPendingIntentCreatorBackgroundActivityStartMode", int.class);
+                            m2.invoke(options, 1);
+                        } catch (Throwable ignored) {}
+                    }
+                    startActivity(intent, options.toBundle());
+                    return;
+                } catch (Throwable ignored) {}
+            }
+            startActivity(intent);
+        } catch (Exception e) {
+            Log.e(TAG, "Failed startActivityWithBackgroundPrivileges", e);
         }
     }
 
