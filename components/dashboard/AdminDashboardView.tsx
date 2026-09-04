@@ -139,7 +139,8 @@ export default function AdminDashboardView({ tab: initialTab }: { tab?: string }
       setMfaFactorId(null);
       setShowMfaModal(false);
       setMfaOtpCode('');
-      alert('Multi-Factor Authentication (MFA) has been disabled successfully.');
+      // Immediately force automatic redirect to MFA setup enrollment page
+      window.location.href = '/admin/mfa-setup';
     } catch (err: any) {
       setMfaOtpError(err.message || 'Failed to disable MFA. Please check the code sent to your email.');
     } finally {

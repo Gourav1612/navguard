@@ -6,11 +6,9 @@ import { useEffect, useState } from 'react';
 import {
   LayoutDashboard,
   Building,
-  Shield,
   Users,
   FileText,
   LogOut,
-  User,
   Menu,
   X,
   Lock,
@@ -20,8 +18,6 @@ import { cn } from '@/lib/utils';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { Capacitor } from '@capacitor/core';
 import { safeSetDriverStatus } from '@/lib/capacitor-plugins';
-
-
 
 interface UserProfile {
   full_name: string;
@@ -63,14 +59,31 @@ export function Sidebar() {
           const data = await res.json();
           setUser(data);
           
-          // Admins should not have PiP enabled
           await safeSetDriverStatus(false);
           
-          setMfaVerified(true);
+          if (data.role === 'admin') {
+            try {
+              const { data: factors } = await supabase.auth.mfa.listFactors();
+              const activeTotp = factors?.all?.find(
+                (f: any) => f.factor_type === 'totp' && f.status === 'verified'
+              );
+              const { data: mfaData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+              
+              if (!activeTotp || mfaData?.currentLevel !== 'aal2') {
+                setMfaVerified(false);
+              } else {
+                setMfaVerified(true);
+              }
+            } catch (e) {
+              setMfaVerified(false);
+            }
+          } else {
+            setMfaVerified(true);
+          }
         }
       } catch (err) {
         console.error('Failed to fetch user in sidebar:', err);
-        setMfaVerified(true);
+        setMfaVerified(false);
       } finally {
         setCheckingMfa(false);
       }
@@ -91,6 +104,11 @@ export function Sidebar() {
       console.error('Logout failed:', err);
     }
   };
+
+  const isLocked =
+    pathname === '/admin/mfa-setup' ||
+    pathname === '/login/mfa-challenge' ||
+    (user?.role === 'admin' && !mfaVerified);
 
   const navItems = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -119,7 +137,22 @@ export function Sidebar() {
           navItems.map((item) => {
             const [itemPath, itemQuery] = item.href.split('?');
             const itemQueryParam = new URLSearchParams(itemQuery || '').get('tab') || '';
-            const isActive = pathname === itemPath && currentTab === itemQueryParam;
+            const isActive = !isLocked && pathname === itemPath && currentTab === itemQueryParam;
+
+            if (isLocked) {
+              return (
+                <div
+                  key={item.name}
+                  title="MFA Security Hardening Active: Setup/Verify MFA to unlock nav options"
+                  className="flex items-center gap-3 px-4 py-3 text-sm font-semibold text-zinc-600 opacity-40 cursor-not-allowed select-none rounded-xl bg-zinc-950/20 border border-zinc-900/50"
+                >
+                  <item.icon className="w-5 h-5 flex-shrink-0 text-zinc-600" />
+                  <span>{item.name}</span>
+                  <Lock className="w-3.5 h-3.5 text-zinc-500 ml-auto flex-shrink-0" />
+                </div>
+              );
+            }
+
             return (
               <Link
                 key={item.name}
@@ -227,7 +260,22 @@ export function Sidebar() {
               navItems.map((item) => {
                 const [itemPath, itemQuery] = item.href.split('?');
                 const itemQueryParam = new URLSearchParams(itemQuery || '').get('tab') || '';
-                const isActive = pathname === itemPath && currentTab === itemQueryParam;
+                const isActive = !isLocked && pathname === itemPath && currentTab === itemQueryParam;
+
+                if (isLocked) {
+                  return (
+                    <div
+                      key={item.name}
+                      title="MFA Security Hardening Active: Setup/Verify MFA to unlock nav options"
+                      className="flex items-center gap-3 px-4 py-3 text-sm font-semibold text-zinc-600 opacity-40 cursor-not-allowed select-none rounded-xl bg-zinc-950/20 border border-zinc-900/50"
+                    >
+                      <item.icon className="w-5 h-5 flex-shrink-0 text-zinc-600" />
+                      <span>{item.name}</span>
+                      <Lock className="w-3.5 h-3.5 text-zinc-500 ml-auto flex-shrink-0" />
+                    </div>
+                  );
+                }
+
                 return (
                   <Link
                     key={item.name}
