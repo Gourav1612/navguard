@@ -94,10 +94,10 @@ export default function AdminAuditLogs() {
             <thead>
               <tr className="bg-slate-50/75 border-b border-slate-150 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
                 <th className="px-6 py-4">Action Event</th>
-                <th className="px-6 py-4">Database Table</th>
+                <th className="px-6 py-4">Source / Table</th>
                 <th className="px-6 py-4">Target ID</th>
-                <th className="px-6 py-4">Executing Operator</th>
-                <th className="px-6 py-4">IP Address</th>
+                <th className="px-6 py-4">User / Operator</th>
+                <th className="px-6 py-4">Location / Road / IP</th>
                 <th className="px-6 py-4">Timestamp</th>
               </tr>
             </thead>
@@ -110,9 +110,13 @@ export default function AdminAuditLogs() {
                 </tr>
               ) : (
                 logs.map((log: any) => {
-                  // Style badge based on DB transaction type
-                  let actionColor = 'bg-slate-100 text-slate-700';
+                  // Style badge based on event or DB transaction type
+                  let actionColor = 'bg-slate-100 text-slate-700 border-slate-200';
                   if (log.action === 'INSERT' || log.action === 'CREATE') actionColor = 'bg-emerald-50 text-emerald-800 border-emerald-100';
+                  else if (log.action === 'TRACKING_STARTED') actionColor = 'bg-emerald-50 text-emerald-700 border-emerald-200 font-black';
+                  else if (log.action === 'STATIONARY_ALERT') actionColor = 'bg-amber-50 text-amber-800 border-amber-300 font-black';
+                  else if (log.action === 'TELEMETRY_DELAY') actionColor = 'bg-orange-50 text-orange-800 border-orange-200 font-black';
+                  else if (log.action === 'WORKER_OFFLINE') actionColor = 'bg-rose-50 text-rose-800 border-rose-200 font-black';
                   else if (log.action === 'UPDATE') actionColor = 'bg-blue-50 text-blue-800 border-blue-100';
                   else if (log.action === 'DELETE') actionColor = 'bg-rose-50 text-rose-800 border-rose-100';
                   else if (log.action === 'LOGIN') actionColor = 'bg-slate-100 text-slate-800 border-slate-200';
@@ -120,13 +124,13 @@ export default function AdminAuditLogs() {
                   return (
                     <tr key={log.id} className="hover:bg-slate-50/30 transition duration-150 font-medium">
                       <td className="px-6 py-4">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold border uppercase ${actionColor}`}>
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold border uppercase tracking-wider ${actionColor}`}>
                           {log.action}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-xs font-mono text-slate-500 flex items-center gap-1.5 mt-2">
                         <Terminal className="w-3.5 h-3.5 text-slate-400" />
-                        {log.table_name || 'auth'}
+                        {log.table_name || 'telemetry'}
                       </td>
                       <td className="px-6 py-4 text-xs font-mono text-slate-400 truncate max-w-[120px]">{log.record_id || '—'}</td>
                       <td className="px-6 py-4">
@@ -139,7 +143,7 @@ export default function AdminAuditLogs() {
                           <span className="text-slate-400 italic text-xs">System Task / Trigger</span>
                         )}
                       </td>
-                      <td className="px-6 py-4 font-mono text-xs text-slate-500">{log.ip_address || '—'}</td>
+                      <td className="px-6 py-4 font-mono text-xs text-slate-700 font-semibold">{log.ip_address || '—'}</td>
                       <td className="px-6 py-4 text-slate-500 text-xs">{formatDateTime(log.created_at)}</td>
                     </tr>
                   );

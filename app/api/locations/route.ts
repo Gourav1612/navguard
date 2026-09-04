@@ -36,9 +36,12 @@ export async function GET() {
     }
 
     // Format relationship structures
+    const now = Date.now();
     const formatted = (locations || []).map((loc: any) => {
       const userObj = Array.isArray(loc.user) ? loc.user[0] : loc.user;
       const supervisorObj = userObj && Array.isArray(userObj.supervisor) ? userObj.supervisor[0] : (userObj?.supervisor || null);
+      const recordedTime = loc.recorded_at ? new Date(loc.recorded_at).getTime() : 0;
+      const isFresh = loc.is_tracking && (now - recordedTime < 120000); // Online if packet received in last 2 minutes
       
       return {
         id: loc.id,
@@ -49,6 +52,7 @@ export async function GET() {
         accuracy: Number(loc.accuracy || 0),
         battery_level: loc.battery_level,
         is_tracking: loc.is_tracking,
+        is_online: isFresh,
         recorded_at: loc.recorded_at,
         user: userObj ? {
           id: userObj.id,
@@ -61,7 +65,7 @@ export async function GET() {
     });
 
     return NextResponse.json(formatted);
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message || 'Server error' }, { status: 500 });
+  } catch (err: unknown) {
+    return NextResponse.json({ error: 'Failed to fetch live locations' }, { status: 500 });
   }
 }
