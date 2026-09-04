@@ -6,23 +6,27 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { CreateUserSchema, UpdateUserSchema } from '@/lib/validations';
 import { deleteUserAction } from '@/app/actions/admin-pagination';
+import * as XLSX from 'xlsx';
 import { 
   Loader2, 
   Plus, 
   Trash2, 
   Edit2, 
   X, 
-  User, 
   AlertCircle,
   Search,
   CheckCircle,
   XCircle,
-  Shield,
   Building,
   Users,
   Eye,
   EyeOff,
-  Radio
+  Radio,
+  FileSpreadsheet,
+  Download,
+  UploadCloud,
+  CheckCircle2,
+  AlertTriangle
 } from 'lucide-react';
 import { z } from 'zod';
 
@@ -37,6 +41,14 @@ export default function UsersView() {
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+
+  // Bulk Import Modal States
+  const [showBulkModal, setShowBulkModal] = useState(false);
+  const [parsedRows, setParsedRows] = useState<any[]>([]);
+  const [fileName, setFileName] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [importSummary, setImportSummary] = useState<any | null>(null);
 
   // Fetch Users
   const { data: users = [], isLoading: usersLoading, refetch: refetchUsers } = useQuery({
@@ -64,7 +76,7 @@ export default function UsersView() {
   // Filter Supervisors (for worker onboarding)
   const supervisorsList = users.filter((u: any) => u.role === 'supervisor');
 
-  const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<UserFormValues>({
+  const { register, handleSubmit, reset, watch, formState: { errors } } = useForm<UserFormValues>({
     resolver: zodResolver(editingUser ? UpdateUserSchema : CreateUserSchema) as any,
     defaultValues: {
       full_name: '',
@@ -142,7 +154,6 @@ export default function UsersView() {
       const url = editingUser ? `/api/admin/users/${editingUser.id}` : '/api/admin/users';
       const method = editingUser ? 'PATCH' : 'POST';
 
-      // Clean payload for updates
       const payload: any = { ...values };
       if (!payload.password || payload.password.trim() === '') {
         delete payload.password;
@@ -184,6 +195,89 @@ export default function UsersView() {
     }
   };
 
+  // --- Bulk Import Handlers ---
+  const handleOpenBulkImport = () => {
+    setParsedRows([]);
+    setFileName(null);
+    setImportError(null);
+    setImportSummary(null);
+    setShowBulkModal(true);
+  };
+
+  const handleDownloadSampleCsv = () => {
+    const defaultPlantName = plants.length > 0 ? plants[0].name : 'Plant Site Alpha';
+    const sampleHeaders = 'full_name,username,email,phone,password,role,plant_name,location_interval,supervisor_name\n';
+    const sampleRow1 = `Vikram Singh,vikram_s,vikram.supervisor@company.com,9876543210,Pass123!,supervisor,${defaultPlantName},10,\n`;
+    const sampleRow2 = `Rahul Sharma,rahul_s,rahul.worker@company.com,9876543211,Pass123!,worker,${defaultPlantName},10,Vikram Singh\n`;
+    const sampleRow3 = `Anita Verma,anita_v,anita.manager@company.com,9876543212,Pass123!,manager,${defaultPlantName},10,`;
+
+    const blob = new Blob([sampleHeaders + sampleRow1 + sampleRow2 + sampleRow3], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'naviguard_bulk_personnel_sample.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setFileName(file.name);
+    setImportError(null);
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const bstr = evt.target?.result;
+        const workbook = XLSX.read(bstr, { type: 'binary' });
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+
+        const jsonRows: any[] = XLSX.utils.sheet_to_json(worksheet, { raw: false });
+
+        if (!jsonRows || jsonRows.length === 0) {
+          setImportError('No data rows found in the uploaded file.');
+          setParsedRows([]);
+          return;
+        }
+
+        setParsedRows(jsonRows);
+      } catch (err: any) {
+        setImportError('Failed to parse spreadsheet file. Please verify file format (.csv or .xlsx).');
+        setParsedRows([]);
+      }
+    };
+    reader.readAsBinaryString(file);
+  };
+
+  const handleExecuteBulkImport = async () => {
+    if (parsedRows.length === 0) return;
+
+    setImporting(true);
+    setImportError(null);
+
+    try {
+      const res = await fetch('/api/admin/users/bulk-import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rows: parsedRows }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to process bulk import.');
+
+      setImportSummary(data);
+      refetchUsers();
+    } catch (err: any) {
+      setImportError(err.message || 'An error occurred during bulk import execution.');
+    } finally {
+      setImporting(false);
+    }
+  };
+
   const filteredUsers = users.filter((u: any) => 
     u.full_name.toLowerCase().includes(searchQuery.toLowerCase()) || 
     u.email.toLowerCase().includes(searchQuery.toLowerCase())
@@ -196,13 +290,23 @@ export default function UsersView() {
         <div>
           <h2 className="text-xl font-black text-slate-900 tracking-tight">Personnel Roster</h2>
         </div>
-        <button
-          onClick={handleOpenCreate}
-          className="flex items-center justify-center gap-1.5 px-4 py-2.5 bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-extrabold rounded-xl transition shadow-sm cursor-pointer"
-        >
-          <Plus className="w-4 h-4" />
-          Onboard Personnel
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleOpenBulkImport}
+            className="flex items-center justify-center gap-1.5 px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold rounded-xl transition shadow-sm cursor-pointer"
+          >
+            <FileSpreadsheet className="w-4 h-4" />
+            Bulk Import (Excel/CSV)
+          </button>
+
+          <button
+            onClick={handleOpenCreate}
+            className="flex items-center justify-center gap-1.5 px-4 py-2.5 bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-extrabold rounded-xl transition shadow-sm cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            Onboard Personnel
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-4">
@@ -351,6 +455,196 @@ export default function UsersView() {
         </div>
       )}
 
+      {/* --- Bulk Import Modal --- */}
+      {showBulkModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-2xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-150 space-y-0">
+            <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <FileSpreadsheet className="w-5 h-5 text-emerald-400" />
+                <div>
+                  <h3 className="font-extrabold text-white text-sm">Bulk Personnel Account Import</h3>
+                  <span className="text-[10px] text-slate-400 font-semibold block">Provision multiple accounts via .xlsx or .csv</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowBulkModal(false)}
+                className="text-slate-400 hover:text-white transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-5 max-h-[80vh] overflow-y-auto">
+              {/* Instructions & Sample Download */}
+              <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div className="space-y-1">
+                  <h4 className="text-xs font-black text-slate-800">Spreadsheet Template Rules</h4>
+                  <p className="text-[11px] text-slate-500 font-semibold leading-relaxed">
+                    Mandatory: <span className="text-slate-900 font-bold">full_name, username, email, phone, password, role, plant_name, location_interval</span>.<br />
+                    Workers must specify <span className="text-slate-900 font-bold">supervisor_name</span>. Admin role is prohibited.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleDownloadSampleCsv}
+                  className="flex items-center justify-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-100 text-slate-800 border border-slate-250 text-xs font-bold rounded-xl transition cursor-pointer flex-shrink-0 shadow-2xs"
+                >
+                  <Download className="w-4 h-4 text-emerald-600" />
+                  Download Sample CSV
+                </button>
+              </div>
+
+              {/* Error Banner */}
+              {importError && (
+                <div className="p-4 bg-red-50 border border-red-200 rounded-2xl text-red-800 text-xs font-semibold flex items-start gap-2.5">
+                  <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                  <div>{importError}</div>
+                </div>
+              )}
+
+              {/* Results Summary Box (Post Execution) */}
+              {importSummary && (
+                <div className="space-y-4">
+                  <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center justify-between text-xs font-bold">
+                    <div className="flex items-center gap-2 text-emerald-900">
+                      <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                      <span>Batch Completed: {importSummary.successCount} Created, {importSummary.errorCount} Errors</span>
+                    </div>
+                    <span className="text-slate-500 font-mono text-[11px]">Total Rows: {importSummary.totalRows}</span>
+                  </div>
+
+                  {/* Summary Rows Table */}
+                  <div className="border border-slate-200 rounded-2xl overflow-hidden text-xs max-h-60 overflow-y-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead className="bg-slate-100 border-b border-slate-200 text-[10px] font-black uppercase text-slate-500 sticky top-0">
+                        <tr>
+                          <th className="py-2 px-3">Row</th>
+                          <th className="py-2 px-3">Name</th>
+                          <th className="py-2 px-3">Email</th>
+                          <th className="py-2 px-3">Role</th>
+                          <th className="py-2 px-3">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 font-medium">
+                        {importSummary.results.map((res: any, idx: number) => (
+                          <tr key={idx} className={res.status === 'error' ? 'bg-red-50/50' : 'bg-white'}>
+                            <td className="py-2 px-3 font-mono text-[11px]">{res.row}</td>
+                            <td className="py-2 px-3 font-bold text-slate-800">{res.name}</td>
+                            <td className="py-2 px-3 text-slate-600">{res.email}</td>
+                            <td className="py-2 px-3 uppercase text-[10px] font-bold">{res.role}</td>
+                            <td className="py-2 px-3">
+                              {res.status === 'success' ? (
+                                <span className="inline-flex items-center gap-1 text-emerald-600 font-extrabold text-[10px]">
+                                  <CheckCircle className="w-3.5 h-3.5" /> Success
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 text-red-600 font-bold text-[10px]" title={res.error}>
+                                  <AlertTriangle className="w-3.5 h-3.5 text-red-500" /> {res.error}
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Upload Dropzone */}
+              {!importSummary && (
+                <div className="space-y-4">
+                  <div className="border-2 border-dashed border-slate-300 hover:border-emerald-500 bg-slate-50/50 p-6 rounded-2xl text-center transition cursor-pointer relative">
+                    <input
+                      type="file"
+                      accept=".csv, .xlsx, .xls"
+                      onChange={handleFileChange}
+                      className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                    />
+                    <UploadCloud className="w-10 h-10 text-emerald-600 mx-auto mb-2" />
+                    <p className="text-xs font-extrabold text-slate-800">
+                      {fileName ? `Selected File: ${fileName}` : 'Click or Drag Excel / CSV file here'}
+                    </p>
+                    <p className="text-[10px] text-slate-400 font-semibold mt-1">Supports .xlsx, .xls, and .csv formats</p>
+                  </div>
+
+                  {/* Parsed Rows Preview Table */}
+                  {parsedRows.length > 0 && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-xs font-black text-slate-800">
+                          File Preview ({parsedRows.length} Rows Detected)
+                        </h4>
+                        <span className="text-[10px] font-bold text-slate-400">Showing first 5 rows</span>
+                      </div>
+
+                      <div className="border border-slate-200 rounded-2xl overflow-hidden text-xs max-h-48 overflow-y-auto">
+                        <table className="w-full text-left border-collapse">
+                          <thead className="bg-slate-100 border-b border-slate-200 text-[10px] font-black uppercase text-slate-500 sticky top-0">
+                            <tr>
+                              <th className="py-2 px-3">Name</th>
+                              <th className="py-2 px-3">Username</th>
+                              <th className="py-2 px-3">Email</th>
+                              <th className="py-2 px-3">Role</th>
+                              <th className="py-2 px-3">Plant</th>
+                              <th className="py-2 px-3">Supervisor</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 font-medium">
+                            {parsedRows.slice(0, 5).map((r: any, idx: number) => (
+                              <tr key={idx} className="bg-white">
+                                <td className="py-2 px-3 font-bold text-slate-800">{r.full_name || r['Full Name'] || '—'}</td>
+                                <td className="py-2 px-3 font-mono text-[10px]">{r.username || r['Username'] || '—'}</td>
+                                <td className="py-2 px-3 text-slate-600">{r.email || r['Email'] || '—'}</td>
+                                <td className="py-2 px-3 uppercase text-[10px] font-bold">{r.role || r['Role'] || '—'}</td>
+                                <td className="py-2 px-3 text-slate-600">{r.plant_name || r['Plant Name'] || '—'}</td>
+                                <td className="py-2 px-3 text-slate-600">{r.supervisor_name || r['Supervisor Name'] || '—'}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Modal Actions */}
+            <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setShowBulkModal(false)}
+                className="px-4 py-2.5 border border-slate-200 text-slate-600 hover:bg-slate-100 text-xs font-bold rounded-xl transition cursor-pointer"
+              >
+                {importSummary ? 'Close Window' : 'Cancel'}
+              </button>
+
+              {!importSummary && (
+                <button
+                  type="button"
+                  onClick={handleExecuteBulkImport}
+                  disabled={importing || parsedRows.length === 0}
+                  className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold rounded-xl transition shadow-md cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  {importing ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Processing Import Batch...
+                    </>
+                  ) : (
+                    'Process Bulk Import'
+                  )}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- Single User Modal --- */}
       {showModal && (
         <div className="fixed inset-0 bg-black/45 backdrop-blur-2xs z-50 flex items-center justify-center p-4">
           <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl animate-in zoom-in-95 duration-150">
