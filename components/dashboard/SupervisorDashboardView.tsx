@@ -31,6 +31,19 @@ const AdminMap = dynamic(() => import('@/components/AdminMap').then((m) => m.Adm
   ),
 });
 
+const getApiEndpoint = (path: string): string => {
+  if (
+    typeof window !== 'undefined' &&
+    window.location.origin &&
+    !window.location.origin.includes('localhost') &&
+    !window.location.origin.includes('capacitor://')
+  ) {
+    return `${window.location.origin}${path}`;
+  }
+  const base = process.env.NEXT_PUBLIC_APP_URL || 'https://navguard-eight.vercel.app';
+  return `${base.replace(/\/$/, '')}${path}`;
+};
+
 export default function SupervisorDashboardView({ tab }: { tab?: string }) {
   const supabase = createBrowserSupabaseClient();
 
@@ -40,6 +53,7 @@ export default function SupervisorDashboardView({ tab }: { tab?: string }) {
   const watchIdRef = useRef<number | null>(null);
   const timerIdRef = useRef<any>(null);
   const lastSentRef = useRef<number>(0);
+  const lastKnownCoordsRef = useRef<{ lat: number; lng: number; speed: number; heading: number; accuracy: number } | null>(null);
 
   // Fetch Supervisor Dashboard Data (Profile, Direct Workers, Live Locations, Plant Manager)
   const { data: dashboardData, isLoading, refetch } = useQuery({
@@ -99,31 +113,30 @@ export default function SupervisorDashboardView({ tab }: { tab?: string }) {
     setIsPausedByAdmin(false);
     setTrackingError(null);
 
+    const apiUrl = getApiEndpoint('/api/worker/location');
+
     if (Capacitor.isNativePlatform()) {
       try {
         await LocationService.startTracking({
           token: sessionToken,
           busId: supervisorProfile.id,
           tripId: '',
-          serverUrl: `${window.location.origin}/api/worker/location`,
+          serverUrl: apiUrl,
           isTripActive: true,
         });
       } catch (err) {
         console.error('Failed to start native tracking:', err);
       }
-      return;
     }
-
-    let latestCoords: { lat: number; lng: number; speed: number; heading: number; accuracy: number } | null = null;
 
     const sendLocationPacket = async (coords: { lat: number; lng: number; speed: number; heading: number; accuracy: number }) => {
       const now = Date.now();
       const intervalSeconds = supervisorProfile.location_interval || 10;
-      if (now - lastSentRef.current < intervalSeconds * 1000 - 200) return;
+      if (now - lastSentRef.current < intervalSeconds * 1000 - 500) return;
       lastSentRef.current = now;
 
       try {
-        const res = await fetch('/api/worker/location', {
+        const res = await fetch(apiUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionToken}` },
           body: JSON.stringify({
@@ -162,66 +175,50 @@ export default function SupervisorDashboardView({ tab }: { tab?: string }) {
     };
 
     if ('geolocation' in navigator) {
-      // Initial location fetch probe
       navigator.geolocation.getCurrentPosition(
         (pos) => {
-          latestCoords = {
+          const coords = {
             lat: pos.coords.latitude,
             lng: pos.coords.longitude,
             speed: pos.coords.speed ? pos.coords.speed * 3.6 : 0,
             heading: pos.coords.heading || 0,
             accuracy: pos.coords.accuracy,
           };
-          sendLocationPacket(latestCoords);
+          lastKnownCoordsRef.current = coords;
+          sendLocationPacket(coords);
         },
         () => { },
-        { enableHighAccuracy: true, maximumAge: 0 }
+        { enableHighAccuracy: true, maximumAge: 3000 }
       );
 
-      // Movement watcher
       if (watchIdRef.current !== null) {
         navigator.geolocation.clearWatch(watchIdRef.current);
       }
       watchIdRef.current = navigator.geolocation.watchPosition(
         (pos) => {
-          latestCoords = {
+          const coords = {
             lat: pos.coords.latitude,
             lng: pos.coords.longitude,
             speed: pos.coords.speed ? pos.coords.speed * 3.6 : 0,
             heading: pos.coords.heading || 0,
             accuracy: pos.coords.accuracy,
           };
+          lastKnownCoordsRef.current = coords;
+          sendLocationPacket(coords);
         },
         (err) => {
           setTrackingError(err.message || 'GPS access denied.');
         },
-        { enableHighAccuracy: true, maximumAge: 0 }
+        { enableHighAccuracy: true, maximumAge: 3000 }
       );
 
-      // Dynamic time interval loop
       if (timerIdRef.current !== null) {
         clearInterval(timerIdRef.current);
       }
-      const intervalMs = Math.max(1000, (supervisorProfile.location_interval || 10) * 1000);
+      const intervalMs = Math.max(2000, (supervisorProfile.location_interval || 10) * 1000);
       timerIdRef.current = setInterval(() => {
-        if (latestCoords) {
-          sendLocationPacket(latestCoords);
-        } else {
-          navigator.geolocation.getCurrentPosition(
-            (pos) => {
-              const coords = {
-                lat: pos.coords.latitude,
-                lng: pos.coords.longitude,
-                speed: pos.coords.speed ? pos.coords.speed * 3.6 : 0,
-                heading: pos.coords.heading || 0,
-                accuracy: pos.coords.accuracy,
-              };
-              latestCoords = coords;
-              sendLocationPacket(coords);
-            },
-            () => { },
-            { enableHighAccuracy: true, maximumAge: 0 }
-          );
+        if (lastKnownCoordsRef.current) {
+          sendLocationPacket(lastKnownCoordsRef.current);
         }
       }, intervalMs);
     }

@@ -33,6 +33,19 @@ const AdminMap = dynamic(() => import('@/components/AdminMap').then((m) => m.Adm
   ),
 });
 
+const getApiEndpoint = (path: string): string => {
+  if (
+    typeof window !== 'undefined' &&
+    window.location.origin &&
+    !window.location.origin.includes('localhost') &&
+    !window.location.origin.includes('capacitor://')
+  ) {
+    return `${window.location.origin}${path}`;
+  }
+  const base = process.env.NEXT_PUBLIC_APP_URL || 'https://navguard-eight.vercel.app';
+  return `${base.replace(/\/$/, '')}${path}`;
+};
+
 export default function ManagerDashboardView({ tab }: { tab?: string }) {
   const supabase = createBrowserSupabaseClient();
   const [managerProfile, setManagerProfile] = useState<any>(null);
@@ -43,6 +56,7 @@ export default function ManagerDashboardView({ tab }: { tab?: string }) {
   const [isShiftActive, setIsShiftActive] = useState(false);
   const [trackingError, setTrackingError] = useState<string | null>(null);
   const watchIdRef = useRef<number | null>(null);
+  const lastKnownCoordsRef = useRef<{ lat: number; lng: number; speed: number; heading: number; accuracy: number } | null>(null);
 
   // 1. Fetch Manager Profile
   useEffect(() => {
@@ -173,13 +187,15 @@ export default function ManagerDashboardView({ tab }: { tab?: string }) {
     setIsPausedByAdmin(false);
     setTrackingError(null);
 
+    const apiUrl = getApiEndpoint('/api/worker/location');
+
     if (Capacitor.isNativePlatform()) {
       try {
         await LocationService.startTracking({
           token: sessionToken,
           busId: managerProfile.id,
           tripId: '',
-          serverUrl: `${window.location.origin}/api/worker/location`,
+          serverUrl: apiUrl,
           isTripActive: true,
         });
       } catch (err) {
@@ -188,16 +204,14 @@ export default function ManagerDashboardView({ tab }: { tab?: string }) {
       return;
     }
 
-    let latestCoords: { lat: number; lng: number; speed: number; heading: number; accuracy: number } | null = null;
-
     const sendLocationPacket = async (coords: { lat: number; lng: number; speed: number; heading: number; accuracy: number }) => {
       const now = Date.now();
       const intervalSeconds = managerProfile.location_interval || 10;
-      if (now - lastSentRef.current < intervalSeconds * 1000 - 200) return;
+      if (now - lastSentRef.current < intervalSeconds * 1000 - 500) return;
       lastSentRef.current = now;
 
       try {
-        const res = await fetch('/api/worker/location', {
+        const res = await fetch(apiUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionToken}` },
           body: JSON.stringify({
@@ -220,9 +234,6 @@ export default function ManagerDashboardView({ tab }: { tab?: string }) {
             clearInterval(timerIdRef.current);
             timerIdRef.current = null;
           }
-          if (Capacitor.isNativePlatform()) {
-            LocationService.stopBackgroundService().catch(() => { });
-          }
           setIsShiftActive(false);
           setIsPausedByAdmin(true);
           setTrackingError('Telemetry paused by Command Center (0 Network Traffic)');
@@ -236,66 +247,50 @@ export default function ManagerDashboardView({ tab }: { tab?: string }) {
     };
 
     if ('geolocation' in navigator) {
-      // Initial location fetch probe (t = 0s)
       navigator.geolocation.getCurrentPosition(
         (pos) => {
-          latestCoords = {
+          const coords = {
             lat: pos.coords.latitude,
             lng: pos.coords.longitude,
             speed: pos.coords.speed ? pos.coords.speed * 3.6 : 0,
             heading: pos.coords.heading || 0,
             accuracy: pos.coords.accuracy,
           };
-          sendLocationPacket(latestCoords);
+          lastKnownCoordsRef.current = coords;
+          sendLocationPacket(coords);
         },
         () => { },
-        { enableHighAccuracy: true, maximumAge: 0 }
+        { enableHighAccuracy: true, maximumAge: 3000 }
       );
 
-      // Movement watcher
       if (watchIdRef.current !== null) {
         navigator.geolocation.clearWatch(watchIdRef.current);
       }
       watchIdRef.current = navigator.geolocation.watchPosition(
         (pos) => {
-          latestCoords = {
+          const coords = {
             lat: pos.coords.latitude,
             lng: pos.coords.longitude,
             speed: pos.coords.speed ? pos.coords.speed * 3.6 : 0,
             heading: pos.coords.heading || 0,
             accuracy: pos.coords.accuracy,
           };
+          lastKnownCoordsRef.current = coords;
+          sendLocationPacket(coords);
         },
         (err) => {
           setTrackingError(err.message || 'GPS access denied.');
         },
-        { enableHighAccuracy: true, maximumAge: 0 }
+        { enableHighAccuracy: true, maximumAge: 3000 }
       );
 
-      // Dynamic time interval loop
       if (timerIdRef.current !== null) {
         clearInterval(timerIdRef.current);
       }
-      const intervalMs = Math.max(1000, (managerProfile.location_interval || 10) * 1000);
+      const intervalMs = Math.max(2000, (managerProfile.location_interval || 10) * 1000);
       timerIdRef.current = setInterval(() => {
-        if (latestCoords) {
-          sendLocationPacket(latestCoords);
-        } else {
-          navigator.geolocation.getCurrentPosition(
-            (pos) => {
-              const coords = {
-                lat: pos.coords.latitude,
-                lng: pos.coords.longitude,
-                speed: pos.coords.speed ? pos.coords.speed * 3.6 : 0,
-                heading: pos.coords.heading || 0,
-                accuracy: pos.coords.accuracy,
-              };
-              latestCoords = coords;
-              sendLocationPacket(coords);
-            },
-            () => { },
-            { enableHighAccuracy: true, maximumAge: 0 }
-          );
+        if (lastKnownCoordsRef.current) {
+          sendLocationPacket(lastKnownCoordsRef.current);
         }
       }, intervalMs);
     }
