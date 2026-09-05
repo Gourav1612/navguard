@@ -49,7 +49,7 @@ export default function SupervisorDashboardView({ tab }: { tab?: string }) {
       if (!res.ok) return null;
       return res.json();
     },
-    refetchInterval: 8000,
+    refetchInterval: 30000,
     refetchOnWindowFocus: false,
   });
 
@@ -187,30 +187,31 @@ export default function SupervisorDashboardView({ tab }: { tab?: string }) {
         { enableHighAccuracy: true, maximumAge: 0 }
       );
 
-      // Dynamic time interval loop
+      // Dynamic time interval loop (streams continuously at exact Admin location_interval)
       if (timerIdRef.current !== null) {
         clearInterval(timerIdRef.current);
       }
       const intervalMs = Math.max(1000, (supervisorProfile.location_interval || 10) * 1000);
       timerIdRef.current = setInterval(() => {
-        if (latestCoords) {
-          sendLocationPacket(latestCoords);
-        } else {
-          navigator.geolocation.getCurrentPosition(
-            (pos) => {
-              latestCoords = {
-                lat: pos.coords.latitude,
-                lng: pos.coords.longitude,
-                speed: pos.coords.speed ? pos.coords.speed * 3.6 : 0,
-                heading: pos.coords.heading || 0,
-                accuracy: pos.coords.accuracy,
-              };
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            const coords = {
+              lat: pos.coords.latitude,
+              lng: pos.coords.longitude,
+              speed: pos.coords.speed ? pos.coords.speed * 3.6 : 0,
+              heading: pos.coords.heading || 0,
+              accuracy: pos.coords.accuracy,
+            };
+            latestCoords = coords;
+            sendLocationPacket(coords);
+          },
+          () => {
+            if (latestCoords) {
               sendLocationPacket(latestCoords);
-            },
-            () => {},
-            { enableHighAccuracy: true, maximumAge: 0 }
-          );
-        }
+            }
+          },
+          { enableHighAccuracy: true, maximumAge: 0 }
+        );
       }, intervalMs);
     }
   }, [supervisorProfile?.id, supervisorProfile?.location_interval, supabase]);
@@ -232,34 +233,7 @@ export default function SupervisorDashboardView({ tab }: { tab?: string }) {
         async (payload: any) => {
           const updated = payload.new;
           if (updated && updated.is_active === false) {
-            // Admin paused telemetry: send 1 final confirmation probe packet
-            const sessionRes = await supabase.auth.getSession();
-            const sessionToken = sessionRes.data.session?.access_token;
-            if (sessionToken && 'geolocation' in navigator) {
-              navigator.geolocation.getCurrentPosition(
-                async (pos) => {
-                  try {
-                    await fetch('/api/worker/location', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionToken}` },
-                      body: JSON.stringify({
-                        lat: pos.coords.latitude,
-                        lng: pos.coords.longitude,
-                        speed: pos.coords.speed ? pos.coords.speed * 3.6 : 0,
-                        heading: pos.coords.heading || 0,
-                        accuracy: pos.coords.accuracy,
-                        battery_level: 100,
-                        is_tracking: true,
-                      }),
-                    });
-                  } catch {}
-                },
-                () => {},
-                { enableHighAccuracy: true, maximumAge: 0 }
-              );
-            }
-
-            // Immediately execute Circuit Breaker to destroy all future timers & watchers
+            // Admin paused telemetry: clear all future timers & watchers
             if (watchIdRef.current !== null) {
               navigator.geolocation.clearWatch(watchIdRef.current);
               watchIdRef.current = null;
@@ -288,42 +262,6 @@ export default function SupervisorDashboardView({ tab }: { tab?: string }) {
       supabase.removeChannel(channel);
     };
   }, [supervisorProfile?.id, supabase, refetch, startAutoTracking]);
-
-  // 4-second hybrid polling fallback to guarantee packet streaming auto-starts if Realtime drops
-  useEffect(() => {
-    if (!supervisorProfile?.id) return;
-
-    const interval = setInterval(async () => {
-      try {
-        const res = await fetch('/api/supervisor/dashboard');
-        if (!res.ok) return;
-        const data = await res.json();
-        const serverIsActive = data?.profile?.is_active !== false;
-
-        if (serverIsActive && isPausedByAdmin) {
-          // Admin unpaused! Auto-start telemetry immediately
-          setIsPausedByAdmin(false);
-          setTrackingError(null);
-          startAutoTracking();
-        } else if (!serverIsActive && !isPausedByAdmin) {
-          // Admin paused! Circuit breaker teardown
-          if (watchIdRef.current !== null) {
-            navigator.geolocation.clearWatch(watchIdRef.current);
-            watchIdRef.current = null;
-          }
-          if (timerIdRef.current !== null) {
-            clearInterval(timerIdRef.current);
-            timerIdRef.current = null;
-          }
-          setIsShiftActive(false);
-          setIsPausedByAdmin(true);
-          setTrackingError('Telemetry paused by Command Center (0 Network Traffic)');
-        }
-      } catch {}
-    }, 4000);
-
-    return () => clearInterval(interval);
-  }, [supervisorProfile?.id, isPausedByAdmin, startAutoTracking]);
 
   // Automatically start background packet streaming upon login if enabled by Admin
   useEffect(() => {
