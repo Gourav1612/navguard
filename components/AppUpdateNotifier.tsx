@@ -18,6 +18,23 @@ function compareVersions(v1: string, v2: string): number {
   return 0;
 }
 
+function getRemoteBaseUrl(): string {
+  const envUrl = process.env.NEXT_PUBLIC_APP_URL;
+  if (envUrl && !envUrl.includes('localhost') && !envUrl.includes('127.0.0.1')) {
+    let clean = envUrl.replace(/\/$/, '');
+    if (clean.startsWith('http://')) clean = clean.replace('http://', 'https://');
+    return clean;
+  }
+
+  if (typeof window !== 'undefined' && window.location.origin && !window.location.origin.includes('localhost') && !window.location.origin.includes('127.0.0.1')) {
+    let clean = window.location.origin.replace(/\/$/, '');
+    if (clean.startsWith('http://')) clean = clean.replace('http://', 'https://');
+    return clean;
+  }
+
+  return 'https://navguard-eight.vercel.app';
+}
+
 export default function AppUpdateNotifier() {
   const [isUpdateAvailable, setIsUpdateAvailable] = useState(false);
   const [latestVersion, setLatestVersion] = useState('');
@@ -53,7 +70,8 @@ export default function AppUpdateNotifier() {
     // --- Version Update Check ---
     const checkUpdate = async () => {
       try {
-        const res = await fetch('/version.json');
+        const remoteBase = getRemoteBaseUrl();
+        const res = await fetch(`${remoteBase}/version.json?t=${Date.now()}`);
         if (!res.ok) return;
         const data = await res.json();
 
@@ -95,12 +113,8 @@ export default function AppUpdateNotifier() {
         setDownloadProgress(Math.round(data.progress * 100));
       });
 
-      let baseUrl = process.env.NEXT_PUBLIC_APP_URL || (typeof window !== 'undefined' && window.location.origin.startsWith('https://') ? window.location.origin : 'https://navguard-eight.vercel.app');
-      baseUrl = baseUrl.replace(/\/$/, '');
-      if (baseUrl.startsWith('http://')) {
-        baseUrl = baseUrl.replace('http://', 'https://');
-      }
-      const apkUrl = `${baseUrl}/NaviGuard.apk`;
+      const remoteBase = getRemoteBaseUrl();
+      const apkUrl = `${remoteBase}/NaviGuard.apk`;
       
       try {
         await AppUpdatePlugin.downloadAndInstallApk({ url: apkUrl });
