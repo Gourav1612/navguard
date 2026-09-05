@@ -46,19 +46,19 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
 
     // 1. Update user details in Auth if password or email is changed
     const authUpdatePayload: any = {};
-    if (parsed.data.email) authUpdatePayload.email = parsed.data.email;
-    if (parsed.data.password) authUpdatePayload.password = parsed.data.password;
+    if (body.email !== undefined && parsed.data.email) authUpdatePayload.email = parsed.data.email;
+    if (body.password !== undefined && parsed.data.password) authUpdatePayload.password = parsed.data.password;
     
     // Always sync metadata in auth AND unlock account (reset failed login attempts counter)
-    // Only update metadata fields that were explicitly provided in the request payload
+    // Only update metadata fields that were explicitly provided in the request payload body
     const updatedMetadata = { ...existingAuthUser?.user_metadata };
-    if (parsed.data.full_name !== undefined) updatedMetadata.full_name = parsed.data.full_name;
-    if (parsed.data.username !== undefined) updatedMetadata.username = parsed.data.username || null;
-    if (parsed.data.role !== undefined) updatedMetadata.role = parsed.data.role;
-    if (parsed.data.plant_id !== undefined) updatedMetadata.plant_id = parsed.data.plant_id || null;
-    if (parsed.data.supervisor_id !== undefined) updatedMetadata.supervisor_id = parsed.data.supervisor_id || null;
-    if (parsed.data.location_interval !== undefined) updatedMetadata.location_interval = parsed.data.location_interval;
-    if (parsed.data.is_active !== undefined) updatedMetadata.is_active = parsed.data.is_active;
+    if (body.full_name !== undefined) updatedMetadata.full_name = parsed.data.full_name;
+    if (body.username !== undefined) updatedMetadata.username = parsed.data.username || null;
+    if (body.role !== undefined) updatedMetadata.role = parsed.data.role;
+    if (body.plant_id !== undefined) updatedMetadata.plant_id = parsed.data.plant_id || null;
+    if (body.supervisor_id !== undefined) updatedMetadata.supervisor_id = parsed.data.supervisor_id || null;
+    if (body.location_interval !== undefined) updatedMetadata.location_interval = parsed.data.location_interval;
+    if (body.is_active !== undefined) updatedMetadata.is_active = parsed.data.is_active;
 
     authUpdatePayload.user_metadata = {
       ...updatedMetadata,
@@ -75,14 +75,14 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
 
     // 2. Update user_profiles details
     const profileUpdatePayload: any = {};
-    if (parsed.data.full_name !== undefined) profileUpdatePayload.full_name = parsed.data.full_name;
-    if (parsed.data.username !== undefined) profileUpdatePayload.username = parsed.data.username || null;
-    if (parsed.data.role !== undefined) profileUpdatePayload.role = parsed.data.role;
-    if (parsed.data.plant_id !== undefined) profileUpdatePayload.plant_id = parsed.data.plant_id || null;
-    if (parsed.data.supervisor_id !== undefined) profileUpdatePayload.supervisor_id = parsed.data.supervisor_id || null;
-    if (parsed.data.phone !== undefined) profileUpdatePayload.phone = parsed.data.phone || null;
-    if (parsed.data.is_active !== undefined) profileUpdatePayload.is_active = parsed.data.is_active;
-    if (parsed.data.location_interval !== undefined) profileUpdatePayload.location_interval = parsed.data.location_interval;
+    if (body.full_name !== undefined) profileUpdatePayload.full_name = parsed.data.full_name;
+    if (body.username !== undefined) profileUpdatePayload.username = parsed.data.username || null;
+    if (body.role !== undefined) profileUpdatePayload.role = parsed.data.role;
+    if (body.plant_id !== undefined) profileUpdatePayload.plant_id = parsed.data.plant_id || null;
+    if (body.supervisor_id !== undefined) profileUpdatePayload.supervisor_id = parsed.data.supervisor_id || null;
+    if (body.phone !== undefined) profileUpdatePayload.phone = parsed.data.phone || null;
+    if (body.is_active !== undefined) profileUpdatePayload.is_active = parsed.data.is_active;
+    if (body.location_interval !== undefined) profileUpdatePayload.location_interval = parsed.data.location_interval;
 
     let { data: profile, error: profileErr } = await adminClient
       .from('user_profiles')
