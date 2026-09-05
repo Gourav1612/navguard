@@ -3,12 +3,12 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
-import { 
-  Loader2, 
-  User, 
-  Building, 
-  Phone, 
-  Play, 
+import {
+  Loader2,
+  User,
+  Building,
+  Phone,
+  Play,
   Square,
   AlertCircle,
   ShieldCheck,
@@ -24,7 +24,7 @@ export default function WorkerDashboardView({ tab }: { tab?: string }) {
   const supabase = createBrowserSupabaseClient();
   const [shiftActive, setShiftActive] = useState(false);
   const [trackingError, setTrackingError] = useState<string | null>(null);
-  
+
   // Real-time telemetry display states
   const [speed, setSpeed] = useState<number>(0);
   const [accuracy, setAccuracy] = useState<number>(0);
@@ -161,7 +161,7 @@ export default function WorkerDashboardView({ tab }: { tab?: string }) {
             timerIdRef.current = null;
           }
           if (Capacitor.isNativePlatform()) {
-            LocationService.stopBackgroundService().catch(() => {});
+            LocationService.stopBackgroundService().catch(() => { });
           }
           setShiftActive(false);
           setIsPausedByAdmin(true);
@@ -192,7 +192,7 @@ export default function WorkerDashboardView({ tab }: { tab?: string }) {
           };
           sendLocationPacket(latestCoords);
         },
-        () => {},
+        () => { },
         { enableHighAccuracy: true, maximumAge: 0 }
       );
 
@@ -244,7 +244,7 @@ export default function WorkerDashboardView({ tab }: { tab?: string }) {
               };
               sendLocationPacket(latestCoords);
             },
-            () => {},
+            () => { },
             { enableHighAccuracy: true, maximumAge: 0 }
           );
         }
@@ -289,9 +289,9 @@ export default function WorkerDashboardView({ tab }: { tab?: string }) {
                         is_tracking: true,
                       }),
                     });
-                  } catch {}
+                  } catch { }
                 },
-                () => {},
+                () => { },
                 { enableHighAccuracy: true, maximumAge: 0 }
               );
             }
@@ -306,7 +306,7 @@ export default function WorkerDashboardView({ tab }: { tab?: string }) {
               timerIdRef.current = null;
             }
             if (Capacitor.isNativePlatform()) {
-              LocationService.stopBackgroundService().catch(() => {});
+              LocationService.stopBackgroundService().catch(() => { });
             }
             setShiftActive(false);
             setIsPausedByAdmin(true);
@@ -356,7 +356,7 @@ export default function WorkerDashboardView({ tab }: { tab?: string }) {
           setIsPausedByAdmin(true);
           setTrackingError('Telemetry paused by Command Center (0 Network Traffic)');
         }
-      } catch {}
+      } catch { }
     }, 4000);
 
     return () => clearInterval(interval);
@@ -390,7 +390,7 @@ export default function WorkerDashboardView({ tab }: { tab?: string }) {
       setShiftActive(false);
       setSpeed(0);
       setAccuracy(0);
-      
+
       if (watchIdRef.current !== null) {
         navigator.geolocation.clearWatch(watchIdRef.current);
         watchIdRef.current = null;
@@ -406,10 +406,10 @@ export default function WorkerDashboardView({ tab }: { tab?: string }) {
     } else {
       // START SHIFT
       setTrackingError(null);
-      
+
       const sessionRes = await supabase.auth.getSession();
       const sessionToken = sessionRes.data.session?.access_token;
-      
+
       if (!sessionToken) {
         setTrackingError('Authentication session not active.');
         return;
@@ -423,7 +423,7 @@ export default function WorkerDashboardView({ tab }: { tab?: string }) {
           async (pos) => {
             const currentSpeed = pos.coords.speed ? pos.coords.speed * 3.6 : 0;
             const currentAccuracy = pos.coords.accuracy;
-            
+
             setSpeed(currentSpeed);
             setAccuracy(currentAccuracy);
 

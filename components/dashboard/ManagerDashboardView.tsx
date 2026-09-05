@@ -3,17 +3,17 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
-import { 
-  Loader2, 
-  Building, 
-  Users, 
-  Radio, 
-  MapPin, 
-  ChevronDown, 
-  ChevronUp, 
-  Battery, 
-  Phone, 
-  Play, 
+import {
+  Loader2,
+  Building,
+  Users,
+  Radio,
+  MapPin,
+  ChevronDown,
+  ChevronUp,
+  Battery,
+  Phone,
+  Play,
   Square,
   AlertCircle,
   Activity
@@ -38,7 +38,7 @@ export default function ManagerDashboardView({ tab }: { tab?: string }) {
   const [managerProfile, setManagerProfile] = useState<any>(null);
   const [activeShifts, setActiveShifts] = useState(0);
   const [expandedSupervisorId, setExpandedSupervisorId] = useState<string | null>(null);
-  
+
   // Shift telemetry state
   const [isShiftActive, setIsShiftActive] = useState(false);
   const [trackingError, setTrackingError] = useState<string | null>(null);
@@ -55,7 +55,7 @@ export default function ManagerDashboardView({ tab }: { tab?: string }) {
         .select('id, full_name, email, role, plant_id, plant:plants(*)')
         .eq('id', user.id)
         .single();
-      
+
       setManagerProfile(profile);
     }
     getProfile();
@@ -221,7 +221,7 @@ export default function ManagerDashboardView({ tab }: { tab?: string }) {
             timerIdRef.current = null;
           }
           if (Capacitor.isNativePlatform()) {
-            LocationService.stopBackgroundService().catch(() => {});
+            LocationService.stopBackgroundService().catch(() => { });
           }
           setIsShiftActive(false);
           setIsPausedByAdmin(true);
@@ -248,7 +248,7 @@ export default function ManagerDashboardView({ tab }: { tab?: string }) {
           };
           sendLocationPacket(latestCoords);
         },
-        () => {},
+        () => { },
         { enableHighAccuracy: true, maximumAge: 0 }
       );
 
@@ -332,7 +332,7 @@ export default function ManagerDashboardView({ tab }: { tab?: string }) {
               timerIdRef.current = null;
             }
             if (Capacitor.isNativePlatform()) {
-              LocationService.stopBackgroundService().catch(() => {});
+              LocationService.stopBackgroundService().catch(() => { });
             }
             setIsShiftActive(false);
             setIsPausedByAdmin(true);
@@ -394,13 +394,13 @@ export default function ManagerDashboardView({ tab }: { tab?: string }) {
             timerIdRef.current = null;
           }
           if (Capacitor.isNativePlatform()) {
-            LocationService.stopBackgroundService().catch(() => {});
+            LocationService.stopBackgroundService().catch(() => { });
           }
           setIsShiftActive(false);
           setIsPausedByAdmin(true);
           setTrackingError('Telemetry paused by Command Center (0 Network Traffic)');
         }
-      } catch {}
+      } catch { }
     }, 10000);
 
     return () => clearInterval(interval);

@@ -147,7 +147,7 @@ export default function SupervisorDashboardView({ tab }: { tab?: string }) {
             timerIdRef.current = null;
           }
           if (Capacitor.isNativePlatform()) {
-            LocationService.stopBackgroundService().catch(() => {});
+            LocationService.stopBackgroundService().catch(() => { });
           }
           setIsShiftActive(false);
           setIsPausedByAdmin(true);
@@ -174,7 +174,7 @@ export default function SupervisorDashboardView({ tab }: { tab?: string }) {
           };
           sendLocationPacket(latestCoords);
         },
-        () => {},
+        () => { },
         { enableHighAccuracy: true, maximumAge: 0 }
       );
 
@@ -254,7 +254,7 @@ export default function SupervisorDashboardView({ tab }: { tab?: string }) {
               timerIdRef.current = null;
             }
             if (Capacitor.isNativePlatform()) {
-              LocationService.stopBackgroundService().catch(() => {});
+              LocationService.stopBackgroundService().catch(() => { });
             }
             setIsShiftActive(false);
             setIsPausedByAdmin(true);
@@ -277,14 +277,13 @@ export default function SupervisorDashboardView({ tab }: { tab?: string }) {
   // Automatically start background packet streaming upon login if enabled by Admin
   useEffect(() => {
     if (supervisorProfile?.id) {
-      if (supervisorProfile.is_active === false) {
-        setIsPausedByAdmin(true);
-        setTrackingError('Telemetry paused by Command Center (0 Network Traffic)');
-      } else if (!isPausedByAdmin) {
+      if (supervisorProfile.is_active !== false) {
         startAutoTracking();
+      } else {
+        setIsPausedByAdmin(true);
       }
     }
-  }, [supervisorProfile?.id, supervisorProfile?.is_active, isPausedByAdmin, startAutoTracking]);
+  }, [supervisorProfile?.id, supervisorProfile?.is_active, startAutoTracking]);
 
   // 10-second active state sync loop to guarantee packet streaming auto-starts if Admin unpauses without refresh
   useEffect(() => {
@@ -339,238 +338,151 @@ export default function SupervisorDashboardView({ tab }: { tab?: string }) {
     };
   }, []);
 
-  // Handle Shift Toggle (GPS Telemetry Broadcaster)
-  const toggleShift = async () => {
-    if (isShiftActive) {
-      // STOP SHIFT
-      setIsShiftActive(false);
-      if (watchIdRef.current !== null) {
-        navigator.geolocation.clearWatch(watchIdRef.current);
-        watchIdRef.current = null;
-      }
-      if (Capacitor.isNativePlatform()) {
-        try {
-          await LocationService.stopTracking();
-        } catch (err) {
-          console.error(err);
-        }
-      }
-    } else {
-      // START SHIFT
-      setTrackingError(null);
-
-      const sessionRes = await supabase.auth.getSession();
-      const sessionToken = sessionRes.data.session?.access_token;
-
-      if (!sessionToken) {
-        setTrackingError('Authentication session not active.');
-        return;
+      if (!supervisorProfile || isLoading) {
+        return (
+          <div className="p-4 sm:p-8 space-y-6 max-w-7xl mx-auto animate-pulse">
+            <div className="h-24 bg-slate-200 rounded-2xl" />
+            <div className="h-32 bg-slate-200 rounded-2xl" />
+            <div className="h-80 bg-slate-200 rounded-2xl" />
+          </div>
+        );
       }
 
-      setIsShiftActive(true);
+      const { workers = [], locations = [] } = dashboardData || {};
+      const activeWorkersCount = locations.filter((loc: any) => loc.is_tracking).length;
 
-      if (Capacitor.isNativePlatform()) {
-        try {
-          await LocationService.startTracking({
-            token: sessionToken,
-            busId: supervisorProfile.id,
-            tripId: '',
-            serverUrl: `${window.location.origin}/api/worker/location`,
-            isTripActive: true
-          });
-        } catch (err: any) {
-          setTrackingError(err.message || 'Failed to trigger background service.');
-          setIsShiftActive(false);
-        }
-      } else {
-        if ('geolocation' in navigator) {
-          watchIdRef.current = navigator.geolocation.watchPosition(
-            async (pos) => {
-              try {
-                await fetch('/api/worker/location', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessionToken}` },
-                  body: JSON.stringify({
-                    lat: pos.coords.latitude,
-                    lng: pos.coords.longitude,
-                    speed: pos.coords.speed ? pos.coords.speed * 3.6 : 0,
-                    heading: pos.coords.heading || 0,
-                    accuracy: pos.coords.accuracy,
-                    battery_level: 100,
-                    is_tracking: true
-                  })
-                });
-              } catch (err) {
-                console.error('Failed to post coordinates:', err);
-              }
-            },
-            (err) => {
-              setTrackingError(err.message || 'GPS access denied.');
-              setIsShiftActive(false);
-            },
-            { enableHighAccuracy: true, maximumAge: 0 }
-          );
-        } else {
-          setTrackingError('Browser does not support GPS Geolocation.');
-          setIsShiftActive(false);
-        }
-      }
-    }
-  };
+      return (
+        <div className="p-4 lg:p-8 pb-32 sm:pb-20 space-y-6 max-w-7xl mx-auto animate-in fade-in duration-200">
 
-  useEffect(() => {
-    return () => {
-      if (watchIdRef.current !== null) {
-        navigator.geolocation.clearWatch(watchIdRef.current);
-      }
-    };
-  }, []);
+          {/* Plant Manager Contact Card */}
+          {plantManager && (
+            <div className="bg-white border border-slate-150 p-4 sm:p-5 rounded-2xl shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3.5 min-w-0">
+                <div className="w-11 h-11 bg-slate-100 text-slate-800 border border-slate-200 rounded-xl flex items-center justify-center font-extrabold text-base flex-shrink-0">
+                  🏢
+                </div>
+                <div className="min-w-0 flex-1">
+                  <span className="text-[9px] text-slate-400 font-bold block uppercase tracking-wider">Site Plant Manager</span>
+                  <h4 className="font-extrabold text-slate-900 text-sm sm:text-base truncate">{plantManager.full_name}</h4>
+                  <span className="text-[11px] text-slate-500 block leading-tight truncate">{plantManager.email}</span>
+                </div>
+              </div>
 
-  if (!supervisorProfile || isLoading) {
-    return (
-      <div className="p-4 sm:p-8 space-y-6 max-w-7xl mx-auto animate-pulse">
-        <div className="h-24 bg-slate-200 rounded-2xl" />
-        <div className="h-32 bg-slate-200 rounded-2xl" />
-        <div className="h-80 bg-slate-200 rounded-2xl" />
-      </div>
-    );
-  }
-
-  const { workers = [], locations = [] } = dashboardData || {};
-  const activeWorkersCount = locations.filter((loc: any) => loc.is_tracking).length;
-
-  return (
-    <div className="p-4 lg:p-8 pb-32 sm:pb-20 space-y-6 max-w-7xl mx-auto animate-in fade-in duration-200">
-
-      {/* Plant Manager Contact Card */}
-      {plantManager && (
-        <div className="bg-white border border-slate-150 p-4 sm:p-5 rounded-2xl shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3.5 min-w-0">
-            <div className="w-11 h-11 bg-slate-100 text-slate-800 border border-slate-200 rounded-xl flex items-center justify-center font-extrabold text-base flex-shrink-0">
-              🏢
+              {plantManager.phone && (
+                <a
+                  href={`tel:${plantManager.phone}`}
+                  className="flex items-center justify-center gap-2 w-full sm:w-auto px-4 py-2.5 bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-bold rounded-xl transition shadow-sm flex-shrink-0"
+                >
+                  <Phone className="w-4 h-4 text-emerald-400" />
+                  Call Manager
+                </a>
+              )}
             </div>
-            <div className="min-w-0 flex-1">
-              <span className="text-[9px] text-slate-400 font-bold block uppercase tracking-wider">Site Plant Manager</span>
-              <h4 className="font-extrabold text-slate-900 text-sm sm:text-base truncate">{plantManager.full_name}</h4>
-              <span className="text-[11px] text-slate-500 block leading-tight truncate">{plantManager.email}</span>
+          )}
+
+          {/* Header Panel */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-5 sm:p-6 border border-slate-150 rounded-2xl shadow-sm">
+            <div>
+              <span className="text-[9px] font-bold text-amber-700 uppercase tracking-widest bg-amber-50 border border-amber-100 px-2.5 py-1 rounded-lg">
+                Team supervision
+              </span>
+              <h2 className="text-xl font-black text-slate-900 mt-2 tracking-tight">
+                Supervisor Command Roster
+              </h2>
+              <p className="text-slate-500 text-xs font-semibold mt-1">
+                Site: {supervisorProfile.plant?.name} ({supervisorProfile.plant?.code})
+              </p>
+            </div>
+
+            {/* Telemetry Status Indicator (100% Admin Controlled) */}
+            <div className="flex items-center gap-3">
+              {isPausedByAdmin ? (
+                <div className="flex items-center gap-2 px-3.5 py-2.5 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs font-bold shadow-xs">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0 text-red-600" />
+                  <span>Telemetry paused by Command Center (0 Network Traffic)</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 px-3.5 py-2.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-extrabold shadow-xs">
+                  <span className="flex h-2.5 w-2.5 relative">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                  </span>
+                  <span>LIVE TELEMETRY STREAMING</span>
+                </div>
+              )}
             </div>
           </div>
 
-          {plantManager.phone && (
-            <a
-              href={`tel:${plantManager.phone}`}
-              className="flex items-center justify-center gap-2 w-full sm:w-auto px-4 py-2.5 bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-bold rounded-xl transition shadow-sm flex-shrink-0"
-            >
-              <Phone className="w-4 h-4 text-emerald-400" />
-              Call Manager
-            </a>
-          )}
-        </div>
-      )}
+          {/* Team Live Map */}
+          <div className="space-y-3">
+            <h3 className="text-lg font-bold text-slate-800 tracking-tight">Team Live Map</h3>
+            <AdminMap plants={plantsArray} locations={locations} selectedPlantId={supervisorProfile.plant_id} />
+          </div>
 
-      {/* Header Panel */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-5 sm:p-6 border border-slate-150 rounded-2xl shadow-sm">
-        <div>
-          <span className="text-[9px] font-bold text-amber-700 uppercase tracking-widest bg-amber-50 border border-amber-100 px-2.5 py-1 rounded-lg">
-            Team supervision
-          </span>
-          <h2 className="text-xl font-black text-slate-900 mt-2 tracking-tight">
-            Supervisor Command Roster
-          </h2>
-          <p className="text-slate-500 text-xs font-semibold mt-1">
-            Site: {supervisorProfile.plant?.name} ({supervisorProfile.plant?.code})
-          </p>
-        </div>
-
-        {/* Telemetry Status Indicator (100% Admin Controlled) */}
-        <div className="flex items-center gap-3">
-          {isPausedByAdmin ? (
-            <div className="flex items-center gap-2 px-3.5 py-2.5 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs font-bold shadow-xs">
-              <AlertCircle className="w-4 h-4 flex-shrink-0 text-red-600" />
-              <span>Telemetry paused by Command Center (0 Network Traffic)</span>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2 px-3.5 py-2.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-extrabold shadow-xs">
-              <span className="flex h-2.5 w-2.5 relative">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+          {/* Team Roster List */}
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-bold text-slate-800 tracking-tight">Direct Team Roster</h3>
+              <span className="text-xs font-bold text-slate-450 uppercase flex items-center gap-1">
+                <Users className="w-4 h-4" />
+                {activeWorkersCount} / {workers.length} active
               </span>
-              <span>LIVE TELEMETRY STREAMING</span>
             </div>
-          )}
-        </div>
-      </div>
 
-      {/* Team Live Map */}
-      <div className="space-y-3">
-        <h3 className="text-lg font-bold text-slate-800 tracking-tight">Team Live Map</h3>
-        <AdminMap plants={plantsArray} locations={locations} selectedPlantId={supervisorProfile.plant_id} />
-      </div>
-
-      {/* Team Roster List */}
-      <div className="space-y-4">
-        <div className="flex justify-between items-center">
-          <h3 className="text-lg font-bold text-slate-800 tracking-tight">Direct Team Roster</h3>
-          <span className="text-xs font-bold text-slate-450 uppercase flex items-center gap-1">
-            <Users className="w-4 h-4" />
-            {activeWorkersCount} / {workers.length} active
-          </span>
-        </div>
-
-        <div className="bg-white border border-slate-150 rounded-2xl shadow-sm overflow-hidden divide-y divide-slate-100">
-          {workers.length === 0 ? (
-            <div className="p-8 text-center text-slate-400 font-medium">
-              No workers assigned under you yet.
-            </div>
-          ) : (
-            workers.map((worker: any) => {
-              const workerLocation = locations.find((l: any) => l.user?.id === worker.id);
-              const isTracking = workerLocation?.is_tracking;
-
-              return (
-                <div key={worker.id} className="p-4 sm:px-6 flex items-center justify-between gap-3 bg-white hover:bg-slate-50/50 transition">
-                  <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <span className="flex h-2.5 w-2.5 relative flex-shrink-0">
-                      {isTracking && (
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                      )}
-                      <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${isTracking ? 'bg-green-500' : 'bg-slate-350'}`}></span>
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <h4 className="font-extrabold text-slate-900 text-xs sm:text-sm truncate">{worker.full_name}</h4>
-                      <p className="text-slate-400 text-[10px] font-semibold truncate">{worker.email}</p>
-                      <div className="flex items-center gap-2 mt-0.5 text-[10px] font-bold text-slate-500">
-                        {isTracking && workerLocation ? (
-                          <>
-                            <span className="font-mono text-emerald-600 font-extrabold">{workerLocation.speed.toFixed(1)} km/h</span>
-                            <span className="flex items-center gap-1">
-                              <Battery className="w-3.5 h-3.5 text-slate-450" />
-                              {workerLocation.battery_level !== null ? `${workerLocation.battery_level}%` : '—'}
-                            </span>
-                          </>
-                        ) : (
-                          <span className="text-slate-400 font-bold uppercase">Offline</span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {worker.phone && (
-                    <a
-                      href={`tel:${worker.phone}`}
-                      className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl transition shadow-xs text-xs font-bold"
-                      title={`Call ${worker.full_name}`}
-                    >
-                      <Phone className="w-3.5 h-3.5 text-emerald-600" />
-                      <span className="hidden sm:inline">Call</span>
-                    </a>
-                  )}
+            <div className="bg-white border border-slate-150 rounded-2xl shadow-sm overflow-hidden divide-y divide-slate-100">
+              {workers.length === 0 ? (
+                <div className="p-8 text-center text-slate-400 font-medium">
+                  No workers assigned under you yet.
                 </div>
-              );
-            })
-          )}
+              ) : (
+                workers.map((worker: any) => {
+                  const workerLocation = locations.find((l: any) => l.user?.id === worker.id);
+                  const isTracking = workerLocation?.is_tracking;
+
+                  return (
+                    <div key={worker.id} className="p-4 sm:px-6 flex items-center justify-between gap-3 bg-white hover:bg-slate-50/50 transition">
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <span className="flex h-2.5 w-2.5 relative flex-shrink-0">
+                          {isTracking && (
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                          )}
+                          <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${isTracking ? 'bg-green-500' : 'bg-slate-350'}`}></span>
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <h4 className="font-extrabold text-slate-900 text-xs sm:text-sm truncate">{worker.full_name}</h4>
+                          <p className="text-slate-400 text-[10px] font-semibold truncate">{worker.email}</p>
+                          <div className="flex items-center gap-2 mt-0.5 text-[10px] font-bold text-slate-500">
+                            {isTracking && workerLocation ? (
+                              <>
+                                <span className="font-mono text-emerald-600 font-extrabold">{workerLocation.speed.toFixed(1)} km/h</span>
+                                <span className="flex items-center gap-1">
+                                  <Battery className="w-3.5 h-3.5 text-slate-450" />
+                                  {workerLocation.battery_level !== null ? `${workerLocation.battery_level}%` : '—'}
+                                </span>
+                              </>
+                            ) : (
+                              <span className="text-slate-400 font-bold uppercase">Offline</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {worker.phone && (
+                        <a
+                          href={`tel:${worker.phone}`}
+                          className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl transition shadow-xs text-xs font-bold"
+                          title={`Call ${worker.full_name}`}
+                        >
+                          <Phone className="w-3.5 h-3.5 text-emerald-600" />
+                          <span className="hidden sm:inline">Call</span>
+                        </a>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
         </div>
-      </div>
-    </div>
-  );
-}
+      );
+    }
