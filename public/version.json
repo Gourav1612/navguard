@@ -1,5 +1,5 @@
 {
-  "version": "1.0.8",
+  "version": "1.0.9",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: optimize authentication speed, eliminate startup black screen, and prevent automatic logouts"
+  "releaseNotes": "Auto-build: fix the changes and make it for applocation and make it to fetch the location"
 }
