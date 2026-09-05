@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { 
@@ -124,6 +124,11 @@ export default function ManagerDashboardView({ tab }: { tab?: string }) {
     refetchOnWindowFocus: false,
   });
 
+  const refetchRef = useRef(refetch);
+  useEffect(() => {
+    refetchRef.current = refetch;
+  }, [refetch]);
+
   // Calculate active shifts
   useEffect(() => {
     if (dashboardData?.locations) {
@@ -132,17 +137,17 @@ export default function ManagerDashboardView({ tab }: { tab?: string }) {
     }
   }, [dashboardData]);
 
-  // Real-time locations listener
+  // Real-time locations listener (persistent WebSocket connection)
   useEffect(() => {
     if (!plantId) return;
 
     const channel = supabase
-      .channel('manager-dashboard-realtime')
+      .channel(`manager-dashboard-realtime-${plantId}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'live_locations' },
         () => {
-          refetch();
+          refetchRef.current();
         }
       )
       .subscribe();
@@ -150,12 +155,155 @@ export default function ManagerDashboardView({ tab }: { tab?: string }) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [plantId, supabase, refetch]);
+  }, [plantId, supabase]);
 
-  // Handle Shift Toggle (GPS Telemetry Broadcaster)
+  // Shift telemetry state
   const [isPausedByAdmin, setIsPausedByAdmin] = useState(false);
   const lastSentRef = useRef<number>(0);
   const timerIdRef = useRef<any>(null);
+  const startAutoTrackingRef = useRef<any>(null);
+
+  const startAutoTracking = useCallback(async () => {
+    if (!managerProfile?.id) return;
+    const sessionRes = await supabase.auth.getSession();
+    const sessionToken = sessionRes.data.session?.access_token;
+    if (!sessionToken) return;
+
+    setIsShiftActive(true);
+    setIsPausedByAdmin(false);
+    setTrackingError(null);
+
+    if (Capacitor.isNativePlatform()) {
+      try {
+        await LocationService.startTracking({
+          token: sessionToken,
+          busId: managerProfile.id,
+          tripId: '',
+          serverUrl: `${window.location.origin}/api/worker/location`,
+          isTripActive: true,
+        });
+      } catch (err) {
+        console.error('Failed to start native tracking:', err);
+      }
+      return;
+    }
+
+    let latestCoords: { lat: number; lng: number; speed: number; heading: number; accuracy: number } | null = null;
+
+    const sendLocationPacket = async (coords: { lat: number; lng: number; speed: number; heading: number; accuracy: number }) => {
+      const now = Date.now();
+      const intervalSeconds = managerProfile.location_interval || 10;
+      if (now - lastSentRef.current < intervalSeconds * 1000 - 200) return;
+      lastSentRef.current = now;
+
+      try {
+        const res = await fetch('/api/worker/location', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionToken}` },
+          body: JSON.stringify({
+            lat: coords.lat,
+            lng: coords.lng,
+            speed: coords.speed,
+            heading: coords.heading,
+            accuracy: coords.accuracy,
+            battery_level: 100,
+            is_tracking: true,
+          }),
+        });
+        const data = await res.json();
+        if (res.status === 403 || data?.is_paused || data?.trackingEnabled === false) {
+          if (watchIdRef.current !== null) {
+            navigator.geolocation.clearWatch(watchIdRef.current);
+            watchIdRef.current = null;
+          }
+          if (timerIdRef.current !== null) {
+            clearInterval(timerIdRef.current);
+            timerIdRef.current = null;
+          }
+          if (Capacitor.isNativePlatform()) {
+            LocationService.stopBackgroundService().catch(() => {});
+          }
+          setIsShiftActive(false);
+          setIsPausedByAdmin(true);
+          setTrackingError('Telemetry paused by Command Center (0 Network Traffic)');
+        } else {
+          setIsPausedByAdmin(false);
+          setIsShiftActive(true);
+        }
+      } catch (err) {
+        console.error('Failed to post coordinates:', err);
+      }
+    };
+
+    if ('geolocation' in navigator) {
+      // Initial location fetch probe (t = 0s)
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          latestCoords = {
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+            speed: pos.coords.speed ? pos.coords.speed * 3.6 : 0,
+            heading: pos.coords.heading || 0,
+            accuracy: pos.coords.accuracy,
+          };
+          sendLocationPacket(latestCoords);
+        },
+        () => {},
+        { enableHighAccuracy: true, maximumAge: 0 }
+      );
+
+      // Movement watcher
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+      }
+      watchIdRef.current = navigator.geolocation.watchPosition(
+        (pos) => {
+          latestCoords = {
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+            speed: pos.coords.speed ? pos.coords.speed * 3.6 : 0,
+            heading: pos.coords.heading || 0,
+            accuracy: pos.coords.accuracy,
+          };
+        },
+        (err) => {
+          setTrackingError(err.message || 'GPS access denied.');
+        },
+        { enableHighAccuracy: true, maximumAge: 0 }
+      );
+
+      // Dynamic time interval loop (streams continuously at exact Admin location_interval)
+      if (timerIdRef.current !== null) {
+        clearInterval(timerIdRef.current);
+      }
+      const intervalMs = Math.max(1000, (managerProfile.location_interval || 10) * 1000);
+      timerIdRef.current = setInterval(() => {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            const coords = {
+              lat: pos.coords.latitude,
+              lng: pos.coords.longitude,
+              speed: pos.coords.speed ? pos.coords.speed * 3.6 : 0,
+              heading: pos.coords.heading || 0,
+              accuracy: pos.coords.accuracy,
+            };
+            latestCoords = coords;
+            sendLocationPacket(coords);
+          },
+          () => {
+            if (latestCoords) {
+              sendLocationPacket(latestCoords);
+            }
+          },
+          { enableHighAccuracy: true, maximumAge: 0 }
+        );
+      }, intervalMs);
+    }
+  }, [managerProfile?.id, managerProfile?.location_interval, supabase]);
+
+  useEffect(() => {
+    startAutoTrackingRef.current = startAutoTracking;
+  }, [startAutoTracking]);
 
   // Supabase Realtime listener on user_profiles for instant pause/resume signals
   useEffect(() => {
@@ -174,34 +322,7 @@ export default function ManagerDashboardView({ tab }: { tab?: string }) {
         async (payload: any) => {
           const updated = payload.new;
           if (updated && updated.is_active === false) {
-            // Admin paused telemetry: send 1 final confirmation probe packet
-            const sessionRes = await supabase.auth.getSession();
-            const sessionToken = sessionRes.data.session?.access_token;
-            if (sessionToken && 'geolocation' in navigator) {
-              navigator.geolocation.getCurrentPosition(
-                async (pos) => {
-                  try {
-                    await fetch('/api/worker/location', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionToken}` },
-                      body: JSON.stringify({
-                        lat: pos.coords.latitude,
-                        lng: pos.coords.longitude,
-                        speed: pos.coords.speed ? pos.coords.speed * 3.6 : 0,
-                        heading: pos.coords.heading || 0,
-                        accuracy: pos.coords.accuracy,
-                        battery_level: 100,
-                        is_tracking: true,
-                      }),
-                    });
-                  } catch {}
-                },
-                () => {},
-                { enableHighAccuracy: true, maximumAge: 0 }
-              );
-            }
-
-            // Immediately execute Circuit Breaker to destroy all future timers & watchers
+            // Admin paused telemetry: clear all future timers & watchers (ZERO packets sent)
             if (watchIdRef.current !== null) {
               navigator.geolocation.clearWatch(watchIdRef.current);
               watchIdRef.current = null;
@@ -219,7 +340,8 @@ export default function ManagerDashboardView({ tab }: { tab?: string }) {
           } else if (updated && updated.is_active === true) {
             setIsPausedByAdmin(false);
             setTrackingError(null);
-            refetch();
+            if (startAutoTrackingRef.current) startAutoTrackingRef.current();
+            refetchRef.current();
           }
         }
       )
@@ -228,142 +350,61 @@ export default function ManagerDashboardView({ tab }: { tab?: string }) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [managerProfile?.id, supabase, refetch]);
+  }, [managerProfile?.id, supabase]);
 
-  // Handle shift start/stop
-  const handleToggleShift = async () => {
-    if (isShiftActive) {
-      // STOP SHIFT
-      setIsShiftActive(false);
-      if (watchIdRef.current !== null) {
-        navigator.geolocation.clearWatch(watchIdRef.current);
-        watchIdRef.current = null;
-      }
-      if (Capacitor.isNativePlatform()) {
-        try {
-          await LocationService.stopTracking();
-        } catch (err) {
-          console.error('Failed to stop native location service:', err);
-        }
-      }
-    } else {
-      // START SHIFT
-      if (isPausedByAdmin) return;
-      setTrackingError(null);
-      
-      const sessionRes = await supabase.auth.getSession();
-      const sessionToken = sessionRes.data.session?.access_token;
-      
-      if (!sessionToken) {
-        setTrackingError('Authentication session not active.');
-        return;
-      }
-
-      setIsShiftActive(true);
-
-      if (Capacitor.isNativePlatform()) {
-        try {
-          await LocationService.startTracking({
-            token: sessionToken,
-            busId: managerProfile?.id || '',
-            tripId: '',
-            serverUrl: `${window.location.origin}/api/worker/location`,
-            isTripActive: true
-          });
-        } catch (err: any) {
-          setTrackingError(err.message || 'Failed to trigger background service.');
-          setIsShiftActive(false);
-        }
-      } else {
-        let latestCoords: { lat: number; lng: number; speed: number; heading: number; accuracy: number } | null = null;
-
-        const sendLocationPacket = async (coords: { lat: number; lng: number; speed: number; heading: number; accuracy: number }) => {
-          const now = Date.now();
-          const intervalSeconds = (managerProfile as any)?.location_interval || 10;
-          if (now - lastSentRef.current < intervalSeconds * 1000 - 200) return;
-          lastSentRef.current = now;
-
-          try {
-            const res = await fetch('/api/worker/location', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionToken}` },
-              body: JSON.stringify({
-                lat: coords.lat,
-                lng: coords.lng,
-                speed: coords.speed,
-                heading: coords.heading,
-                accuracy: coords.accuracy,
-                battery_level: 100,
-                is_tracking: true,
-              }),
-            });
-            const data = await res.json();
-            if (res.status === 403 || data?.is_paused || data?.trackingEnabled === false) {
-              if (watchIdRef.current !== null) {
-                navigator.geolocation.clearWatch(watchIdRef.current);
-                watchIdRef.current = null;
-              }
-              if (Capacitor.isNativePlatform()) {
-                LocationService.stopBackgroundService().catch(() => {});
-              }
-              setIsShiftActive(false);
-              setIsPausedByAdmin(true);
-              setTrackingError('Telemetry paused by Command Center (0 Network Traffic)');
-            } else {
-              setIsPausedByAdmin(false);
-              setIsShiftActive(true);
-            }
-          } catch (err) {
-            console.error('Failed to post coordinates:', err);
-          }
-        };
-
-        if ('geolocation' in navigator) {
-          navigator.geolocation.getCurrentPosition(
-            (pos) => {
-              latestCoords = {
-                lat: pos.coords.latitude,
-                lng: pos.coords.longitude,
-                speed: pos.coords.speed ? pos.coords.speed * 3.6 : 0,
-                heading: pos.coords.heading || 0,
-                accuracy: pos.coords.accuracy,
-              };
-              sendLocationPacket(latestCoords);
-            },
-            () => {},
-            { enableHighAccuracy: true, maximumAge: 0 }
-          );
-
-          watchIdRef.current = navigator.geolocation.watchPosition(
-            (pos) => {
-              latestCoords = {
-                lat: pos.coords.latitude,
-                lng: pos.coords.longitude,
-                speed: pos.coords.speed ? pos.coords.speed * 3.6 : 0,
-                heading: pos.coords.heading || 0,
-                accuracy: pos.coords.accuracy,
-              };
-            },
-            (err) => {
-              setTrackingError(err.message || 'GPS access denied.');
-              setIsShiftActive(false);
-            },
-            { enableHighAccuracy: true, maximumAge: 0 }
-          );
-
-          if (timerIdRef.current !== null) {
-            clearInterval(timerIdRef.current);
-          }
-          const intervalMs = Math.max(1000, ((managerProfile as any)?.location_interval || 10) * 1000);
-          timerIdRef.current = setInterval(() => {
-            if (latestCoords) {
-              sendLocationPacket(latestCoords);
-            }
-          }, intervalMs);
-        }
+  // Automatically start background packet streaming upon login if enabled by Admin
+  useEffect(() => {
+    if (managerProfile?.id) {
+      if (managerProfile.is_active === false) {
+        setIsPausedByAdmin(true);
+        setTrackingError('Telemetry paused by Command Center (0 Network Traffic)');
+      } else if (!isPausedByAdmin) {
+        startAutoTracking();
       }
     }
-  };
+  }, [managerProfile?.id, managerProfile?.is_active, isPausedByAdmin, startAutoTracking]);
+
+  // 10-second active state sync loop to guarantee packet streaming auto-starts if Admin unpauses without refresh
+  useEffect(() => {
+    if (!managerProfile?.id) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        const { data: profile } = await supabase
+          .from('user_profiles')
+          .select('is_active')
+          .eq('id', user.id)
+          .single();
+
+        const serverIsActive = profile?.is_active !== false;
+
+        if (serverIsActive && isPausedByAdmin) {
+          setIsPausedByAdmin(false);
+          setTrackingError(null);
+          startAutoTracking();
+        } else if (!serverIsActive && !isPausedByAdmin) {
+          if (watchIdRef.current !== null) {
+            navigator.geolocation.clearWatch(watchIdRef.current);
+            watchIdRef.current = null;
+          }
+          if (timerIdRef.current !== null) {
+            clearInterval(timerIdRef.current);
+            timerIdRef.current = null;
+          }
+          if (Capacitor.isNativePlatform()) {
+            LocationService.stopBackgroundService().catch(() => {});
+          }
+          setIsShiftActive(false);
+          setIsPausedByAdmin(true);
+          setTrackingError('Telemetry paused by Command Center (0 Network Traffic)');
+        }
+      } catch {}
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, [managerProfile?.id, isPausedByAdmin, startAutoTracking, supabase]);
 
   // Cleanup watcher on unmount
   useEffect(() => {
@@ -388,6 +429,10 @@ export default function ManagerDashboardView({ tab }: { tab?: string }) {
     );
   }
 
+  const plantsArray = useMemo(() => {
+    return managerProfile?.plant ? [managerProfile.plant] : [];
+  }, [managerProfile?.plant?.id, managerProfile?.plant?.name]);
+
   const { supervisors = [], workers = [], locations = [] } = dashboardData || {};
 
   return (
@@ -406,36 +451,29 @@ export default function ManagerDashboardView({ tab }: { tab?: string }) {
           </p>
         </div>
 
-        {/* Telemetry Shift Controls */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-          {trackingError && (
-            <div className="flex items-center gap-1.5 p-2.5 bg-red-50 text-red-700 rounded-xl text-[10px] font-bold">
-              <AlertCircle className="w-4 h-4 flex-shrink-0" />
-              <span>{trackingError}</span>
+        {/* Telemetry Status Indicator (100% Admin Controlled) */}
+        <div className="flex items-center gap-3">
+          {isPausedByAdmin ? (
+            <div className="flex items-center gap-2 px-3.5 py-2.5 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs font-bold shadow-xs">
+              <AlertCircle className="w-4 h-4 flex-shrink-0 text-red-600" />
+              <span>Telemetry paused by Command Center (0 Network Traffic)</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 px-3.5 py-2.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-extrabold shadow-xs">
+              <span className="flex h-2.5 w-2.5 relative">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+              </span>
+              <span>LIVE TELEMETRY STREAMING</span>
             </div>
           )}
-
-          <button
-            onClick={handleToggleShift}
-            className={`flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-xs font-black transition cursor-pointer shadow-sm ${
-              isShiftActive 
-                ? 'bg-red-650 hover:bg-red-750 text-white shadow-red-500/10' 
-                : 'bg-zinc-900 hover:bg-zinc-800 text-white'
-            }`}
-          >
-            {isShiftActive ? (
-              <>
-                <Square className="w-4 h-4 fill-white" />
-                Stop Duty Shift
-              </>
-            ) : (
-              <>
-                <Play className="w-4 h-4 fill-white" />
-                Start Duty Shift
-              </>
-            )}
-          </button>
         </div>
+      </div>
+
+      {/* Site Live Map */}
+      <div className="space-y-3">
+        <h3 className="text-lg font-bold text-slate-800 tracking-tight">Site Live Map</h3>
+        <AdminMap plants={plantsArray} locations={locations} selectedPlantId={managerProfile.plant_id} />
       </div>
 
       {/* Metrics Row */}
