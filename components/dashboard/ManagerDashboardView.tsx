@@ -272,31 +272,31 @@ export default function ManagerDashboardView({ tab }: { tab?: string }) {
         { enableHighAccuracy: true, maximumAge: 0 }
       );
 
-      // Dynamic time interval loop (streams continuously at exact Admin location_interval)
+      // Dynamic time interval loop
       if (timerIdRef.current !== null) {
         clearInterval(timerIdRef.current);
       }
       const intervalMs = Math.max(1000, (managerProfile.location_interval || 10) * 1000);
       timerIdRef.current = setInterval(() => {
-        navigator.geolocation.getCurrentPosition(
-          (pos) => {
-            const coords = {
-              lat: pos.coords.latitude,
-              lng: pos.coords.longitude,
-              speed: pos.coords.speed ? pos.coords.speed * 3.6 : 0,
-              heading: pos.coords.heading || 0,
-              accuracy: pos.coords.accuracy,
-            };
-            latestCoords = coords;
-            sendLocationPacket(coords);
-          },
-          () => {
-            if (latestCoords) {
-              sendLocationPacket(latestCoords);
-            }
-          },
-          { enableHighAccuracy: true, maximumAge: 0 }
-        );
+        if (latestCoords) {
+          sendLocationPacket(latestCoords);
+        } else {
+          navigator.geolocation.getCurrentPosition(
+            (pos) => {
+              const coords = {
+                lat: pos.coords.latitude,
+                lng: pos.coords.longitude,
+                speed: pos.coords.speed ? pos.coords.speed * 3.6 : 0,
+                heading: pos.coords.heading || 0,
+                accuracy: pos.coords.accuracy,
+              };
+              latestCoords = coords;
+              sendLocationPacket(coords);
+            },
+            () => { },
+            { enableHighAccuracy: true, maximumAge: 0 }
+          );
+        }
       }, intervalMs);
     }
   }, [managerProfile?.id, managerProfile?.location_interval, supabase]);
@@ -352,19 +352,7 @@ export default function ManagerDashboardView({ tab }: { tab?: string }) {
     };
   }, [managerProfile?.id, supabase]);
 
-  // Automatically start background packet streaming upon login if enabled by Admin
-  useEffect(() => {
-    if (managerProfile?.id) {
-      if (managerProfile.is_active === false) {
-        setIsPausedByAdmin(true);
-        setTrackingError('Telemetry paused by Command Center (0 Network Traffic)');
-      } else if (!isPausedByAdmin) {
-        startAutoTracking();
-      }
-    }
-  }, [managerProfile?.id, managerProfile?.is_active, isPausedByAdmin, startAutoTracking]);
-
-  // 10-second active state sync loop to guarantee packet streaming auto-starts if Admin unpauses without refresh
+  // 4-second hybrid polling fallback to guarantee packet streaming auto-starts if Realtime drops
   useEffect(() => {
     if (!managerProfile?.id) return;
 
@@ -401,10 +389,17 @@ export default function ManagerDashboardView({ tab }: { tab?: string }) {
           setTrackingError('Telemetry paused by Command Center (0 Network Traffic)');
         }
       } catch { }
-    }, 10000);
+    }, 4000);
 
     return () => clearInterval(interval);
-  }, [managerProfile?.id, isPausedByAdmin, startAutoTracking, supabase]);
+  }, [managerProfile?.id, isPausedByAdmin, startAutoTracking]);
+
+  // Automatically start background packet streaming upon login
+  useEffect(() => {
+    if (managerProfile?.id && !isPausedByAdmin) {
+      startAutoTracking();
+    }
+  }, [managerProfile?.id, isPausedByAdmin, startAutoTracking]);
 
   // Cleanup watcher on unmount
   useEffect(() => {
