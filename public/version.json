@@ -1,5 +1,5 @@
 {
-  "version": "1.0.5",
+  "version": "1.0.6",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: fix java syntax and dangling code blocks in LocationForegroundService for apk build"
+  "releaseNotes": "Auto-build: completely remove display over other apps permission prompt and triggers from MainActivity"
 }
