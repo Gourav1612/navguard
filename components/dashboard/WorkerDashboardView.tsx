@@ -120,6 +120,9 @@ export default function WorkerDashboardView({ tab }: { tab?: string }) {
       } catch (err) {
         console.error('Failed to start native location tracking:', err);
       }
+      // On native mobile platforms, native LocationForegroundService handles 100% background GPS streaming.
+      // We exit early here to avoid duplicate WebView JS polling and eliminate ANR thread locks.
+      return;
     }
 
     let latestCoords: { lat: number; lng: number; speed: number; heading: number; accuracy: number } | null = null;

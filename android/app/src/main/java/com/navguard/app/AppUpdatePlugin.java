@@ -67,7 +67,11 @@ public class AppUpdatePlugin extends Plugin {
 
         executor.execute(() -> {
             try {
-                URL url = new URL(apkUrl);
+                String targetUrlStr = apkUrl;
+                if (targetUrlStr.startsWith("http://")) {
+                    targetUrlStr = "https://" + targetUrlStr.substring(7);
+                }
+                URL url = new URL(targetUrlStr);
 
                 // Security Check 1: Enforce HTTPS only
                 if (!"https".equalsIgnoreCase(url.getProtocol())) {

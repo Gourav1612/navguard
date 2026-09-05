@@ -231,11 +231,6 @@ public class LocationReceiver extends BroadcastReceiver {
             } catch (Exception e) {
                 attempt++;
                 Log.e(TAG, "Receiver: failed to post location on attempt " + attempt + " (" + e.getMessage() + ")");
-                if (attempt < 2) {
-                    try {
-                        Thread.sleep(200); // Short sleep before retry
-                    } catch (InterruptedException ignored) {}
-                }
             } finally {
                 if (conn != null) conn.disconnect();
             }

@@ -61,6 +61,7 @@ public class LocationForegroundService extends Service {
     private static final int HEARTBEAT_REQUEST_CODE = 9001;
     private static final long HEARTBEAT_INTERVAL_MS = 60000;
     private long lastGeocodeTimeMs = 0;
+    private volatile String lastResolvedLocationName = null;
 
     @Override
     public void onCreate() {
@@ -345,29 +346,32 @@ public class LocationForegroundService extends Service {
                 return;
             }
 
-            String locationName = null;
             long nowTime = System.currentTimeMillis();
             if (nowTime - lastGeocodeTimeMs >= 60000) {
-                try {
-                    android.location.Geocoder geocoder = new android.location.Geocoder(LocationForegroundService.this, java.util.Locale.getDefault());
-                    java.util.List<android.location.Address> addresses = geocoder.getFromLocation(location.getLatitude(), location.getLongitude(), 1);
-                    if (addresses != null && !addresses.isEmpty()) {
-                        android.location.Address addr = addresses.get(0);
-                        // Construct a place name (e.g. "Green Park" or "New Link Road")
-                        String place = addr.getFeatureName();
-                        if (place == null || place.isEmpty()) {
-                            place = addr.getThoroughfare();
+                lastGeocodeTimeMs = nowTime;
+                final double lat = location.getLatitude();
+                final double lng = location.getLongitude();
+                new Thread(() -> {
+                    try {
+                        android.location.Geocoder geocoder = new android.location.Geocoder(LocationForegroundService.this, java.util.Locale.getDefault());
+                        java.util.List<android.location.Address> addresses = geocoder.getFromLocation(lat, lng, 1);
+                        if (addresses != null && !addresses.isEmpty()) {
+                            android.location.Address addr = addresses.get(0);
+                            String place = addr.getFeatureName();
+                            if (place == null || place.isEmpty()) {
+                                place = addr.getThoroughfare();
+                            }
+                            if (place != null && !place.isEmpty()) {
+                                lastResolvedLocationName = place;
+                                Log.d(TAG, "Resolved location name asynchronously: " + place);
+                            }
                         }
-                        if (place != null && !place.isEmpty()) {
-                            locationName = place;
-                            lastGeocodeTimeMs = nowTime; // Update timestamp on successful geocode
-                            Log.d(TAG, "Resolved location name: " + locationName);
-                        }
+                    } catch (Exception e) {
+                        Log.e(TAG, "Failed async reverse geocoding", e);
                     }
-                } catch (Exception e) {
-                    Log.e(TAG, "Failed to reverse geocode location", e);
-                }
+                }).start();
             }
+            String locationName = lastResolvedLocationName;
 
             int attempt = 0;
             boolean success = false;

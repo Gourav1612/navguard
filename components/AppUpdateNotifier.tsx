@@ -95,7 +95,12 @@ export default function AppUpdateNotifier() {
         setDownloadProgress(Math.round(data.progress * 100));
       });
 
-      const apkUrl = `${process.env.NEXT_PUBLIC_APP_URL || window.location.origin}/NaviGuard.apk`;
+      let baseUrl = process.env.NEXT_PUBLIC_APP_URL || (typeof window !== 'undefined' && window.location.origin.startsWith('https://') ? window.location.origin : 'https://navguard-eight.vercel.app');
+      baseUrl = baseUrl.replace(/\/$/, '');
+      if (baseUrl.startsWith('http://')) {
+        baseUrl = baseUrl.replace('http://', 'https://');
+      }
+      const apkUrl = `${baseUrl}/NaviGuard.apk`;
       
       try {
         await AppUpdatePlugin.downloadAndInstallApk({ url: apkUrl });
