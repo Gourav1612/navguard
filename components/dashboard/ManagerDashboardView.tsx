@@ -7,14 +7,10 @@ import {
   Loader2,
   Building,
   Users,
-  Radio,
-  MapPin,
   ChevronDown,
   ChevronUp,
   Battery,
   Phone,
-  Play,
-  Square,
   AlertCircle,
   Activity
 } from 'lucide-react';
@@ -48,7 +44,6 @@ const getApiEndpoint = (path: string): string => {
 
 export default function ManagerDashboardView({ tab }: { tab?: string }) {
   const supabase = createBrowserSupabaseClient();
-  const [managerProfile, setManagerProfile] = useState<any>(null);
   const [activeShifts, setActiveShifts] = useState(0);
   const [expandedSupervisorId, setExpandedSupervisorId] = useState<string | null>(null);
 
@@ -58,45 +53,58 @@ export default function ManagerDashboardView({ tab }: { tab?: string }) {
   const watchIdRef = useRef<number | null>(null);
   const lastKnownCoordsRef = useRef<{ lat: number; lng: number; speed: number; heading: number; accuracy: number } | null>(null);
 
-  // 1. Fetch Manager Profile
-  useEffect(() => {
-    async function getProfile() {
+  // 1. Unified Manager Profile & Dashboard Data Query
+  const { data: dashboardData, isLoading, refetch } = useQuery({
+    queryKey: ['manager-dashboard-unified'],
+    queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) return { profile: null, plant: null, supervisors: [], workers: [], locations: [] };
 
-      const { data: profile } = await supabase
+      // Fetch manager profile with joined plant details
+      const { data: profile, error: profileErr } = await supabase
         .from('user_profiles')
         .select('id, full_name, email, role, plant_id, plant:plants(*)')
         .eq('id', user.id)
         .single();
 
-      setManagerProfile(profile);
-    }
-    getProfile();
-  }, [supabase]);
+      if (profileErr || !profile) {
+        console.error('Manager profile fetch error:', profileErr);
+        return { profile: null, plant: null, supervisors: [], workers: [], locations: [] };
+      }
 
-  const plantId = managerProfile?.plant_id;
+      // Normalize plant object if Supabase returned array
+      const rawPlant = (profile as any).plant;
+      const plantObj = Array.isArray(rawPlant) ? rawPlant[0] : rawPlant;
+      const normalizedProfile = {
+        ...profile,
+        plant: plantObj || null
+      };
 
-  // 2. Fetch Personnel (Supervisors and Workers) and Live Locations in same plant
-  const { data: dashboardData, isLoading, refetch } = useQuery({
-    queryKey: ['manager-dashboard', plantId],
-    queryFn: async () => {
-      if (!plantId) return { supervisors: [], workers: [], locations: [] };
+      const plantId = profile.plant_id;
+      if (!plantId) {
+        return { profile: normalizedProfile, plant: plantObj || null, supervisors: [], workers: [], locations: [] };
+      }
 
-      // Fetch all user profiles in this plant
+      // Fetch personnel profiles in this plant
       const { data: profiles, error: profilesErr } = await supabase
         .from('user_profiles')
         .select('id, full_name, email, phone, role, supervisor_id')
         .eq('plant_id', plantId);
 
-      if (profilesErr) return { supervisors: [], workers: [], locations: [] };
+      if (profilesErr) {
+        return { profile: normalizedProfile, plant: plantObj || null, supervisors: [], workers: [], locations: [] };
+      }
 
       const profilesList = (profiles || []) as any[];
       const supervisors = profilesList.filter((p) => p.role === 'supervisor');
       const workers = profilesList.filter((p) => p.role === 'worker');
       const userIds = profilesList.map((p) => p.id);
 
-      // Fetch live locations of those users
+      if (userIds.length === 0) {
+        return { profile: normalizedProfile, plant: plantObj || null, supervisors, workers, locations: [] };
+      }
+
+      // Fetch live locations for plant personnel
       const { data: locations, error: locationsErr } = await supabase
         .from('live_locations')
         .select(`
@@ -113,7 +121,7 @@ export default function ManagerDashboardView({ tab }: { tab?: string }) {
         `)
         .in('user_id', userIds);
 
-      if (locationsErr) throw locationsErr;
+      if (locationsErr) console.error('Error fetching live locations:', locationsErr);
 
       const formattedLocations = (locations || []).map((loc: any) => {
         const userObj = Array.isArray(loc.user) ? loc.user[0] : loc.user;
@@ -131,12 +139,21 @@ export default function ManagerDashboardView({ tab }: { tab?: string }) {
         };
       });
 
-      return { supervisors, workers, locations: formattedLocations };
+      return {
+        profile: normalizedProfile,
+        plant: plantObj || null,
+        supervisors,
+        workers,
+        locations: formattedLocations
+      };
     },
-    enabled: !!plantId,
     refetchInterval: 8000,
     refetchOnWindowFocus: false,
   });
+
+  const managerProfile = dashboardData?.profile;
+  const plantId = managerProfile?.plant_id;
+  const currentPlant = dashboardData?.plant || managerProfile?.plant;
 
   const refetchRef = useRef(refetch);
   useEffect(() => {
@@ -405,6 +422,13 @@ export default function ManagerDashboardView({ tab }: { tab?: string }) {
     };
   }, []);
 
+  // Must be declared before any early returns to satisfy React hooks rules
+  const plantsArray = useMemo(() => {
+    return managerProfile?.plant ? [managerProfile.plant] : [];
+  }, [managerProfile?.plant?.id, managerProfile?.plant?.name]);
+
+  const { supervisors = [], workers = [], locations = [] } = dashboardData || {};
+
   if (!managerProfile || isLoading) {
     return (
       <div className="p-4 lg:p-8 space-y-6 max-w-7xl mx-auto animate-pulse">
@@ -418,12 +442,6 @@ export default function ManagerDashboardView({ tab }: { tab?: string }) {
       </div>
     );
   }
-
-  const plantsArray = useMemo(() => {
-    return managerProfile?.plant ? [managerProfile.plant] : [];
-  }, [managerProfile?.plant?.id, managerProfile?.plant?.name]);
-
-  const { supervisors = [], workers = [], locations = [] } = dashboardData || {};
 
   return (
     <div className="p-4 lg:p-8 space-y-6 max-w-7xl mx-auto animate-in fade-in duration-200">
