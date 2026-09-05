@@ -32,11 +32,12 @@ export async function POST(req: NextRequest) {
     }
 
     const rawIdentifier = (parsed.data.identifier || parsed.data.email || '').trim();
+    const cleanIdentifier = rawIdentifier.replace(/^@/, '').trim();
     const { password, ip } = parsed.data;
 
     // Use admin client to query user profile by Username or Email
     const adminClient = createAdminClient();
-    const isEmailInput = rawIdentifier.includes('@');
+    const isEmailInput = rawIdentifier.includes('@') && rawIdentifier.includes('.') && !rawIdentifier.startsWith('@');
 
     let profileObj: any = null;
     let targetEmail: string | null = null;
@@ -50,26 +51,32 @@ export async function POST(req: NextRequest) {
         .maybeSingle();
       profileObj = data;
     } else {
-      // Fast indexed lookup on user_profiles table by username
+      // Fast indexed lookup on user_profiles table by username or email prefix
       const { data } = await adminClient
         .from('user_profiles')
         .select('id, plant_id, full_name, role, email, username')
-        .or(`username.eq.${rawIdentifier},email.ilike.${rawIdentifier}@%`)
+        .or(`username.ilike.${cleanIdentifier},email.ilike.${cleanIdentifier}@%`)
         .maybeSingle();
 
       if (data && data.email) {
         profileObj = data;
         targetEmail = data.email;
       } else {
-        // Fallback: single fast query by username
-        const { data: userByUsername } = await adminClient
-          .from('user_profiles')
-          .select('id, plant_id, full_name, role, email')
-          .eq('username', rawIdentifier)
-          .maybeSingle();
-        if (userByUsername && userByUsername.email) {
-          profileObj = userByUsername;
-          targetEmail = userByUsername.email;
+        // Fallback: search Auth users by user_metadata.username if user_profiles table record is missing
+        const { data: authUsersData } = await adminClient.auth.admin.listUsers();
+        const matchedUser = (authUsersData?.users || []).find((u) => {
+          const uName = (u.user_metadata?.username || (u.email ? u.email.split('@')[0] : '')).replace(/^@/, '');
+          return uName.toLowerCase() === cleanIdentifier.toLowerCase() || u.email?.toLowerCase() === rawIdentifier.toLowerCase();
+        });
+
+        if (matchedUser && matchedUser.email) {
+          targetEmail = matchedUser.email;
+          const { data: prof } = await adminClient
+            .from('user_profiles')
+            .select('id, plant_id, full_name, role, email')
+            .eq('id', matchedUser.id)
+            .maybeSingle();
+          profileObj = prof;
         }
       }
     }

@@ -100,6 +100,7 @@ export default function SupervisorDashboardView({ tab }: { tab?: string }) {
       } catch (err) {
         console.error('Failed to start native tracking:', err);
       }
+      return;
     }
 
     let latestCoords: { lat: number; lng: number; speed: number; heading: number; accuracy: number } | null = null;
@@ -324,12 +325,17 @@ export default function SupervisorDashboardView({ tab }: { tab?: string }) {
     return () => clearInterval(interval);
   }, [supervisorProfile?.id, isPausedByAdmin, startAutoTracking]);
 
-  // Automatically start background packet streaming upon login
+  // Automatically start background packet streaming upon login if enabled by Admin
   useEffect(() => {
-    if (supervisorProfile?.id && !isPausedByAdmin) {
-      startAutoTracking();
+    if (supervisorProfile?.id) {
+      if (supervisorProfile.is_active === false) {
+        setIsPausedByAdmin(true);
+        setTrackingError('Telemetry paused by Command Center (0 Network Traffic)');
+      } else if (!isPausedByAdmin) {
+        startAutoTracking();
+      }
     }
-  }, [supervisorProfile?.id, isPausedByAdmin, startAutoTracking]);
+  }, [supervisorProfile?.id, supervisorProfile?.is_active, isPausedByAdmin, startAutoTracking]);
 
   // Cleanup on component unmount ONLY
   useEffect(() => {
@@ -450,7 +456,7 @@ export default function SupervisorDashboardView({ tab }: { tab?: string }) {
   const activeWorkersCount = locations.filter((loc: any) => loc.is_tracking).length;
 
   return (
-    <div className="p-4 lg:p-8 space-y-6 max-w-7xl mx-auto animate-in fade-in duration-200">
+    <div className="p-4 lg:p-8 pb-32 sm:pb-20 space-y-6 max-w-7xl mx-auto animate-in fade-in duration-200">
 
       {/* Plant Manager Contact Card */}
       {plantManager && (
