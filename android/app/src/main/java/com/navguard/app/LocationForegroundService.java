@@ -39,7 +39,7 @@ import com.google.android.gms.location.Priority;
 
 public class LocationForegroundService extends Service {
     private static final String TAG = "NaviGuardLocService";
-    public static final String CHANNEL_ID = "naviguard_location_channel_silent";
+    public static final String CHANNEL_ID = "naviguard_location_channel_v2";
     public static final String PREFS_NAME = "NaviGuardTracking";
 
     public static boolean isServiceRunning = false;
