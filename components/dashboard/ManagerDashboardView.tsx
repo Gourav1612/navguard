@@ -53,99 +53,33 @@ export default function ManagerDashboardView({ tab }: { tab?: string }) {
   const watchIdRef = useRef<number | null>(null);
   const lastKnownCoordsRef = useRef<{ lat: number; lng: number; speed: number; heading: number; accuracy: number } | null>(null);
 
-  // 1. Unified Manager Profile & Dashboard Data Query
-  const { data: dashboardData, isLoading, refetch } = useQuery({
+  // 1. Unified Manager Profile & Dashboard Data Query via secure Server API
+  const { data: dashboardData, isLoading, isError, refetch } = useQuery({
     queryKey: ['manager-dashboard-unified'],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return { profile: null, plant: null, supervisors: [], workers: [], locations: [] };
+      const res = await fetch('/api/manager/dashboard');
+      if (!res.ok) {
+        // Fallback to client-side auth check if needed
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return null;
+        const { data: profile } = await supabase
+          .from('user_profiles')
+          .select('id, full_name, email, role, plant_id, location_interval, is_active')
+          .eq('id', user.id)
+          .maybeSingle();
 
-      // Fetch manager profile with joined plant details
-      const { data: profile, error: profileErr } = await supabase
-        .from('user_profiles')
-        .select('id, full_name, email, role, plant_id, plant:plants(*)')
-        .eq('id', user.id)
-        .single();
-
-      if (profileErr || !profile) {
-        console.error('Manager profile fetch error:', profileErr);
-        return { profile: null, plant: null, supervisors: [], workers: [], locations: [] };
+        if (profile) {
+          return {
+            profile: { ...profile, plant: null },
+            plant: null,
+            supervisors: [],
+            workers: [],
+            locations: [],
+          };
+        }
+        return null;
       }
-
-      // Normalize plant object if Supabase returned array
-      const rawPlant = (profile as any).plant;
-      const plantObj = Array.isArray(rawPlant) ? rawPlant[0] : rawPlant;
-      const normalizedProfile = {
-        ...profile,
-        plant: plantObj || null
-      };
-
-      const plantId = profile.plant_id;
-      if (!plantId) {
-        return { profile: normalizedProfile, plant: plantObj || null, supervisors: [], workers: [], locations: [] };
-      }
-
-      // Fetch personnel profiles in this plant
-      const { data: profiles, error: profilesErr } = await supabase
-        .from('user_profiles')
-        .select('id, full_name, email, phone, role, supervisor_id')
-        .eq('plant_id', plantId);
-
-      if (profilesErr) {
-        return { profile: normalizedProfile, plant: plantObj || null, supervisors: [], workers: [], locations: [] };
-      }
-
-      const profilesList = (profiles || []) as any[];
-      const supervisors = profilesList.filter((p) => p.role === 'supervisor');
-      const workers = profilesList.filter((p) => p.role === 'worker');
-      const userIds = profilesList.map((p) => p.id);
-
-      if (userIds.length === 0) {
-        return { profile: normalizedProfile, plant: plantObj || null, supervisors, workers, locations: [] };
-      }
-
-      // Fetch live locations for plant personnel
-      const { data: locations, error: locationsErr } = await supabase
-        .from('live_locations')
-        .select(`
-          id,
-          latitude,
-          longitude,
-          speed,
-          heading,
-          accuracy,
-          battery_level,
-          is_tracking,
-          recorded_at,
-          user:user_profiles(id, full_name, role, plant_id, supervisor_id)
-        `)
-        .in('user_id', userIds);
-
-      if (locationsErr) console.error('Error fetching live locations:', locationsErr);
-
-      const formattedLocations = (locations || []).map((loc: any) => {
-        const userObj = Array.isArray(loc.user) ? loc.user[0] : loc.user;
-        const recTime = new Date(loc.recorded_at).getTime();
-        const isStale = (Date.now() - recTime) > 30000;
-
-        return {
-          ...loc,
-          latitude: Number(loc.latitude),
-          longitude: Number(loc.longitude),
-          speed: isStale ? 0 : Number(loc.speed || 0),
-          is_tracking: loc.is_tracking && !isStale,
-          is_stale: isStale,
-          user: userObj || null
-        };
-      });
-
-      return {
-        profile: normalizedProfile,
-        plant: plantObj || null,
-        supervisors,
-        workers,
-        locations: formattedLocations
-      };
+      return res.json();
     },
     refetchInterval: 8000,
     refetchOnWindowFocus: false,
@@ -429,7 +363,7 @@ export default function ManagerDashboardView({ tab }: { tab?: string }) {
 
   const { supervisors = [], workers = [], locations = [] } = dashboardData || {};
 
-  if (!managerProfile || isLoading) {
+  if (isLoading) {
     return (
       <div className="p-4 lg:p-8 space-y-6 max-w-7xl mx-auto animate-pulse">
         <div className="h-8 bg-slate-200 rounded-xl w-1/4" />
@@ -443,6 +377,22 @@ export default function ManagerDashboardView({ tab }: { tab?: string }) {
     );
   }
 
+  if (!managerProfile || isError) {
+    return (
+      <div className="p-8 max-w-xl mx-auto text-center space-y-4">
+        <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl text-amber-800 text-sm font-semibold">
+          Unable to load manager profile data. Please verify your account setup or try again.
+        </div>
+        <button
+          onClick={() => refetch()}
+          className="px-5 py-2.5 bg-zinc-900 text-white text-xs font-bold rounded-xl hover:bg-zinc-800 transition"
+        >
+          Retry Connection
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="p-4 lg:p-8 space-y-6 max-w-7xl mx-auto animate-in fade-in duration-200">
       {/* Header Panel */}
@@ -452,10 +402,10 @@ export default function ManagerDashboardView({ tab }: { tab?: string }) {
             Site command
           </span>
           <h2 className="text-2xl font-black text-slate-900 mt-2 tracking-tight">
-            {managerProfile.plant?.name} Site
+            {managerProfile.plant?.name || 'Site'} Command
           </h2>
           <p className="text-slate-500 text-xs font-semibold mt-1">
-            Plant Manager Panel • Code: {managerProfile.plant?.code}
+            Plant Manager Panel • Code: {managerProfile.plant?.code || 'Assigned'}
           </p>
         </div>
 
