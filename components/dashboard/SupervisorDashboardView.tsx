@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import {
@@ -53,22 +53,33 @@ export default function SupervisorDashboardView({ tab }: { tab?: string }) {
     refetchOnWindowFocus: false,
   });
 
+  const refetchRef = useRef(refetch);
+  useEffect(() => {
+    refetchRef.current = refetch;
+  }, [refetch]);
+
   const supervisorProfile = dashboardData?.profile;
   const plantManager = dashboardData?.plantManager;
 
+  const plantsArray = useMemo(() => {
+    return supervisorProfile?.plant ? [supervisorProfile.plant] : [];
+  }, [supervisorProfile?.plant?.id, supervisorProfile?.plant?.name]);
+
   const [isPausedByAdmin, setIsPausedByAdmin] = useState(false);
 
-  // Real-time listener for direct worker coordinates
+  const startAutoTrackingRef = useRef<any>(null);
+
+  // Real-time listener for direct worker coordinates (persistent WebSocket connection)
   useEffect(() => {
     if (!supervisorProfile?.id) return;
 
     const channel = supabase
-      .channel('supervisor-dashboard-realtime')
+      .channel(`supervisor-dashboard-realtime-${supervisorProfile.id}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'live_locations' },
         () => {
-          refetch();
+          refetchRef.current();
         }
       )
       .subscribe();
@@ -76,7 +87,7 @@ export default function SupervisorDashboardView({ tab }: { tab?: string }) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [supervisorProfile?.id, supabase, refetch]);
+  }, [supervisorProfile?.id, supabase]);
 
   const startAutoTracking = useCallback(async () => {
     if (!supervisorProfile?.id) return;
@@ -378,13 +389,9 @@ export default function SupervisorDashboardView({ tab }: { tab?: string }) {
 
   if (!supervisorProfile || isLoading) {
     return (
-      <div className="p-4 lg:p-8 space-y-6 max-w-7xl mx-auto animate-pulse">
-        <div className="h-8 bg-slate-200 rounded-xl w-1/4" />
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="h-28 bg-slate-200 rounded-2xl" />
-          <div className="h-28 bg-slate-200 rounded-2xl" />
-          <div className="h-28 bg-slate-200 rounded-2xl" />
-        </div>
+      <div className="p-4 sm:p-8 space-y-6 max-w-7xl mx-auto animate-pulse">
+        <div className="h-24 bg-slate-200 rounded-2xl" />
+        <div className="h-32 bg-slate-200 rounded-2xl" />
         <div className="h-80 bg-slate-200 rounded-2xl" />
       </div>
     );
@@ -458,7 +465,7 @@ export default function SupervisorDashboardView({ tab }: { tab?: string }) {
       {/* Team Live Map */}
       <div className="space-y-3">
         <h3 className="text-lg font-bold text-slate-800 tracking-tight">Team Live Map</h3>
-        <AdminMap plants={[supervisorProfile.plant]} locations={locations} selectedPlantId={supervisorProfile.plant_id} />
+        <AdminMap plants={plantsArray} locations={locations} selectedPlantId={supervisorProfile.plant_id} />
       </div>
 
       {/* Team Roster List */}
