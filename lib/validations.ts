@@ -13,7 +13,7 @@ export const CreateUserSchema = z.object({
   role: z.enum(['admin', 'manager', 'supervisor', 'worker']).default('worker'),
   plant_id: z.string().uuid().optional().nullable().or(z.literal('')),
   supervisor_id: z.string().uuid().optional().nullable().or(z.literal('')),
-  is_active: z.boolean().optional().default(true),
+  is_active: z.boolean().optional().default(false),
   location_interval: z.coerce.number().int().min(1, 'Interval must be at least 1 second').max(3600, 'Interval cannot exceed 1 hour').optional(),
 });
 

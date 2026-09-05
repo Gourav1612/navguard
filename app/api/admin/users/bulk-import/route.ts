@@ -183,7 +183,7 @@ export async function POST(req: NextRequest) {
             username,
             full_name: fullName,
             supervisor_id: supervisorId,
-            is_active: true,
+            is_active: existingAuthUser.user_metadata?.is_active ?? false,
           },
         };
 
@@ -214,7 +214,7 @@ export async function POST(req: NextRequest) {
             username,
             full_name: fullName,
             supervisor_id: supervisorId,
-            is_active: true,
+            is_active: false,
           },
         });
 
@@ -237,7 +237,7 @@ export async function POST(req: NextRequest) {
         plant_id: matchedPlant.id,
         supervisor_id: supervisorId,
         location_interval: locationInterval,
-        is_active: true,
+        is_active: existingAuthUser ? (existingAuthUser.user_metadata?.is_active ?? false) : false,
       };
 
       let { error: profileErr } = await adminClient

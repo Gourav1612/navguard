@@ -139,7 +139,7 @@ export async function POST(req: NextRequest) {
     const profilePayload: any = {
       phone: parsed.data.phone || null,
       supervisor_id: parsed.data.supervisor_id || null,
-      is_active: parsed.data.is_active ?? true,
+      is_active: parsed.data.is_active ?? false,
       location_interval: parsed.data.location_interval || 10,
     };
     if (parsed.data.username) profilePayload.username = parsed.data.username;
