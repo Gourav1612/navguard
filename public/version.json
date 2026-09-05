@@ -1,5 +1,5 @@
 {
-  "version": "1.0.6",
+  "version": "1.0.7",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: completely remove display over other apps permission prompt and triggers from MainActivity"
+  "releaseNotes": "Auto-build: fix in-app update HTTPS vercel URL resolution and eliminate ANR background lockups"
 }
