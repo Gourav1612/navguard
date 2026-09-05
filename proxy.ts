@@ -39,20 +39,22 @@ export async function proxy(request: NextRequest) {
     }
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
   const pathname = request.nextUrl.pathname;
 
-  // Bypass public assets and api routes
+  // Bypass public assets, static files, and API routes immediately (0ms overhead)
   if (
     pathname.startsWith('/_next') ||
     pathname.startsWith('/api/') ||
-    pathname.includes('.') // matches favicon.ico, logo.png, manifest.json, css/js files, etc.
+    pathname === '/version.json' ||
+    pathname === '/icon.svg' ||
+    pathname.includes('.')
   ) {
     return response;
   }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   // Redirect to login if unauthenticated
   if (!user) {
@@ -96,18 +98,12 @@ export async function proxy(request: NextRequest) {
     }
   }
 
-  // If user profile is not found, force log out & delete all Supabase auth cookies
+  // If user profile is not found, redirect to login cleanly (preserve cookies for client token recovery)
   if (!role) {
     if (pathname === '/login') {
       return response;
     }
-    const loginRedirect = NextResponse.redirect(new URL('/login', request.url));
-    request.cookies.getAll().forEach((cookie) => {
-      if (cookie.name.startsWith('sb-')) {
-        loginRedirect.cookies.delete(cookie.name);
-      }
-    });
-    return loginRedirect;
+    return NextResponse.redirect(new URL('/login', request.url));
   }
 
   // Mandatory MFA checks for admin accounts (Authoritative Supabase Auth DB check)

@@ -50,21 +50,27 @@ export async function POST(req: NextRequest) {
         .maybeSingle();
       profileObj = data;
     } else {
-      // Find auth user by user_metadata.username or email prefix
-      const { data: authUsersData } = await adminClient.auth.admin.listUsers();
-      const matchedUser = (authUsersData?.users || []).find((u) => {
-        const uName = u.user_metadata?.username || (u.email ? u.email.split('@')[0] : '');
-        return uName.toLowerCase() === rawIdentifier.toLowerCase();
-      });
+      // Fast indexed lookup on user_profiles table by username
+      const { data } = await adminClient
+        .from('user_profiles')
+        .select('id, plant_id, full_name, role, email, username')
+        .or(`username.eq.${rawIdentifier},email.ilike.${rawIdentifier}@%`)
+        .maybeSingle();
 
-      if (matchedUser && matchedUser.email) {
-        targetEmail = matchedUser.email;
-        const { data } = await adminClient
+      if (data && data.email) {
+        profileObj = data;
+        targetEmail = data.email;
+      } else {
+        // Fallback: single fast query by username
+        const { data: userByUsername } = await adminClient
           .from('user_profiles')
           .select('id, plant_id, full_name, role, email')
-          .eq('id', matchedUser.id)
+          .eq('username', rawIdentifier)
           .maybeSingle();
-        profileObj = data;
+        if (userByUsername && userByUsername.email) {
+          profileObj = userByUsername;
+          targetEmail = userByUsername.email;
+        }
       }
     }
 
