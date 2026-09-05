@@ -460,24 +460,24 @@ export default function SupervisorDashboardView({ tab }: { tab?: string }) {
 
       {/* Plant Manager Contact Card */}
       {plantManager && (
-        <div className="bg-white border border-slate-150 p-4 rounded-2xl shadow-sm flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-slate-100 text-slate-800 border border-slate-200 rounded-xl flex items-center justify-center font-extrabold text-sm">
+        <div className="bg-white border border-slate-150 p-4 sm:p-5 rounded-2xl shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5 min-w-0">
+            <div className="w-11 h-11 bg-slate-100 text-slate-800 border border-slate-200 rounded-xl flex items-center justify-center font-extrabold text-base flex-shrink-0">
               🏢
             </div>
-            <div>
+            <div className="min-w-0 flex-1">
               <span className="text-[9px] text-slate-400 font-bold block uppercase tracking-wider">Site Plant Manager</span>
-              <h4 className="font-extrabold text-slate-900 text-sm mt-0.5">{plantManager.full_name}</h4>
-              <span className="text-[10px] text-slate-500 block leading-tight">{plantManager.email}</span>
+              <h4 className="font-extrabold text-slate-900 text-sm sm:text-base truncate">{plantManager.full_name}</h4>
+              <span className="text-[11px] text-slate-500 block leading-tight truncate">{plantManager.email}</span>
             </div>
           </div>
 
           {plantManager.phone && (
             <a
               href={`tel:${plantManager.phone}`}
-              className="flex items-center gap-1.5 px-3 py-2 bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-bold rounded-xl transition shadow-sm"
+              className="flex items-center justify-center gap-2 w-full sm:w-auto px-4 py-2.5 bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-bold rounded-xl transition shadow-sm flex-shrink-0"
             >
-              <Phone className="w-3.5 h-3.5" />
+              <Phone className="w-4 h-4 text-emerald-400" />
               Call Manager
             </a>
           )}
@@ -485,7 +485,7 @@ export default function SupervisorDashboardView({ tab }: { tab?: string }) {
       )}
 
       {/* Header Panel */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 border border-slate-150 rounded-2xl shadow-sm">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-5 sm:p-6 border border-slate-150 rounded-2xl shadow-sm">
         <div>
           <span className="text-[9px] font-bold text-amber-700 uppercase tracking-widest bg-amber-50 border border-amber-100 px-2.5 py-1 rounded-lg">
             Team supervision
@@ -498,34 +498,22 @@ export default function SupervisorDashboardView({ tab }: { tab?: string }) {
           </p>
         </div>
 
-        {/* Telemetry Shift Controls */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-          {trackingError && (
-            <div className="flex items-center gap-1.5 p-2.5 bg-red-50 text-red-700 rounded-xl text-[10px] font-bold">
-              <AlertCircle className="w-4 h-4 flex-shrink-0" />
-              <span>{trackingError}</span>
+        {/* Telemetry Status Indicator (100% Admin Controlled) */}
+        <div className="flex items-center gap-3">
+          {isPausedByAdmin ? (
+            <div className="flex items-center gap-2 px-3.5 py-2.5 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs font-bold shadow-xs">
+              <AlertCircle className="w-4 h-4 flex-shrink-0 text-red-600" />
+              <span>Telemetry paused by Command Center (0 Network Traffic)</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 px-3.5 py-2.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-extrabold shadow-xs">
+              <span className="flex h-2.5 w-2.5 relative">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+              </span>
+              <span>LIVE TELEMETRY STREAMING</span>
             </div>
           )}
-
-          <button
-            onClick={toggleShift}
-            className={`flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-xs font-black transition cursor-pointer shadow-sm ${isShiftActive
-              ? 'bg-red-650 hover:bg-red-750 text-white shadow-red-500/10'
-              : 'bg-zinc-900 hover:bg-zinc-800 text-white'
-              }`}
-          >
-            {isShiftActive ? (
-              <>
-                <Square className="w-4 h-4 fill-white" />
-                Stop Duty Shift
-              </>
-            ) : (
-              <>
-                <Play className="w-4 h-4 fill-white" />
-                Start Duty Shift
-              </>
-            )}
-          </button>
         </div>
       </div>
 
@@ -556,46 +544,43 @@ export default function SupervisorDashboardView({ tab }: { tab?: string }) {
               const isTracking = workerLocation?.is_tracking;
 
               return (
-                <div key={worker.id} className="p-4 sm:px-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white hover:bg-slate-50/50 transition">
-                  <div className="flex items-center gap-3">
+                <div key={worker.id} className="p-4 sm:px-6 flex items-center justify-between gap-3 bg-white hover:bg-slate-50/50 transition">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
                     <span className="flex h-2.5 w-2.5 relative flex-shrink-0">
                       {isTracking && (
                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
                       )}
                       <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${isTracking ? 'bg-green-500' : 'bg-slate-350'}`}></span>
                     </span>
-                    <div>
-                      <h4 className="font-extrabold text-slate-900 text-xs sm:text-sm">{worker.full_name}</h4>
-                      <p className="text-slate-400 text-[10px] font-semibold mt-0.5">{worker.email}</p>
+                    <div className="min-w-0 flex-1">
+                      <h4 className="font-extrabold text-slate-900 text-xs sm:text-sm truncate">{worker.full_name}</h4>
+                      <p className="text-slate-400 text-[10px] font-semibold truncate">{worker.email}</p>
+                      <div className="flex items-center gap-2 mt-0.5 text-[10px] font-bold text-slate-500">
+                        {isTracking && workerLocation ? (
+                          <>
+                            <span className="font-mono text-emerald-600 font-extrabold">{workerLocation.speed.toFixed(1)} km/h</span>
+                            <span className="flex items-center gap-1">
+                              <Battery className="w-3.5 h-3.5 text-slate-450" />
+                              {workerLocation.battery_level !== null ? `${workerLocation.battery_level}%` : '—'}
+                            </span>
+                          </>
+                        ) : (
+                          <span className="text-slate-400 font-bold uppercase">Offline</span>
+                        )}
+                      </div>
                     </div>
                   </div>
 
-                  <div className="flex items-center flex-wrap gap-4 text-xs font-bold text-slate-500">
-                    {isTracking && workerLocation ? (
-                      <>
-                        <span className="font-mono text-slate-700">{workerLocation.speed.toFixed(1)} km/h</span>
-                        <span className="flex items-center gap-1">
-                          <Battery className="w-4 h-4 text-slate-450" />
-                          {workerLocation.battery_level !== null ? `${workerLocation.battery_level}%` : '—'}
-                        </span>
-                        <span className="text-slate-450 text-[10px] font-semibold">
-                          GPS Accuracy: {workerLocation.accuracy.toFixed(1)}m
-                        </span>
-                      </>
-                    ) : (
-                      <span className="text-slate-400 text-[10px] font-bold uppercase">Offline</span>
-                    )}
-
-                    {worker.phone && (
-                      <a
-                        href={`tel:${worker.phone}`}
-                        className="p-2 bg-slate-50 hover:bg-slate-100 text-slate-650 border border-slate-200 rounded-xl transition shadow-sm"
-                        title="Call Worker"
-                      >
-                        <Phone className="w-3.5 h-3.5" />
-                      </a>
-                    )}
-                  </div>
+                  {worker.phone && (
+                    <a
+                      href={`tel:${worker.phone}`}
+                      className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl transition shadow-xs text-xs font-bold"
+                      title={`Call ${worker.full_name}`}
+                    >
+                      <Phone className="w-3.5 h-3.5 text-emerald-600" />
+                      <span className="hidden sm:inline">Call</span>
+                    </a>
+                  )}
                 </div>
               );
             })
