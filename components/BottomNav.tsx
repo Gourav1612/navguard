@@ -230,7 +230,6 @@ export function BottomNav({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="flex items-center gap-2 relative">
-            <SosTriggerButton userRole={activeUser.role} className="scale-90" />
             {showDownloadBtn && (
               <a
                 href="/NaviGuard.apk"

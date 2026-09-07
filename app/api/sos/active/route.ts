@@ -19,30 +19,32 @@ export async function GET() {
       .eq('status', 'active')
       .order('created_at', { ascending: false });
 
+    // Exclude alerts triggered by the caller themselves (sender should not receive incoming siren/banner)
+    query = query.neq('sender_id', callerId);
+
     if (callerRole === 'admin') {
-      // Admin sees all active alerts across all plants
+      // Admin sees all active alerts across all plants (except own)
     } else if (callerRole === 'manager') {
-      // Manager sees all active alerts from their plant
+      // Manager sees active alerts from their plant
       if (callerPlantId) {
         query = query.eq('plant_id', callerPlantId);
       } else {
-        query = query.eq('sender_id', callerId);
+        return NextResponse.json({ alerts: [] });
       }
     } else if (callerRole === 'supervisor') {
       // Supervisor sees:
       // 1. Worker alerts where supervisor_id = supervisor.id
       // 2. Manager alerts for their plant
-      // 3. Their own alert
       if (callerPlantId) {
         query = query.or(
-          `and(sender_role.eq.worker,supervisor_id.eq.${callerId}),and(sender_role.eq.manager,plant_id.eq.${callerPlantId}),sender_id.eq.${callerId}`
+          `and(sender_role.eq.worker,supervisor_id.eq.${callerId}),and(sender_role.eq.manager,plant_id.eq.${callerPlantId})`
         );
       } else {
-        query = query.or(`and(sender_role.eq.worker,supervisor_id.eq.${callerId}),sender_id.eq.${callerId}`);
+        query = query.eq('sender_role', 'worker').eq('supervisor_id', callerId);
       }
     } else {
-      // Worker only sees their own active alert
-      query = query.eq('sender_id', callerId);
+      // Workers do not receive incoming emergency alerts for other personnel
+      return NextResponse.json({ alerts: [] });
     }
 
     const { data: alerts, error: queryErr } = await query;

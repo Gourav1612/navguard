@@ -472,20 +472,6 @@ export default function WorkerDashboardView({ tab }: { tab?: string }) {
         <p className="text-xs font-mono text-slate-500 font-bold mt-1">PLANT CODE: {plant.code}</p>
       </div>
 
-      {/* Emergency Distress SOS Card */}
-      <div className="bg-gradient-to-br from-red-50 to-rose-50 border border-red-200 p-5 rounded-2xl shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div>
-          <h3 className="text-sm font-extrabold text-red-950 flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-red-600 animate-ping" />
-            Worker Distress System
-          </h3>
-          <p className="text-xs text-red-800 mt-0.5 font-medium">
-            Instant priority alert will be dispatched to your assigned supervisor, plant manager, and admin.
-          </p>
-        </div>
-        <SosTriggerButton userRole="worker" className="flex-shrink-0" />
-      </div>
-
       {/* Auto Shift Tracking Active Card */}
       <div className="bg-white border border-slate-150 p-6 rounded-2xl shadow-sm space-y-6">
         <div className="text-center space-y-2">
@@ -590,6 +576,11 @@ export default function WorkerDashboardView({ tab }: { tab?: string }) {
             )}
           </div>
         )}
+
+        {/* Clean Emergency SOS Panic Button */}
+        <div className="pt-2">
+          <SosTriggerButton userRole="worker" className="w-full" />
+        </div>
       </div>
 
       {/* GPS Off Alert Modal */}

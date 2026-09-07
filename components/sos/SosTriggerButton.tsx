@@ -157,11 +157,6 @@ export function SosTriggerButton({ userRole, className, onTriggerSuccess }: SosT
           </span>
         </div>
       </button>
-
-      {/* Helper text tooltip under button */}
-      <span className="text-[10px] text-zinc-400 mt-1 font-semibold tracking-tight">
-        {isHolding ? 'Hold to send instant distress alert' : 'Hold 2s to activate panic alert'}
-      </span>
     </div>
   );
 }
