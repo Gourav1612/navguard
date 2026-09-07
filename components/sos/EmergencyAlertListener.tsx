@@ -115,7 +115,11 @@ export function EmergencyAlertListener({ currentUserRole, currentUserId }: Emerg
   };
 
   const handleResolveAlert = async (alertId: string) => {
+    // Immediately silence siren on click
+    sirenPlayer.stop();
+    setIsMuted(true);
     setResolvingId(alertId);
+
     try {
       const res = await fetch('/api/sos/resolve', {
         method: 'POST',
@@ -125,9 +129,6 @@ export function EmergencyAlertListener({ currentUserRole, currentUserId }: Emerg
 
       if (res.ok) {
         setActiveAlerts((prev) => prev.filter((a) => a.id !== alertId));
-        if (activeAlerts.length <= 1) {
-          sirenPlayer.stop();
-        }
       } else {
         const errData = await res.json().catch(() => ({}));
         alert(errData.error || 'Failed to resolve emergency alert');
@@ -213,7 +214,11 @@ export function EmergencyAlertListener({ currentUserRole, currentUserId }: Emerg
                 href={`https://www.google.com/maps?q=${primaryAlert.latitude},${primaryAlert.longitude}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-red-400 hover:text-red-300 flex items-center gap-1 font-sans font-bold text-[10px] uppercase"
+                onClick={() => {
+                  sirenPlayer.stop();
+                  setIsMuted(true);
+                }}
+                className="text-red-400 hover:text-red-300 flex items-center gap-1 font-sans font-bold text-[10px] uppercase cursor-pointer"
               >
                 <span>Maps</span>
                 <ExternalLink className="w-3 h-3" />
