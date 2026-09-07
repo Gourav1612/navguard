@@ -1,5 +1,5 @@
 {
-  "version": "1.0.9",
+  "version": "1.0.10",
   "apkUrl": "/NaviGuard.apk",
-  "releaseNotes": "Auto-build: fix the changes and make it for applocation and make it to fetch the location"
+  "releaseNotes": "Auto-build: feat(telemetry): enable native background auto-activation for manager, supervisor, and worker via TripStatusReceiver"
 }
