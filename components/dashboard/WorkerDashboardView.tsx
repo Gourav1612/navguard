@@ -113,7 +113,29 @@ export default function WorkerDashboardView({ tab }: { tab?: string }) {
     }
   }, []);
 
+  const stopTracking = useCallback(() => {
+    if (watchIdRef.current !== null) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
+    }
+    if (timerIdRef.current !== null) {
+      clearInterval(timerIdRef.current);
+      timerIdRef.current = null;
+    }
+    if (Capacitor.isNativePlatform()) {
+      LocationService.stopBackgroundService().catch(() => { });
+    }
+    setShiftActive(false);
+    setIsPausedByAdmin(true);
+    setTrackingError('Telemetry paused by Command Center (0 Network Traffic)');
+  }, []);
+
   const startAutoTracking = useCallback(async () => {
+    if (!assignment?.worker?.id || assignment?.worker?.is_active === false) {
+      stopTracking();
+      return;
+    }
+
     const sessionRes = await supabase.auth.getSession();
     const sessionToken = sessionRes.data.session?.access_token;
     if (!sessionToken) return;
@@ -128,7 +150,7 @@ export default function WorkerDashboardView({ tab }: { tab?: string }) {
       try {
         await LocationService.startTracking({
           token: sessionToken,
-          busId: assignment?.worker?.id || '',
+          busId: assignment.worker.id,
           tripId: '',
           serverUrl: apiUrl,
           isTripActive: true,
@@ -139,6 +161,11 @@ export default function WorkerDashboardView({ tab }: { tab?: string }) {
     }
 
     const sendLocationPacket = async (coords: { lat: number; lng: number; speed: number; heading: number; accuracy: number }) => {
+      if (assignment?.worker?.is_active === false) {
+        stopTracking();
+        return;
+      }
+
       const now = Date.now();
       const intervalSeconds = assignment?.worker?.location_interval || 10;
       if (now - lastSentRef.current < intervalSeconds * 1000 - 500) return;
@@ -162,20 +189,7 @@ export default function WorkerDashboardView({ tab }: { tab?: string }) {
         const data = await res.json();
 
         if (res.status === 403 || data?.is_paused || data?.trackingEnabled === false) {
-          if (watchIdRef.current !== null) {
-            navigator.geolocation.clearWatch(watchIdRef.current);
-            watchIdRef.current = null;
-          }
-          if (timerIdRef.current !== null) {
-            clearInterval(timerIdRef.current);
-            timerIdRef.current = null;
-          }
-          if (Capacitor.isNativePlatform()) {
-            LocationService.stopBackgroundService().catch(() => { });
-          }
-          setShiftActive(false);
-          setIsPausedByAdmin(true);
-          setTrackingError('Telemetry paused by Command Center (0 Network Traffic)');
+          stopTracking();
         } else {
           setIsPausedByAdmin(false);
           setShiftActive(true);
@@ -241,7 +255,18 @@ export default function WorkerDashboardView({ tab }: { tab?: string }) {
         }
       }, intervalMs);
     }
-  }, [assignment?.worker?.id, assignment?.worker?.location_interval, batteryLevel, supabase]);
+  }, [assignment?.worker?.id, assignment?.worker?.is_active, assignment?.worker?.location_interval, batteryLevel, stopTracking, supabase]);
+
+  // Sync isPausedByAdmin from assignment worker data
+  useEffect(() => {
+    if (assignment?.worker) {
+      const isInactive = assignment.worker.is_active === false;
+      setIsPausedByAdmin(isInactive);
+      if (isInactive) {
+        stopTracking();
+      }
+    }
+  }, [assignment?.worker?.is_active, stopTracking]);
 
   // Supabase Realtime listener on user_profiles for instant pause/resume signals
   useEffect(() => {
@@ -260,53 +285,12 @@ export default function WorkerDashboardView({ tab }: { tab?: string }) {
         async (payload: any) => {
           const updated = payload.new;
           if (updated && updated.is_active === false) {
-            // Admin paused telemetry: send 1 final confirmation probe packet
-            const sessionRes = await supabase.auth.getSession();
-            const sessionToken = sessionRes.data.session?.access_token;
-            if (sessionToken && 'geolocation' in navigator) {
-              navigator.geolocation.getCurrentPosition(
-                async (pos) => {
-                  try {
-                    await fetch('/api/worker/location', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionToken}` },
-                      body: JSON.stringify({
-                        lat: pos.coords.latitude,
-                        lng: pos.coords.longitude,
-                        speed: pos.coords.speed ? pos.coords.speed * 3.6 : 0,
-                        heading: pos.coords.heading || 0,
-                        accuracy: pos.coords.accuracy,
-                        battery_level: batteryLevel,
-                        is_tracking: true,
-                      }),
-                    });
-                  } catch { }
-                },
-                () => { },
-                { enableHighAccuracy: true, maximumAge: 0 }
-              );
-            }
-
-            // Immediately execute Circuit Breaker to destroy all future timers & watchers
-            if (watchIdRef.current !== null) {
-              navigator.geolocation.clearWatch(watchIdRef.current);
-              watchIdRef.current = null;
-            }
-            if (timerIdRef.current !== null) {
-              clearInterval(timerIdRef.current);
-              timerIdRef.current = null;
-            }
-            if (Capacitor.isNativePlatform()) {
-              LocationService.stopBackgroundService().catch(() => { });
-            }
-            setShiftActive(false);
-            setIsPausedByAdmin(true);
-            setTrackingError('Telemetry paused by Command Center (0 Network Traffic)');
+            stopTracking();
           } else if (updated && updated.is_active === true) {
             setIsPausedByAdmin(false);
             setTrackingError(null);
-            startAutoTracking();
             refetch();
+            startAutoTracking();
           }
         }
       )
@@ -315,50 +299,16 @@ export default function WorkerDashboardView({ tab }: { tab?: string }) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [assignment, supabase, refetch, batteryLevel, startAutoTracking]);
+  }, [assignment?.worker?.id, stopTracking, supabase, refetch, startAutoTracking]);
 
-  // 4-second hybrid polling fallback to guarantee packet streaming auto-starts if Realtime drops
+  // Start background packet streaming ONLY when is_active is strictly true
   useEffect(() => {
-    if (!assignment?.worker) return;
-
-    const interval = setInterval(async () => {
-      try {
-        const res = await fetch('/api/worker/assignment');
-        if (!res.ok) return;
-        const data = await res.json();
-        const serverIsActive = data?.worker?.is_active !== false;
-
-        if (serverIsActive && isPausedByAdmin) {
-          // Admin unpaused! Auto-start telemetry immediately
-          setIsPausedByAdmin(false);
-          setTrackingError(null);
-          startAutoTracking();
-        } else if (!serverIsActive && !isPausedByAdmin) {
-          // Admin paused! Circuit breaker teardown
-          if (watchIdRef.current !== null) {
-            navigator.geolocation.clearWatch(watchIdRef.current);
-            watchIdRef.current = null;
-          }
-          if (timerIdRef.current !== null) {
-            clearInterval(timerIdRef.current);
-            timerIdRef.current = null;
-          }
-          setShiftActive(false);
-          setIsPausedByAdmin(true);
-          setTrackingError('Telemetry paused by Command Center (0 Network Traffic)');
-        }
-      } catch { }
-    }, 4000);
-
-    return () => clearInterval(interval);
-  }, [assignment?.worker, isPausedByAdmin, startAutoTracking]);
-
-  // Automatically start background packet streaming upon login
-  useEffect(() => {
-    if (assignment?.worker?.id && !isPausedByAdmin) {
+    if (assignment?.worker?.id && assignment.worker.is_active === true && !isPausedByAdmin) {
       startAutoTracking();
+    } else if (assignment?.worker?.is_active === false) {
+      stopTracking();
     }
-  }, [assignment?.worker?.id, isPausedByAdmin, startAutoTracking]);
+  }, [assignment?.worker?.id, assignment?.worker?.is_active, isPausedByAdmin, startAutoTracking, stopTracking]);
 
   // Cleanup on component unmount ONLY
   useEffect(() => {

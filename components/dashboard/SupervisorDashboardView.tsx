@@ -79,9 +79,25 @@ export default function SupervisorDashboardView({ tab }: { tab?: string }) {
     return supervisorProfile?.plant ? [supervisorProfile.plant] : [];
   }, [supervisorProfile?.plant?.id, supervisorProfile?.plant?.name]);
 
-  const [isPausedByAdmin, setIsPausedByAdmin] = useState(false);
-
+  const [isPausedByAdmin, setIsPausedByAdmin] = useState(true);
   const startAutoTrackingRef = useRef<any>(null);
+
+  const stopTracking = useCallback(() => {
+    if (watchIdRef.current !== null) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
+    }
+    if (timerIdRef.current !== null) {
+      clearInterval(timerIdRef.current);
+      timerIdRef.current = null;
+    }
+    if (Capacitor.isNativePlatform()) {
+      LocationService.stopBackgroundService().catch(() => { });
+    }
+    setIsShiftActive(false);
+    setIsPausedByAdmin(true);
+    setTrackingError('Telemetry paused by Command Center (0 Network Traffic)');
+  }, []);
 
   // Real-time listener for direct worker coordinates (persistent WebSocket connection)
   useEffect(() => {
@@ -104,7 +120,11 @@ export default function SupervisorDashboardView({ tab }: { tab?: string }) {
   }, [supervisorProfile?.id, supabase]);
 
   const startAutoTracking = useCallback(async () => {
-    if (!supervisorProfile?.id) return;
+    if (!supervisorProfile?.id || supervisorProfile.is_active === false) {
+      stopTracking();
+      return;
+    }
+
     const sessionRes = await supabase.auth.getSession();
     const sessionToken = sessionRes.data.session?.access_token;
     if (!sessionToken) return;
@@ -130,6 +150,11 @@ export default function SupervisorDashboardView({ tab }: { tab?: string }) {
     }
 
     const sendLocationPacket = async (coords: { lat: number; lng: number; speed: number; heading: number; accuracy: number }) => {
+      if (supervisorProfile.is_active === false) {
+        stopTracking();
+        return;
+      }
+
       const now = Date.now();
       const intervalSeconds = supervisorProfile.location_interval || 10;
       if (now - lastSentRef.current < intervalSeconds * 1000 - 500) return;
@@ -151,20 +176,7 @@ export default function SupervisorDashboardView({ tab }: { tab?: string }) {
         });
         const data = await res.json();
         if (res.status === 403 || data?.is_paused || data?.trackingEnabled === false) {
-          if (watchIdRef.current !== null) {
-            navigator.geolocation.clearWatch(watchIdRef.current);
-            watchIdRef.current = null;
-          }
-          if (timerIdRef.current !== null) {
-            clearInterval(timerIdRef.current);
-            timerIdRef.current = null;
-          }
-          if (Capacitor.isNativePlatform()) {
-            LocationService.stopBackgroundService().catch(() => { });
-          }
-          setIsShiftActive(false);
-          setIsPausedByAdmin(true);
-          setTrackingError('Telemetry paused by Command Center (0 Network Traffic)');
+          stopTracking();
         } else {
           setIsPausedByAdmin(false);
           setIsShiftActive(true);
@@ -222,7 +234,22 @@ export default function SupervisorDashboardView({ tab }: { tab?: string }) {
         }
       }, intervalMs);
     }
-  }, [supervisorProfile?.id, supervisorProfile?.location_interval, supabase]);
+  }, [supervisorProfile?.id, supervisorProfile?.is_active, supervisorProfile?.location_interval, stopTracking, supabase]);
+
+  useEffect(() => {
+    startAutoTrackingRef.current = startAutoTracking;
+  }, [startAutoTracking]);
+
+  // Sync isPausedByAdmin from supervisorProfile data
+  useEffect(() => {
+    if (supervisorProfile) {
+      const isInactive = supervisorProfile.is_active === false;
+      setIsPausedByAdmin(isInactive);
+      if (isInactive) {
+        stopTracking();
+      }
+    }
+  }, [supervisorProfile?.is_active, stopTracking]);
 
   // Supabase Realtime listener on user_profiles for instant pause/resume signals
   useEffect(() => {
@@ -241,26 +268,12 @@ export default function SupervisorDashboardView({ tab }: { tab?: string }) {
         async (payload: any) => {
           const updated = payload.new;
           if (updated && updated.is_active === false) {
-            // Admin paused telemetry: clear all future timers & watchers
-            if (watchIdRef.current !== null) {
-              navigator.geolocation.clearWatch(watchIdRef.current);
-              watchIdRef.current = null;
-            }
-            if (timerIdRef.current !== null) {
-              clearInterval(timerIdRef.current);
-              timerIdRef.current = null;
-            }
-            if (Capacitor.isNativePlatform()) {
-              LocationService.stopBackgroundService().catch(() => { });
-            }
-            setIsShiftActive(false);
-            setIsPausedByAdmin(true);
-            setTrackingError('Telemetry paused by Command Center (0 Network Traffic)');
+            stopTracking();
           } else if (updated && updated.is_active === true) {
             setIsPausedByAdmin(false);
             setTrackingError(null);
-            startAutoTracking();
-            refetch();
+            refetchRef.current();
+            if (startAutoTrackingRef.current) startAutoTrackingRef.current();
           }
         }
       )
@@ -269,53 +282,16 @@ export default function SupervisorDashboardView({ tab }: { tab?: string }) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [supervisorProfile?.id, supabase, refetch, startAutoTracking]);
+  }, [supervisorProfile?.id, stopTracking, supabase]);
 
-  // 4-second hybrid polling fallback to guarantee packet streaming auto-starts if Realtime drops
+  // Start background packet streaming ONLY when is_active is strictly true
   useEffect(() => {
-    if (!supervisorProfile?.id) return;
-
-    const interval = setInterval(async () => {
-      try {
-        const res = await fetch('/api/supervisor/dashboard');
-        if (!res.ok) return;
-        const data = await res.json();
-        const serverIsActive = data?.profile?.is_active !== false;
-
-        if (serverIsActive && isPausedByAdmin) {
-          // Admin unpaused! Auto-start telemetry immediately
-          setIsPausedByAdmin(false);
-          setTrackingError(null);
-          startAutoTracking();
-        } else if (!serverIsActive && !isPausedByAdmin) {
-          // Admin paused! Circuit breaker teardown
-          if (watchIdRef.current !== null) {
-            navigator.geolocation.clearWatch(watchIdRef.current);
-            watchIdRef.current = null;
-          }
-          if (timerIdRef.current !== null) {
-            clearInterval(timerIdRef.current);
-            timerIdRef.current = null;
-          }
-          if (Capacitor.isNativePlatform()) {
-            LocationService.stopBackgroundService().catch(() => {});
-          }
-          setIsShiftActive(false);
-          setIsPausedByAdmin(true);
-          setTrackingError('Telemetry paused by Command Center (0 Network Traffic)');
-        }
-      } catch {}
-    }, 4000);
-
-    return () => clearInterval(interval);
-  }, [supervisorProfile?.id, isPausedByAdmin, startAutoTracking]);
-
-  // Automatically start background packet streaming upon login if enabled by Admin
-  useEffect(() => {
-    if (supervisorProfile?.id && !isPausedByAdmin) {
+    if (supervisorProfile?.id && supervisorProfile.is_active === true && !isPausedByAdmin) {
       startAutoTracking();
+    } else if (supervisorProfile?.is_active === false) {
+      stopTracking();
     }
-  }, [supervisorProfile?.id, isPausedByAdmin, startAutoTracking]);
+  }, [supervisorProfile?.id, supervisorProfile?.is_active, isPausedByAdmin, startAutoTracking, stopTracking]);
 
   // Cleanup on component unmount ONLY
   useEffect(() => {
@@ -331,7 +307,7 @@ export default function SupervisorDashboardView({ tab }: { tab?: string }) {
     };
   }, []);
 
-      if (!supervisorProfile || isLoading) {
+  if (!supervisorProfile || isLoading) {
         return (
           <div className="p-4 sm:p-8 space-y-6 max-w-7xl mx-auto animate-pulse">
             <div className="h-24 bg-slate-200 rounded-2xl" />
