@@ -219,6 +219,63 @@ public class LocationServicePlugin extends Plugin {
     }
 
     /**
+     * Stop background foreground service without wiping stored auth credentials.
+     */
+    @PluginMethod
+    public void stopBackgroundService(PluginCall call) {
+        try {
+            Intent serviceIntent = new Intent(getContext(), LocationForegroundService.class);
+            getContext().stopService(serviceIntent);
+            Log.d("LocationServicePlugin", "stopBackgroundService: Successfully stopped LocationForegroundService");
+        } catch (Exception e) {
+            Log.e("LocationServicePlugin", "stopBackgroundService: Failed to stop service", e);
+        }
+        call.resolve();
+    }
+
+    /**
+     * Persist workforce tracking credentials so background TripStatusReceiver can poll status.
+     */
+    @PluginMethod
+    public void saveTrackingCredentials(PluginCall call) {
+        String token = call.getString("token");
+        String userId = call.getString("userId");
+        String serverUrl = call.getString("serverUrl");
+
+        if (token != null && !token.isEmpty() && userId != null && !userId.isEmpty() && serverUrl != null && !serverUrl.isEmpty()) {
+            SharedPreferences prefs = getContext().getSharedPreferences(
+                    LocationForegroundService.PREFS_NAME,
+                    Context.MODE_PRIVATE
+            );
+            prefs.edit()
+                    .putBoolean("is_driver", true)
+                    .putString("auth_token", token)
+                    .putString("bus_id", userId)
+                    .putString("server_url", serverUrl)
+                    .apply();
+
+            try {
+                JSONObject json = new JSONObject();
+                json.put("auth_token", token);
+                json.put("bus_id", userId);
+                json.put("server_url", serverUrl);
+
+                File file = new File(getContext().getFilesDir(), "tracking_credentials.json");
+                FileWriter writer = new FileWriter(file);
+                writer.write(json.toString());
+                writer.flush();
+                writer.close();
+                Log.d("LocationServicePlugin", "saveTrackingCredentials: Saved tracking_credentials.json");
+            } catch (Exception e) {
+                Log.e("LocationServicePlugin", "saveTrackingCredentials: Failed writing file", e);
+            }
+
+            TripStatusReceiver.scheduleNextPoll(getContext());
+        }
+        call.resolve();
+    }
+
+    /**
      * Check if device GPS / Location Provider is enabled.
      */
     @PluginMethod
@@ -256,3 +313,4 @@ public class LocationServicePlugin extends Plugin {
         }
     }
 }
+

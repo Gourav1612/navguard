@@ -6,10 +6,11 @@ import { useEffect, useState } from 'react';
 import { Home, Map, ClipboardList, Bell, User, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Capacitor } from '@capacitor/core';
-import { safeSetDriverStatus } from '@/lib/capacitor-plugins';
-
+import { safeSetDriverStatus, safeSaveTrackingCredentials } from '@/lib/capacitor-plugins';
+import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 
 interface UserProfile {
+  id?: string;
   full_name: string;
   email: string;
   role: 'manager' | 'supervisor' | 'worker' | 'admin';
@@ -73,8 +74,17 @@ export function BottomNav({ children }: { children: React.ReactNode }) {
           const data = await res.json();
           setUser(data);
           
-          // Set driver status on native client for all tracked roles
-          await safeSetDriverStatus(data.role === 'worker' || data.role === 'supervisor' || data.role === 'manager');
+          const isTrackedRole = data.role === 'worker' || data.role === 'supervisor' || data.role === 'manager';
+          await safeSetDriverStatus(isTrackedRole);
+
+          if (isTrackedRole && data.id) {
+            const supabase = createBrowserSupabaseClient();
+            const sessionRes = await supabase.auth.getSession();
+            const sessionToken = sessionRes.data.session?.access_token;
+            if (sessionToken) {
+              await safeSaveTrackingCredentials(sessionToken, data.id);
+            }
+          }
         }
       } catch (err) {
         console.error('Failed to fetch user:', err);

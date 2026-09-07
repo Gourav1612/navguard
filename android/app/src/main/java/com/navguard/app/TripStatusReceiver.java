@@ -92,9 +92,9 @@ public class TripStatusReceiver extends BroadcastReceiver {
                     return;
                 }
 
-                // Derive the assignment URL from the serverUrl (strip path, add /api/driver/assignment)
+                // Derive the workforce assignment URL from serverUrl
                 String baseUrl = serverUrl.replaceAll("/api/.*$", "");
-                String assignmentUrl = baseUrl + "/api/driver/assignment";
+                String assignmentUrl = baseUrl + "/api/worker/assignment";
 
                 // Poll the assignment endpoint
                 HttpURLConnection conn = null;
@@ -129,100 +129,38 @@ public class TripStatusReceiver extends BroadcastReceiver {
                 if (responseBody == null) return;
 
                 JSONObject assignment = new JSONObject(responseBody);
-                
-                // Handle admin remote open app trigger
-                boolean openAppRequested = assignment.optBoolean("open_app_requested", false);
-                if (openAppRequested) {
-                    Log.d(TAG, "Poll: Admin requested app open! Launching MainActivity...");
-                    try {
-                        Intent launchIntent = new Intent(context, MainActivity.class);
-                        launchIntent.setAction("com.navguard.app.ACTION_ENTER_PIP");
-                        launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-                        startActivityWithBackgroundPrivileges(context, launchIntent);
-                    } catch (Exception e) {
-                        Log.e(TAG, "Failed to launch MainActivity on admin request", e);
-                    }
-                }
+                JSONObject worker = assignment.optJSONObject("worker");
+                boolean isActive = worker != null && worker.optBoolean("is_active", false);
 
-                JSONObject activeTrip = assignment.optJSONObject("active_trip");
-                String newTripId = (activeTrip != null) ? activeTrip.optString("trip_id", null) : null;
-                // Normalize empty string → null
-                if (newTripId != null && newTripId.isEmpty()) newTripId = null;
-
-                String prevTripId = lastKnownTripId;
-
-                // Also read from file in case process was restarted
-                String fileTripId = creds.optString("trip_id", "");
-                if (fileTripId.isEmpty()) fileTripId = null;
-
-                boolean tripStarted = (prevTripId == null && fileTripId == null) && newTripId != null;
-                boolean tripEnded   = (prevTripId != null || fileTripId != null) && newTripId == null;
-
-                // Fetch SharedPreferences to sync native is_trip_active flag
+                // Fetch SharedPreferences to check native state
                 android.content.SharedPreferences prefs = context.getSharedPreferences(
                         LocationForegroundService.PREFS_NAME,
                         Context.MODE_PRIVATE
                 );
 
-                // If trip_id changed, update the credentials file
-                if (newTripId != null && !newTripId.equals(fileTripId)) {
-                    // Trip started or trip_id changed
-                    creds.put("trip_id", newTripId);
-                    FileWriter writer = new FileWriter(credsFile);
-                    writer.write(creds.toString());
-                    writer.flush();
-                    writer.close();
-                    lastKnownTripId = newTripId;
+                boolean isServiceRunning = LocationForegroundService.isServiceRunning;
+
+                if (isActive && !isServiceRunning) {
+                    Log.d(TAG, "Poll: Admin enabled streaming (is_active=true)! Starting LocationForegroundService...");
                     prefs.edit().putBoolean("is_trip_active", true).apply();
-                    Log.d(TAG, "Poll: trip_id updated to " + newTripId + " (is_trip_active=true)");
 
-                    if (tripStarted || prevTripId == null) {
-                        showTripNotification(context,
-                                "🚌 Trip Started by Admin",
-                                "Live transit trip initiated. Tracking & PiP Mode active.",
-                                NOTIF_TRIP_START);
-
-                        // Notify LocationForegroundService to trigger Auto-PiP via ForegroundService
-                        try {
-                            Intent serviceIntent = new Intent(context, LocationForegroundService.class);
-                            serviceIntent.setAction("START_TRIP_PIP");
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                                context.startForegroundService(serviceIntent);
-                            } else {
-                                context.startService(serviceIntent);
-                            }
-                        } catch (Exception e) {
-                            Log.e(TAG, "Failed sending START_TRIP_PIP to LocationForegroundService", e);
-                        }
-                    }
-                } else if (newTripId == null && fileTripId != null) {
-                    // Trip ended — clear trip_id from credentials
-                    creds.put("trip_id", "");
-                    FileWriter writer = new FileWriter(credsFile);
-                    writer.write(creds.toString());
-                    writer.flush();
-                    writer.close();
-                    lastKnownTripId = null;
-                    prefs.edit().putBoolean("is_trip_active", false).apply();
-                    Log.d(TAG, "Poll: trip ended, cleared trip_id (is_trip_active=false)");
-
-                    // Send STOP_TRIP_PIP to LocationForegroundService to hide bubble and exit PiP
-                    try {
-                        Intent serviceIntent = new Intent(context, LocationForegroundService.class);
-                        serviceIntent.setAction("STOP_TRIP_PIP");
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                            context.startForegroundService(serviceIntent);
-                        } else {
-                            context.startService(serviceIntent);
-                        }
-                    } catch (Exception e) {
-                        Log.e(TAG, "Failed sending STOP_TRIP_PIP to LocationForegroundService", e);
+                    Intent serviceIntent = new Intent(context, LocationForegroundService.class);
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        context.startForegroundService(serviceIntent);
+                    } else {
+                        context.startService(serviceIntent);
                     }
 
                     showTripNotification(context,
-                            "🏁 Trip Completed by Admin",
-                            "Admin has completed live transit trip.",
-                            NOTIF_TRIP_END);
+                            "🟢 Workforce Telemetry Active",
+                            "Command Center has enabled live workforce telemetry streaming.",
+                            NOTIF_TRIP_START);
+                } else if (!isActive && isServiceRunning) {
+                    Log.d(TAG, "Poll: Admin paused streaming (is_active=false)! Stopping LocationForegroundService...");
+                    prefs.edit().putBoolean("is_trip_active", false).apply();
+
+                    Intent serviceIntent = new Intent(context, LocationForegroundService.class);
+                    context.stopService(serviceIntent);
                 }
 
             } catch (Exception e) {
@@ -254,7 +192,7 @@ public class TripStatusReceiver extends BroadcastReceiver {
             } else {
                 am.set(AlarmManager.RTC_WAKEUP, triggerAt, pi);
             }
-            Log.d(TAG, "Next trip poll scheduled in " + (POLL_INTERVAL_MS / 1000) + "s");
+            Log.d(TAG, "Next workforce poll scheduled in " + (POLL_INTERVAL_MS / 1000) + "s");
         } catch (Exception e) {
             Log.e(TAG, "Failed to schedule next poll", e);
         }
@@ -275,10 +213,10 @@ public class TripStatusReceiver extends BroadcastReceiver {
                 AlarmManager am = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
                 if (am != null) am.cancel(pi);
                 pi.cancel();
-                Log.d(TAG, "Trip polling cancelled");
+                Log.d(TAG, "Workforce polling cancelled");
             }
         } catch (Exception e) {
-            Log.e(TAG, "Failed to cancel trip polling", e);
+            Log.e(TAG, "Failed to cancel workforce polling", e);
         }
     }
 
@@ -291,10 +229,10 @@ public class TripStatusReceiver extends BroadcastReceiver {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 NotificationChannel channel = new NotificationChannel(
                         CHANNEL_ID_TRIP,
-                        "NaviGuard Trip Alerts",
+                        "NaviGuard Workforce Alerts",
                         NotificationManager.IMPORTANCE_HIGH
                 );
-                channel.setDescription("Alerts driver when admin starts or ends a trip.");
+                channel.setDescription("Alerts workforce when Command Center activates or pauses telemetry.");
                 channel.enableVibration(true);
                 channel.setVibrationPattern(new long[]{0, 300, 100, 300});
                 manager.createNotificationChannel(channel);
@@ -318,16 +256,10 @@ public class TripStatusReceiver extends BroadcastReceiver {
                             .setDefaults(androidx.core.app.NotificationCompat.DEFAULT_SOUND
                                     | androidx.core.app.NotificationCompat.DEFAULT_VIBRATE);
 
-            // On trip start, set fullScreenIntent to force-launch Activity into PiP even when app is closed/background
-            if (notifId == NOTIF_TRIP_START) {
-                builder.setFullScreenIntent(tapPi, true);
-                builder.setCategory(androidx.core.app.NotificationCompat.CATEGORY_CALL);
-            }
-
             manager.notify(notifId, builder.build());
-            Log.d(TAG, "Trip notification shown: " + title);
+            Log.d(TAG, "Workforce notification shown: " + title);
         } catch (Exception e) {
-            Log.e(TAG, "Failed to show trip notification", e);
+            Log.e(TAG, "Failed to show workforce notification", e);
         }
     }
 

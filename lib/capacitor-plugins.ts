@@ -20,6 +20,24 @@ export async function safeSetDriverStatus(isDriver: boolean): Promise<void> {
 }
 
 /**
+ * Safe helper to persist credentials to native storage for background status polling
+ */
+export async function safeSaveTrackingCredentials(token: string, userId: string, serverUrl?: string): Promise<void> {
+  if (Capacitor.isNativePlatform()) {
+    try {
+      const endpoint = serverUrl || (typeof window !== 'undefined' ? `${window.location.origin}/api/worker/location` : 'https://navguard-eight.vercel.app/api/worker/location');
+      await LocationService.saveTrackingCredentials({
+        token,
+        userId,
+        serverUrl: endpoint,
+      });
+    } catch (err) {
+      console.warn('Native LocationService.saveTrackingCredentials error:', err);
+    }
+  }
+}
+
+/**
  * Safe helper to check battery optimization only on native platforms
  */
 export async function safeCheckBatteryOptimization(): Promise<any> {
@@ -33,3 +51,4 @@ export async function safeCheckBatteryOptimization(): Promise<any> {
   }
   return null;
 }
+
