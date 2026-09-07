@@ -307,7 +307,7 @@ export function AdminMap({ plants = [], locations = [], selectedPlantId = 'all' 
   }, [plants, locations, selectedPlantId]);
 
   return (
-    <div className="relative z-0 w-full h-[450px] border border-slate-200 rounded-2xl overflow-hidden shadow-inner">
+    <div className="relative z-0 w-full h-[320px] sm:h-[450px] border border-slate-200 rounded-2xl sm:rounded-3xl overflow-hidden shadow-inner">
       <div id="admin-map" className="w-full h-full animate-in fade-in duration-300" />
     </div>
   );

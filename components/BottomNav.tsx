@@ -210,37 +210,52 @@ export function BottomNav({ children }: { children: React.ReactNode }) {
             <img src="/logo.svg" alt="Logo" className="w-8 h-8 object-contain rounded-lg" />
             <span className="font-extrabold text-sm tracking-wide">NaviGuard</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 relative">
             {showDownloadBtn && (
               <a
                 href="/NaviGuard.apk"
                 download
-                className="flex items-center justify-center w-8 h-8 rounded-full bg-zinc-800 text-white border border-zinc-700 transition-all cursor-pointer text-xs leading-none shadow-sm"
+                className="flex items-center justify-center w-8 h-8 rounded-full bg-zinc-800 text-white border border-zinc-700 hover:bg-zinc-700 transition-all cursor-pointer text-xs leading-none shadow-sm"
                 title="Download App"
               >
                 📥
               </a>
             )}
             
+            {/* User Profile Avatar Trigger Button */}
+            <button
+              onClick={() => setShowProfileMenu((prev) => !prev)}
+              className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-tr from-[#5c3b99] to-[#794ed4] text-white font-black text-xs border border-purple-400/40 shadow-sm cursor-pointer active:scale-95 transition-transform"
+              title="Profile menu"
+            >
+              {activeUser.full_name ? activeUser.full_name[0].toUpperCase() : 'U'}
+            </button>
+
             {/* Header Profile Dropdown */}
             {showProfileMenu && (
               <>
                 <div 
-                  className="fixed inset-0 z-40 bg-transparent" 
+                  className="fixed inset-0 z-40 bg-black/20 backdrop-blur-xs" 
                   onClick={() => setShowProfileMenu(false)}
                 />
-                <div className="absolute right-0 mt-2 w-48 bg-white rounded-2xl shadow-xl py-1 z-50 border border-slate-100 animate-in fade-in slide-in-from-top-2 duration-150 overflow-hidden">
-                  <div className="px-4 py-3 border-b border-slate-100 bg-[#f6f5fa]">
-                    <p className="text-[10px] font-bold text-slate-800 uppercase tracking-widest">{activeUser.role}</p>
-                    <p className="text-sm font-bold text-slate-800 truncate mt-0.5">{activeUser.full_name}</p>
+                <div className="absolute right-0 top-10 w-56 bg-white rounded-2xl shadow-2xl py-2 z-50 border border-slate-200/80 animate-in fade-in slide-in-from-top-2 duration-150 overflow-hidden">
+                  <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/80">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[10px] font-extrabold text-purple-700 uppercase tracking-widest">{activeUser.role}</p>
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    </div>
+                    <p className="text-sm font-bold text-slate-900 truncate mt-0.5">{activeUser.full_name}</p>
+                    <p className="text-[11px] text-slate-500 truncate font-mono mt-0.5">{activeUser.email}</p>
                   </div>
-                  <button
-                    onClick={handleLogout}
-                    className="flex items-center gap-2 w-full px-4 py-2.5 text-left text-sm text-red-650 hover:bg-red-50/50 font-bold transition cursor-pointer"
-                  >
-                    <LogOut className="w-4 h-4 text-red-400" />
-                    Sign Out
-                  </button>
+                  <div className="p-1">
+                    <button
+                      onClick={handleLogout}
+                      className="flex items-center gap-2.5 w-full px-3.5 py-2.5 text-left text-xs text-red-600 hover:bg-red-50 rounded-xl font-bold transition cursor-pointer"
+                    >
+                      <LogOut className="w-4 h-4 text-red-500" />
+                      Sign Out
+                    </button>
+                  </div>
                 </div>
               </>
             )}
@@ -248,32 +263,37 @@ export function BottomNav({ children }: { children: React.ReactNode }) {
         </header>
 
         {/* Main Content Area */}
-        <main className="flex-1 pb-24 md:pb-6 overflow-y-auto px-4 lg:px-8 pt-6 w-full max-w-5xl mx-auto animate-in fade-in duration-300">
+        <main className={cn(
+          "flex-1 overflow-y-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 w-full max-w-5xl mx-auto animate-in fade-in duration-300",
+          tabs.length > 1 ? "pb-24 md:pb-6" : "pb-8 md:pb-6"
+        )}>
           {children}
         </main>
 
-        {/* Floating Mobile Bottom Navigation Bar (Hidden on md and up) */}
-        <nav className="md:hidden fixed bottom-4 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-md bg-white/90 backdrop-blur-md border border-slate-150/80 py-2 px-6 flex items-center justify-around rounded-3xl shadow-[0_10px_30px_-5px_rgba(0,0,0,0.1)] z-30">
-          {tabs.map((tab) => {
-            const [tabPath, tabQuery] = tab.href.split('?');
-            const searchParams = new URLSearchParams(tabQuery || '');
-            const tabQueryParam = searchParams.get('tab') || '';
-            const isActive = pathname === tabPath && currentTab === tabQueryParam;
-            return (
-              <Link
-                key={tab.name}
-                href={tab.href}
-                className={cn(
-                  'flex flex-col items-center gap-1.5 py-1 px-4 rounded-xl transition-all duration-300',
-                  isActive ? 'text-zinc-900 font-bold scale-105' : 'text-slate-400 hover:text-slate-650'
-                )}
-              >
-                <tab.icon className={cn('w-5.5 h-5.5 transition-transform duration-300', isActive ? 'text-zinc-900 scale-110' : 'text-slate-400')} />
-                <span className="text-[9px] tracking-wider uppercase font-bold">{tab.name}</span>
-              </Link>
-            );
-          })}
-        </nav>
+        {/* Floating Mobile Bottom Navigation Bar (Only if multiple tabs) */}
+        {tabs.length > 1 && (
+          <nav className="md:hidden fixed bottom-4 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-md bg-white/90 backdrop-blur-md border border-slate-150/80 py-2 px-6 flex items-center justify-around rounded-3xl shadow-[0_10px_30px_-5px_rgba(0,0,0,0.1)] z-30">
+            {tabs.map((tab) => {
+              const [tabPath, tabQuery] = tab.href.split('?');
+              const searchParams = new URLSearchParams(tabQuery || '');
+              const tabQueryParam = searchParams.get('tab') || '';
+              const isActive = pathname === tabPath && currentTab === tabQueryParam;
+              return (
+                <Link
+                  key={tab.name}
+                  href={tab.href}
+                  className={cn(
+                    'flex flex-col items-center gap-1.5 py-1 px-4 rounded-xl transition-all duration-300',
+                    isActive ? 'text-zinc-900 font-bold scale-105' : 'text-slate-400 hover:text-slate-650'
+                  )}
+                >
+                  <tab.icon className={cn('w-5.5 h-5.5 transition-transform duration-300', isActive ? 'text-zinc-900 scale-110' : 'text-slate-400')} />
+                  <span className="text-[9px] tracking-wider uppercase font-bold">{tab.name}</span>
+                </Link>
+              );
+            })}
+          </nav>
+        )}
       </div>
     </div>
   );
