@@ -141,6 +141,24 @@ export function EmergencyAlertListener({ currentUserRole, currentUserId }: Emerg
     }
   };
 
+  const handleOpenMaps = (alertId: string, lat?: number | null, lng?: number | null) => {
+    sirenPlayer.stop();
+    setIsMuted(true);
+    // Dismiss popup immediately
+    setActiveAlerts((prev) => prev.filter((a) => a.id !== alertId));
+
+    // Resolve in background
+    fetch('/api/sos/resolve', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ alertId }),
+    }).catch((err) => console.warn('Auto-resolve on maps click error:', err));
+
+    if (lat && lng) {
+      window.open(`https://www.google.com/maps?q=${lat},${lng}`, '_blank', 'noopener,noreferrer');
+    }
+  };
+
   if (activeAlerts.length === 0) {
     return null;
   }
@@ -210,19 +228,14 @@ export function EmergencyAlertListener({ currentUserRole, currentUserId }: Emerg
                 <MapPin className="w-3 h-3 text-red-400" />
                 {primaryAlert.latitude.toFixed(4)}, {primaryAlert.longitude.toFixed(4)}
               </span>
-              <a
-                href={`https://www.google.com/maps?q=${primaryAlert.latitude},${primaryAlert.longitude}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => {
-                  sirenPlayer.stop();
-                  setIsMuted(true);
-                }}
-                className="text-red-400 hover:text-red-300 flex items-center gap-1 font-sans font-bold text-[10px] uppercase cursor-pointer"
+              <button
+                type="button"
+                onClick={() => handleOpenMaps(primaryAlert.id, primaryAlert.latitude, primaryAlert.longitude)}
+                className="text-red-400 hover:text-red-300 flex items-center gap-1 font-sans font-bold text-[10px] uppercase cursor-pointer bg-transparent border-0 p-0"
               >
-                <span>Maps</span>
+                <span>Open Maps</span>
                 <ExternalLink className="w-3 h-3" />
-              </a>
+              </button>
             </div>
           )}
         </div>
