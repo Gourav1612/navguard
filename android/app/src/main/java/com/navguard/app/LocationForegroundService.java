@@ -56,6 +56,7 @@ public class LocationForegroundService extends Service {
     private LocationCallback locationCallback;
     // Dedicated background thread for location callbacks — never throttled by Android main looper
     private android.os.HandlerThread locationHandlerThread;
+    private final ExecutorService executor = Executors.newSingleThreadExecutor();
     // Native SOS Emergency Alarm & Vibration Management
     public static final String EMERGENCY_CHANNEL_ID = "naviguard_emergency_channel";
     public static final int EMERGENCY_NOTIFICATION_ID = 9999;

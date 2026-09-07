@@ -165,9 +165,9 @@ public class TripStatusReceiver extends BroadcastReceiver {
 
                 // Check active background SOS alerts to sound native alarm even if app is killed
                 try {
-                    URL rawUrl = new URL(serverUrl);
-                    String baseUrl = rawUrl.getProtocol() + "://" + rawUrl.getHost() + (rawUrl.getPort() != -1 ? ":" + rawUrl.getPort() : "");
-                    URL sosUrl = new URL(baseUrl + "/api/sos/active");
+                    URL rawSosUrl = new URL(serverUrl);
+                    String sosBaseUrl = rawSosUrl.getProtocol() + "://" + rawSosUrl.getHost() + (rawSosUrl.getPort() != -1 ? ":" + rawSosUrl.getPort() : "");
+                    URL sosUrl = new URL(sosBaseUrl + "/api/sos/active");
 
                     HttpURLConnection sosConn = (HttpURLConnection) sosUrl.openConnection();
                     sosConn.setRequestMethod("GET");
@@ -176,15 +176,15 @@ public class TripStatusReceiver extends BroadcastReceiver {
                     sosConn.setReadTimeout(4000);
 
                     if (sosConn.getResponseCode() == 200) {
-                        BufferedReader reader = new BufferedReader(new java.io.InputStreamReader(sosConn.getInputStream()));
-                        StringBuilder sb = new StringBuilder();
+                        BufferedReader sosReader = new BufferedReader(new java.io.InputStreamReader(sosConn.getInputStream()));
+                        StringBuilder sosSb = new StringBuilder();
                         String l;
-                        while ((l = reader.readLine()) != null) {
-                            sb.append(l);
+                        while ((l = sosReader.readLine()) != null) {
+                            sosSb.append(l);
                         }
-                        reader.close();
+                        sosReader.close();
 
-                        JSONObject sosJson = new JSONObject(sb.toString());
+                        JSONObject sosJson = new JSONObject(sosSb.toString());
                         org.json.JSONArray alertsArray = sosJson.optJSONArray("alerts");
 
                         if (alertsArray != null && alertsArray.length() > 0) {
