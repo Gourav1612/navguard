@@ -38,17 +38,15 @@ export async function safeSaveTrackingCredentials(token: string, userId: string,
 }
 
 /**
- * Safe helper to check battery optimization only on native platforms
+ * Safe helper to stop native Android emergency alarm and vibration
  */
-export async function safeCheckBatteryOptimization(): Promise<any> {
+export async function safeStopNativeAlarm(): Promise<void> {
   if (Capacitor.isNativePlatform()) {
     try {
-      return await BatteryOptimization.check();
+      await LocationService.stopNativeAlarm();
     } catch (err) {
-      console.warn('Native BatteryOptimization.check error:', err);
-      return null;
+      console.warn('Native LocationService.stopNativeAlarm error:', err);
     }
   }
-  return null;
 }
 

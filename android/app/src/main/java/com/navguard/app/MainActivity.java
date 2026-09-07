@@ -55,6 +55,9 @@ public class MainActivity extends BridgeActivity {
     public void onResume() {
         super.onResume();
 
+        // Silence native emergency alarm when app is opened
+        LocationForegroundService.stopEmergencyAlarm(this);
+
         // 1. Request POST_NOTIFICATIONS runtime permission on Android 13+ (API 33+)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {

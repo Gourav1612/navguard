@@ -312,5 +312,19 @@ public class LocationServicePlugin extends Plugin {
             call.reject("Failed to open location settings");
         }
     }
+
+    /**
+     * Instantly silence native Android emergency alarm and vibration.
+     */
+    @PluginMethod
+    public void stopNativeAlarm(PluginCall call) {
+        try {
+            LocationForegroundService.stopEmergencyAlarm(getContext());
+            call.resolve();
+        } catch (Exception e) {
+            Log.e("LocationServicePlugin", "Failed to stop native alarm", e);
+            call.reject("Failed to stop native alarm: " + e.getMessage());
+        }
+    }
 }
 

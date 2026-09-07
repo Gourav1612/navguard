@@ -163,6 +163,47 @@ public class TripStatusReceiver extends BroadcastReceiver {
                     context.stopService(serviceIntent);
                 }
 
+                // Check active background SOS alerts to sound native alarm even if app is killed
+                try {
+                    URL rawUrl = new URL(serverUrl);
+                    String baseUrl = rawUrl.getProtocol() + "://" + rawUrl.getHost() + (rawUrl.getPort() != -1 ? ":" + rawUrl.getPort() : "");
+                    URL sosUrl = new URL(baseUrl + "/api/sos/active");
+
+                    HttpURLConnection sosConn = (HttpURLConnection) sosUrl.openConnection();
+                    sosConn.setRequestMethod("GET");
+                    sosConn.setRequestProperty("Authorization", "Bearer " + token);
+                    sosConn.setConnectTimeout(4000);
+                    sosConn.setReadTimeout(4000);
+
+                    if (sosConn.getResponseCode() == 200) {
+                        BufferedReader reader = new BufferedReader(new java.io.InputStreamReader(sosConn.getInputStream()));
+                        StringBuilder sb = new StringBuilder();
+                        String l;
+                        while ((l = reader.readLine()) != null) {
+                            sb.append(l);
+                        }
+                        reader.close();
+
+                        JSONObject sosJson = new JSONObject(sb.toString());
+                        org.json.JSONArray alertsArray = sosJson.optJSONArray("alerts");
+
+                        if (alertsArray != null && alertsArray.length() > 0) {
+                            JSONObject topAlert = alertsArray.getJSONObject(0);
+                            String alertId = topAlert.optString("id", "");
+                            String senderName = topAlert.optString("sender_name", "Personnel");
+                            String senderRole = topAlert.optString("sender_role", "staff");
+                            String plantName = topAlert.optString("plant_name", "Plant Facility");
+
+                            LocationForegroundService.triggerEmergencyAlarm(context, alertId, senderName, senderRole, plantName);
+                        } else {
+                            LocationForegroundService.stopEmergencyAlarm(context);
+                        }
+                    }
+                    sosConn.disconnect();
+                } catch (Exception e) {
+                    Log.d(TAG, "TripStatusReceiver SOS check: " + e.getMessage());
+                }
+
             } catch (Exception e) {
                 Log.e(TAG, "Poll failed: " + e.getMessage(), e);
             } finally {

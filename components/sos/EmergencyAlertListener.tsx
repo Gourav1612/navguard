@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { sirenPlayer } from '@/lib/siren-audio';
+import { safeStopNativeAlarm } from '@/lib/capacitor-plugins';
 import { 
   AlertTriangle, 
   Volume2, 
@@ -111,13 +112,15 @@ export function EmergencyAlertListener({ currentUserRole, currentUserId }: Emerg
     } else {
       setIsMuted(true);
       sirenPlayer.stop();
+      safeStopNativeAlarm();
     }
   };
 
   const handleResolveAlert = async (alertId: string) => {
-    // Immediately silence siren on click
+    // Immediately silence siren and native background alarm on click
     sirenPlayer.stop();
     setIsMuted(true);
+    safeStopNativeAlarm();
     setResolvingId(alertId);
 
     try {
@@ -144,6 +147,7 @@ export function EmergencyAlertListener({ currentUserRole, currentUserId }: Emerg
   const handleOpenMaps = (alertId: string, lat?: number | null, lng?: number | null) => {
     sirenPlayer.stop();
     setIsMuted(true);
+    safeStopNativeAlarm();
     // Dismiss popup immediately
     setActiveAlerts((prev) => prev.filter((a) => a.id !== alertId));
 

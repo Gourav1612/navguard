@@ -56,8 +56,14 @@ public class LocationForegroundService extends Service {
     private LocationCallback locationCallback;
     // Dedicated background thread for location callbacks — never throttled by Android main looper
     private android.os.HandlerThread locationHandlerThread;
-    private final ExecutorService executor = Executors.newSingleThreadExecutor();
-    // Heartbeat: re-registers location updates every 60s to survive OEM throttling
+    // Native SOS Emergency Alarm & Vibration Management
+    public static final String EMERGENCY_CHANNEL_ID = "naviguard_emergency_channel";
+    public static final int EMERGENCY_NOTIFICATION_ID = 9999;
+    private static android.media.Ringtone currentRingtone = null;
+    private static android.os.Vibrator currentVibrator = null;
+    public static volatile boolean isAlarmRinging = false;
+    private static volatile String activeAlertId = null;
+
     private static final int HEARTBEAT_REQUEST_CODE = 9001;
     private static final long HEARTBEAT_INTERVAL_MS = 60000;
     private long lastGeocodeTimeMs = 0;
@@ -466,6 +472,9 @@ public class LocationForegroundService extends Service {
                         Log.w(TAG, "Service: Server returned non-ok status: " + responseCode);
                     }
 
+                    // Check for active background SOS alerts to sound native alarm if app is closed
+                    checkActiveSosAlerts(serverUrl, token);
+
                     // Always read error stream to release network resource for reuse
                     java.io.InputStream es = conn.getErrorStream();
                     if (es != null) {
@@ -488,6 +497,139 @@ public class LocationForegroundService extends Service {
         });
     }
 
+    private void checkActiveSosAlerts(String serverUrl, String token) {
+        if (serverUrl == null || token == null) return;
+        try {
+            URL rawUrl = new URL(serverUrl);
+            String baseUrl = rawUrl.getProtocol() + "://" + rawUrl.getHost() + (rawUrl.getPort() != -1 ? ":" + rawUrl.getPort() : "");
+            URL sosUrl = new URL(baseUrl + "/api/sos/active");
+
+            HttpURLConnection sosConn = (HttpURLConnection) sosUrl.openConnection();
+            sosConn.setRequestMethod("GET");
+            sosConn.setRequestProperty("Authorization", "Bearer " + token);
+            sosConn.setConnectTimeout(4000);
+            sosConn.setReadTimeout(4000);
+
+            int sosCode = sosConn.getResponseCode();
+            if (sosCode == 200) {
+                java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.InputStreamReader(sosConn.getInputStream()));
+                StringBuilder sb = new StringBuilder();
+                String l;
+                while ((l = reader.readLine()) != null) {
+                    sb.append(l);
+                }
+                reader.close();
+
+                JSONObject sosJson = new JSONObject(sb.toString());
+                org.json.JSONArray alertsArray = sosJson.optJSONArray("alerts");
+
+                if (alertsArray != null && alertsArray.length() > 0) {
+                    JSONObject topAlert = alertsArray.getJSONObject(0);
+                    String alertId = topAlert.optString("id", "");
+                    String senderName = topAlert.optString("sender_name", "Personnel");
+                    String senderRole = topAlert.optString("sender_role", "staff");
+                    String plantName = topAlert.optString("plant_name", "Plant Facility");
+
+                    triggerEmergencyAlarm(getApplicationContext(), alertId, senderName, senderRole, plantName);
+                } else {
+                    stopEmergencyAlarm(getApplicationContext());
+                }
+            }
+            sosConn.disconnect();
+        } catch (Exception e) {
+            Log.d(TAG, "Background SOS check poll: " + e.getMessage());
+        }
+    }
+
+    public static synchronized void triggerEmergencyAlarm(Context context, String alertId, String senderName, String senderRole, String plantName) {
+        if (isAlarmRinging) return;
+        isAlarmRinging = true;
+        activeAlertId = alertId;
+
+        try {
+            // 1. Play Native Audio Chime / Alarm
+            android.net.Uri alertUri = android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_ALARM);
+            if (alertUri == null) {
+                alertUri = android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_NOTIFICATION);
+            }
+            if (alertUri != null) {
+                currentRingtone = android.media.RingtoneManager.getRingtone(context.getApplicationContext(), alertUri);
+                if (currentRingtone != null) {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                        currentRingtone.setAudioAttributes(
+                            new android.media.AudioAttributes.Builder()
+                                .setUsage(android.media.AudioAttributes.USAGE_ALARM)
+                                .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                                .build()
+                        );
+                    }
+                    currentRingtone.play();
+                }
+            }
+
+            // 2. Start Continuous Native SOS Vibration Pattern
+            currentVibrator = (android.os.Vibrator) context.getSystemService(Context.VIBRATOR_SERVICE);
+            if (currentVibrator != null && currentVibrator.hasVibrator()) {
+                long[] pattern = { 0, 450, 200, 450, 200, 450, 700 };
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    currentVibrator.vibrate(android.os.VibrationEffect.createWaveform(pattern, 0)); // 0 = loop
+                } else {
+                    currentVibrator.vibrate(pattern, 0);
+                }
+            }
+
+            // 3. Post High-Priority Heads-Up Emergency Notification
+            NotificationManager notificationManager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+            if (notificationManager != null) {
+                Intent launchIntent = new Intent(context, MainActivity.class);
+                launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
+                PendingIntent pendingIntent = PendingIntent.getActivity(
+                    context,
+                    EMERGENCY_NOTIFICATION_ID,
+                    launchIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT | (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_IMMUTABLE : 0)
+                );
+
+                NotificationCompat.Builder builder = new NotificationCompat.Builder(context, EMERGENCY_CHANNEL_ID)
+                    .setSmallIcon(android.R.drawable.ic_dialog_alert)
+                    .setContentTitle("🚨 CRITICAL SOS: " + senderName + " (" + senderRole.toUpperCase() + ")")
+                    .setContentText("Site: " + plantName + " • Tap to respond immediately")
+                    .setPriority(NotificationCompat.PRIORITY_MAX)
+                    .setCategory(NotificationCompat.CATEGORY_ALARM)
+                    .setAutoCancel(true)
+                    .setContentIntent(pendingIntent)
+                    .setOngoing(true);
+
+                notificationManager.notify(EMERGENCY_NOTIFICATION_ID, builder.build());
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to trigger native emergency alarm", e);
+        }
+    }
+
+    public static synchronized void stopEmergencyAlarm(Context context) {
+        isAlarmRinging = false;
+        activeAlertId = null;
+        try {
+            if (currentRingtone != null) {
+                currentRingtone.stop();
+                currentRingtone = null;
+            }
+            if (currentVibrator != null) {
+                currentVibrator.cancel();
+                currentVibrator = null;
+            }
+            if (context != null) {
+                NotificationManager notificationManager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+                if (notificationManager != null) {
+                    notificationManager.cancel(EMERGENCY_NOTIFICATION_ID);
+                }
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to stop native emergency alarm", e);
+        }
+    }
+
     private Notification buildNotification() {
         Intent notificationIntent = new Intent(this, MainActivity.class);
         PendingIntent pendingIntent = PendingIntent.getActivity(
@@ -508,18 +650,32 @@ public class LocationForegroundService extends Service {
 
     private void createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel channel = new NotificationChannel(
-                    CHANNEL_ID,
-                    "NaviGuard Location Tracking",
-                    NotificationManager.IMPORTANCE_MIN
-            );
-            channel.setDescription("Keeps bus location tracking active silently during a school trip.");
-            channel.enableVibration(false);
-            channel.setVibrationPattern(null);
-            channel.setSound(null, null);
             NotificationManager manager = getSystemService(NotificationManager.class);
             if (manager != null) {
+                // Tracking Channel
+                NotificationChannel channel = new NotificationChannel(
+                        CHANNEL_ID,
+                        "NaviGuard Location Tracking",
+                        NotificationManager.IMPORTANCE_MIN
+                );
+                channel.setDescription("Keeps bus location tracking active silently during a school trip.");
+                channel.enableVibration(false);
+                channel.setVibrationPattern(null);
+                channel.setSound(null, null);
                 manager.createNotificationChannel(channel);
+
+                // Critical Emergency SOS Channel
+                NotificationChannel emergencyChannel = new NotificationChannel(
+                        EMERGENCY_CHANNEL_ID,
+                        "NaviGuard Critical Emergency Alerts",
+                        NotificationManager.IMPORTANCE_HIGH
+                );
+                emergencyChannel.setDescription("Critical worker distress and safety SOS alarms");
+                emergencyChannel.enableVibration(true);
+                emergencyChannel.setVibrationPattern(new long[]{ 0, 450, 200, 450 });
+                emergencyChannel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
+                emergencyChannel.setBypassDnd(true);
+                manager.createNotificationChannel(emergencyChannel);
             }
         }
     }
