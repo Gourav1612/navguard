@@ -31,6 +31,7 @@ import UsersView from './subviews/UsersView';
 import AuditLogsView from './subviews/AuditLogsView';
 import SettingsView from './subviews/SettingsView';
 import { DashboardSkeleton } from '@/components/ui/Skeleton';
+import { EmergencyAlertListener } from '@/components/sos/EmergencyAlertListener';
 
 // Load map dynamically to prevent build failures due to window/document checks during SSR
 const AdminMap = dynamic(() => import('@/components/AdminMap').then((m) => m.AdminMap), {
@@ -239,6 +240,7 @@ export default function AdminDashboardView({ tab: initialTab }: { tab?: string }
 
   return (
     <div className="space-y-6 pb-12">
+      <EmergencyAlertListener currentUserRole="admin" />
       {/* Scope Selector Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-150 shadow-sm">
         <div>

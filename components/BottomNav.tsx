@@ -8,6 +8,8 @@ import { cn } from '@/lib/utils';
 import { Capacitor } from '@capacitor/core';
 import { safeSetDriverStatus, safeSaveTrackingCredentials } from '@/lib/capacitor-plugins';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
+import { EmergencyAlertListener } from '@/components/sos/EmergencyAlertListener';
+import { SosTriggerButton } from '@/components/sos/SosTriggerButton';
 
 interface UserProfile {
   id?: string;
@@ -176,8 +178,11 @@ export function BottomNav({ children }: { children: React.ReactNode }) {
           </nav>
         </div>
 
-        {/* Footer Profile & Sign out */}
+        {/* Desktop SOS Trigger & Footer Profile & Sign out */}
         <div className="p-4 border-t border-zinc-800/80 bg-zinc-950/40">
+          <div className="mb-4">
+            <SosTriggerButton userRole={activeUser.role} className="w-full" />
+          </div>
           <div className="flex items-center gap-3 mb-4 px-2">
             <div className="flex items-center justify-center w-8 h-8 bg-zinc-800 rounded-full text-white font-bold text-xs">
               {activeUser.full_name ? activeUser.full_name[0] : 'U'}
@@ -209,18 +214,23 @@ export function BottomNav({ children }: { children: React.ReactNode }) {
 
       {/* Main Content Pane Wrapper */}
       <div className="flex-1 flex flex-col min-h-screen relative overflow-hidden">
+        {/* Global Emergency SOS Real-time Listener & Siren */}
+        <EmergencyAlertListener currentUserRole={activeUser.role} currentUserId={activeUser.id} />
+
         {/* Mobile Header */}
         <header className={cn(
-          "md:hidden sticky top-0 z-30 flex items-center justify-between px-6 py-4 transition-all duration-300 text-white w-full",
+          "md:hidden sticky top-0 z-30 flex items-center justify-between px-4 py-3 transition-all duration-300 text-white w-full",
           isScrolled 
             ? "bg-[#090A0F]/85 backdrop-blur-lg shadow-lg border-b border-zinc-800" 
             : "bg-[#090A0F] border-b border-zinc-800/80 shadow-md"
         )}>
-          <div className="flex items-center gap-3">
-            <img src="/logo.svg" alt="Logo" className="w-8 h-8 object-contain rounded-lg" />
+          <div className="flex items-center gap-2">
+            <img src="/logo.svg" alt="Logo" className="w-7 h-7 object-contain rounded-lg" />
             <span className="font-extrabold text-sm tracking-wide">NaviGuard</span>
           </div>
+
           <div className="flex items-center gap-2 relative">
+            <SosTriggerButton userRole={activeUser.role} className="scale-90" />
             {showDownloadBtn && (
               <a
                 href="/NaviGuard.apk"

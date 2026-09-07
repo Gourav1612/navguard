@@ -19,6 +19,7 @@ import {
 import dynamic from 'next/dynamic';
 import { Capacitor } from '@capacitor/core';
 import { LocationService } from '@/lib/capacitor-plugins';
+import { SosTriggerButton } from '@/components/sos/SosTriggerButton';
 
 // Load map dynamically to prevent build failures during SSR
 const AdminMap = dynamic(() => import('@/components/AdminMap').then((m) => m.AdminMap), {
@@ -363,8 +364,9 @@ export default function SupervisorDashboardView({ tab }: { tab?: string }) {
               </p>
             </div>
 
-            {/* Telemetry Status Indicator (100% Admin Controlled) */}
-            <div className="flex items-center gap-3">
+            {/* Telemetry Status Indicator (100% Admin Controlled) & Emergency Panic Trigger */}
+            <div className="flex flex-wrap items-center gap-3">
+              <SosTriggerButton userRole="supervisor" />
               {isPausedByAdmin ? (
                 <div className="flex items-center gap-2 px-3.5 py-2.5 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs font-bold shadow-xs">
                   <AlertCircle className="w-4 h-4 flex-shrink-0 text-red-600" />
