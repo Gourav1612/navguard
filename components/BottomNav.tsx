@@ -202,13 +202,19 @@ export function BottomNav({ children }: { children: React.ReactNode }) {
               📥 Download Mobile App
             </a>
           )}
-          <button
-            onClick={handleLogout}
-            className="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-wider text-zinc-300 border border-zinc-800 bg-zinc-900/40 hover:bg-red-950/30 hover:text-red-300 hover:border-red-900/50 transition-all duration-300 cursor-pointer"
-          >
-            <LogOut className="w-4 h-4" />
-            Sign Out
-          </button>
+          {!['plant_manager', 'manager', 'supervisor', 'worker', 'staff'].includes(activeUser.role?.toLowerCase() || '') ? (
+            <button
+              onClick={handleLogout}
+              className="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-wider text-zinc-300 border border-zinc-800 bg-zinc-900/40 hover:bg-red-950/30 hover:text-red-300 hover:border-red-900/50 transition-all duration-300 cursor-pointer"
+            >
+              <LogOut className="w-4 h-4" />
+              Sign Out
+            </button>
+          ) : (
+            <div className="px-3 py-2 text-center text-[10px] font-bold text-emerald-400 bg-emerald-950/20 rounded-xl border border-emerald-900/30">
+              ⚡ Active Security Session
+            </div>
+          )}
         </div>
       </aside>
 
@@ -267,7 +273,7 @@ export function BottomNav({ children }: { children: React.ReactNode }) {
                     <p className="text-[11px] text-slate-500 truncate font-mono mt-0.5">{activeUser.email}</p>
                   </div>
                   <div className="p-1">
-                    {!['plant_manager', 'supervisor', 'worker', 'staff'].includes(activeUser.role?.toLowerCase() || '') ? (
+                    {!['plant_manager', 'manager', 'supervisor', 'worker', 'staff'].includes(activeUser.role?.toLowerCase() || '') ? (
                       <button
                         onClick={handleLogout}
                         className="flex items-center gap-2.5 w-full px-3.5 py-2.5 text-left text-xs text-red-600 hover:bg-red-50 rounded-xl font-bold transition cursor-pointer"

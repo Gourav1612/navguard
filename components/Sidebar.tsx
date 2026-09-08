@@ -207,13 +207,19 @@ export function Sidebar() {
           <div className="h-9 mb-4 animate-pulse bg-zinc-900 rounded-lg"></div>
         )}
 
-        <button
-          onClick={handleLogout}
-          className="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider text-zinc-300 border border-zinc-800 bg-zinc-900/40 hover:bg-red-950/30 hover:text-red-300 hover:border-red-900/50 transition-all duration-300 cursor-pointer"
-        >
-          <LogOut className="w-4 h-4" />
-          Sign Out
-        </button>
+        {!['plant_manager', 'manager', 'supervisor', 'worker', 'staff'].includes(user?.role?.toLowerCase() || '') ? (
+          <button
+            onClick={handleLogout}
+            className="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider text-zinc-300 border border-zinc-800 bg-zinc-900/40 hover:bg-red-950/30 hover:text-red-300 hover:border-red-900/50 transition-all duration-300 cursor-pointer"
+          >
+            <LogOut className="w-4 h-4" />
+            Sign Out
+          </button>
+        ) : (
+          <div className="px-3.5 py-2.5 text-center text-xs font-bold text-emerald-400 bg-emerald-950/20 rounded-xl border border-emerald-900/30">
+            ⚡ Active Security Session
+          </div>
+        )}
       </div>
     </div>
   );
@@ -332,7 +338,7 @@ export function Sidebar() {
                 📥 Download Mobile App
               </a>
             )}
-            {!['plant_manager', 'supervisor', 'worker', 'staff'].includes(user?.role?.toLowerCase() || '') ? (
+            {!['plant_manager', 'manager', 'supervisor', 'worker', 'staff'].includes(user?.role?.toLowerCase() || '') ? (
               <button
                 onClick={handleLogout}
                 className="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider text-zinc-300 border border-zinc-800 hover:bg-red-955/30 hover:text-red-300 hover:border-red-900/50 transition-all duration-300 cursor-pointer"
