@@ -582,7 +582,7 @@ public class LocationForegroundService extends Service {
                 }
             }
 
-            // 3. Post High-Priority Heads-Up Emergency Notification
+            // 3. Post High-Priority Heads-Up Emergency Notification with Direct Action Buttons
             NotificationManager notificationManager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
             if (notificationManager != null) {
                 Intent launchIntent = new Intent(context, MainActivity.class);
@@ -594,15 +594,41 @@ public class LocationForegroundService extends Service {
                     PendingIntent.FLAG_UPDATE_CURRENT | (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_IMMUTABLE : 0)
                 );
 
+                // One-tap Dismiss / Silence Intent (handled by SosActionReceiver without opening app)
+                Intent dismissIntent = new Intent(context, SosActionReceiver.class);
+                dismissIntent.setAction(SosActionReceiver.ACTION_DISMISS_SOS_ALARM);
+                PendingIntent dismissPi = PendingIntent.getBroadcast(
+                    context,
+                    EMERGENCY_NOTIFICATION_ID + 1,
+                    dismissIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT | (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_IMMUTABLE : 0)
+                );
+
+                NotificationCompat.Action dismissAction = new NotificationCompat.Action.Builder(
+                    android.R.drawable.ic_lock_silent_mode,
+                    "🛑 DISMISS ALARM",
+                    dismissPi
+                ).build();
+
+                NotificationCompat.Action openAction = new NotificationCompat.Action.Builder(
+                    android.R.drawable.ic_menu_mylocation,
+                    "📍 OPEN INCIDENT",
+                    pendingIntent
+                ).build();
+
                 NotificationCompat.Builder builder = new NotificationCompat.Builder(context, EMERGENCY_CHANNEL_ID)
                     .setSmallIcon(android.R.drawable.ic_dialog_alert)
                     .setContentTitle("🚨 CRITICAL SOS: " + senderName + " (" + senderRole.toUpperCase() + ")")
-                    .setContentText("Site: " + plantName + " • Tap to respond immediately")
+                    .setContentText("Site: " + plantName + " • Tap button below to dismiss or open")
                     .setPriority(NotificationCompat.PRIORITY_MAX)
                     .setCategory(NotificationCompat.CATEGORY_ALARM)
                     .setAutoCancel(true)
                     .setContentIntent(pendingIntent)
-                    .setOngoing(true);
+                    .setDeleteIntent(dismissPi) // Swiping away the notification silences the alarm sound too!
+                    .setFullScreenIntent(pendingIntent, true) // Heads-up popup on lock screen
+                    .addAction(dismissAction)
+                    .addAction(openAction)
+                    .setOngoing(false);
 
                 notificationManager.notify(EMERGENCY_NOTIFICATION_ID, builder.build());
             }

@@ -55,6 +55,14 @@
             </intent-filter>
         </receiver>
 
+        <receiver
+            android:name=".SosActionReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.navguard.app.ACTION_DISMISS_SOS_ALARM" />
+            </intent-filter>
+        </receiver>
+
     </application>
 
     <uses-permission android:name="android.permission.INTERNET" />
