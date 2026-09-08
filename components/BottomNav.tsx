@@ -267,13 +267,19 @@ export function BottomNav({ children }: { children: React.ReactNode }) {
                     <p className="text-[11px] text-slate-500 truncate font-mono mt-0.5">{activeUser.email}</p>
                   </div>
                   <div className="p-1">
-                    <button
-                      onClick={handleLogout}
-                      className="flex items-center gap-2.5 w-full px-3.5 py-2.5 text-left text-xs text-red-600 hover:bg-red-50 rounded-xl font-bold transition cursor-pointer"
-                    >
-                      <LogOut className="w-4 h-4 text-red-500" />
-                      Sign Out
-                    </button>
+                    {!['plant_manager', 'supervisor', 'worker', 'staff'].includes(activeUser.role?.toLowerCase() || '') ? (
+                      <button
+                        onClick={handleLogout}
+                        className="flex items-center gap-2.5 w-full px-3.5 py-2.5 text-left text-xs text-red-600 hover:bg-red-50 rounded-xl font-bold transition cursor-pointer"
+                      >
+                        <LogOut className="w-4 h-4 text-red-500" />
+                        Sign Out
+                      </button>
+                    ) : (
+                      <div className="px-3 py-2 text-center text-[10px] font-bold text-emerald-700 bg-emerald-50 rounded-xl border border-emerald-200">
+                        ⚡ Active Security Session
+                      </div>
+                    )}
                   </div>
                 </div>
               </>
