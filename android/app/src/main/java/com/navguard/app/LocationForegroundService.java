@@ -75,7 +75,7 @@ public class LocationForegroundService extends Service {
         super.onCreate();
         isServiceRunning = true;
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
-        createNotificationChannel();
+        createNotificationChannels(this);
 
         // Start dedicated HandlerThread for location callbacks (isolated from main looper throttling)
         locationHandlerThread = new android.os.HandlerThread("NaviGuardLocationThread");
@@ -551,6 +551,9 @@ public class LocationForegroundService extends Service {
         activeAlertId = alertId;
 
         try {
+            if (context == null) return;
+            createNotificationChannels(context);
+
             // 1. Play Native Audio Chime / Alarm
             android.net.Uri alertUri = android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_ALARM);
             if (alertUri == null) {
@@ -617,7 +620,7 @@ public class LocationForegroundService extends Service {
                 ).build();
 
                 NotificationCompat.Builder builder = new NotificationCompat.Builder(context, EMERGENCY_CHANNEL_ID)
-                    .setSmallIcon(android.R.drawable.ic_dialog_alert)
+                    .setSmallIcon(android.R.drawable.stat_sys_warning)
                     .setContentTitle("🚨 CRITICAL SOS: " + senderName + " (" + senderRole.toUpperCase() + ")")
                     .setContentText("Site: " + plantName + " • Tap button below to dismiss or open")
                     .setPriority(NotificationCompat.PRIORITY_MAX)
@@ -625,12 +628,17 @@ public class LocationForegroundService extends Service {
                     .setAutoCancel(true)
                     .setContentIntent(pendingIntent)
                     .setDeleteIntent(dismissPi) // Swiping away the notification silences the alarm sound too!
-                    .setFullScreenIntent(pendingIntent, true) // Heads-up popup on lock screen
                     .addAction(dismissAction)
                     .addAction(openAction)
+                    .setDefaults(Notification.DEFAULT_ALL)
+                    .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
                     .setOngoing(false);
 
+                // Full-screen heads-up intent on lockscreen
+                builder.setFullScreenIntent(pendingIntent, true);
+
                 notificationManager.notify(EMERGENCY_NOTIFICATION_ID, builder.build());
+                Log.d(TAG, "Successfully posted Heads-Up SOS Emergency Notification for alert: " + alertId);
             }
         } catch (Exception e) {
             Log.e(TAG, "Failed to trigger native emergency alarm", e);
@@ -686,9 +694,9 @@ public class LocationForegroundService extends Service {
                 .build();
     }
 
-    private void createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationManager manager = getSystemService(NotificationManager.class);
+    public static void createNotificationChannels(Context context) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && context != null) {
+            NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
             if (manager != null) {
                 // Tracking Channel
                 NotificationChannel channel = new NotificationChannel(

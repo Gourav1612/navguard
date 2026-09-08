@@ -21,6 +21,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(LocationServicePlugin.class);
         registerPlugin(AppUpdatePlugin.class);
         super.onCreate(savedInstanceState);
+        LocationForegroundService.createNotificationChannels(this);
 
         // Wake up screen and show on lock screen for emergency safety pings
         try {

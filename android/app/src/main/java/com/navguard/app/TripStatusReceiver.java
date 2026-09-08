@@ -102,84 +102,16 @@ public class TripStatusReceiver extends BroadcastReceiver {
                 }
                 String assignmentUrl = baseUrl + "/api/worker/assignment";
 
-                // Poll the assignment endpoint
-                HttpURLConnection conn = null;
-                String responseBody = null;
+                // 1. ALWAYS Check active background SOS alerts FIRST (Crucial for Admins, Managers, and Supervisors)
                 try {
-                    URL url = new URL(assignmentUrl);
-                    conn = (HttpURLConnection) url.openConnection();
-                    conn.setRequestMethod("GET");
-                    conn.setRequestProperty("Authorization", "Bearer " + token);
-                    conn.setRequestProperty("Content-Type", "application/json");
-                    conn.setConnectTimeout(8000);
-                    conn.setReadTimeout(8000);
-
-                    int code = conn.getResponseCode();
-                    if (code == 200) {
-                        Scanner scanner = new Scanner(conn.getInputStream(), "UTF-8");
-                        StringBuilder respSb = new StringBuilder();
-                        while (scanner.hasNextLine()) respSb.append(scanner.nextLine());
-                        scanner.close();
-                        responseBody = respSb.toString();
-                    } else if (code == 401) {
-                        Log.w(TAG, "Poll: 401 Unauthorized — token may have expired");
-                        return;
-                    } else {
-                        Log.w(TAG, "Poll: unexpected status " + code);
-                        return;
-                    }
-                } finally {
-                    if (conn != null) conn.disconnect();
-                }
-
-                if (responseBody == null) return;
-
-                JSONObject assignment = new JSONObject(responseBody);
-                JSONObject worker = assignment.optJSONObject("worker");
-                boolean isActive = worker != null && worker.optBoolean("is_active", false);
-
-                // Fetch SharedPreferences to check native state
-                android.content.SharedPreferences prefs = context.getSharedPreferences(
-                        LocationForegroundService.PREFS_NAME,
-                        Context.MODE_PRIVATE
-                );
-
-                boolean isServiceRunning = LocationForegroundService.isServiceRunning;
-
-                if (isActive && !isServiceRunning) {
-                    Log.d(TAG, "Poll: Admin enabled streaming (is_active=true)! Starting LocationForegroundService...");
-                    prefs.edit().putBoolean("is_trip_active", true).apply();
-
-                    Intent serviceIntent = new Intent(context, LocationForegroundService.class);
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        context.startForegroundService(serviceIntent);
-                    } else {
-                        context.startService(serviceIntent);
-                    }
-
-                    showTripNotification(context,
-                            "🟢 Workforce Telemetry Active",
-                            "Command Center has enabled live workforce telemetry streaming.",
-                            NOTIF_TRIP_START);
-                } else if (!isActive && isServiceRunning) {
-                    Log.d(TAG, "Poll: Admin paused streaming (is_active=false)! Stopping LocationForegroundService...");
-                    prefs.edit().putBoolean("is_trip_active", false).apply();
-
-                    Intent serviceIntent = new Intent(context, LocationForegroundService.class);
-                    context.stopService(serviceIntent);
-                }
-
-                // Check active background SOS alerts to sound native alarm even if app is killed
-                try {
-                    URL rawSosUrl = new URL(serverUrl);
-                    String sosBaseUrl = rawSosUrl.getProtocol() + "://" + rawSosUrl.getHost() + (rawSosUrl.getPort() != -1 ? ":" + rawSosUrl.getPort() : "");
+                    String sosBaseUrl = baseUrl;
                     URL sosUrl = new URL(sosBaseUrl + "/api/sos/active");
 
                     HttpURLConnection sosConn = (HttpURLConnection) sosUrl.openConnection();
                     sosConn.setRequestMethod("GET");
                     sosConn.setRequestProperty("Authorization", "Bearer " + token);
-                    sosConn.setConnectTimeout(4000);
-                    sosConn.setReadTimeout(4000);
+                    sosConn.setConnectTimeout(5000);
+                    sosConn.setReadTimeout(5000);
 
                     if (sosConn.getResponseCode() == 200) {
                         BufferedReader sosReader = new BufferedReader(new java.io.InputStreamReader(sosConn.getInputStream()));
@@ -200,6 +132,7 @@ public class TripStatusReceiver extends BroadcastReceiver {
                             String senderRole = topAlert.optString("sender_role", "staff");
                             String plantName = topAlert.optString("plant_name", "Plant Facility");
 
+                            Log.d(TAG, "TripStatusReceiver: Found ACTIVE SOS ALERT " + alertId + " from " + senderName);
                             LocationForegroundService.triggerEmergencyAlarm(context, alertId, senderName, senderRole, plantName);
                         } else {
                             LocationForegroundService.stopEmergencyAlarm(context);
@@ -208,6 +141,71 @@ public class TripStatusReceiver extends BroadcastReceiver {
                     sosConn.disconnect();
                 } catch (Exception e) {
                     Log.d(TAG, "TripStatusReceiver SOS check: " + e.getMessage());
+                }
+
+                // 2. Poll workforce telemetry assignment endpoint (for field tracking)
+                HttpURLConnection conn = null;
+                String responseBody = null;
+                try {
+                    URL url = new URL(assignmentUrl);
+                    conn = (HttpURLConnection) url.openConnection();
+                    conn.setRequestMethod("GET");
+                    conn.setRequestProperty("Authorization", "Bearer " + token);
+                    conn.setRequestProperty("Content-Type", "application/json");
+                    conn.setConnectTimeout(8000);
+                    conn.setReadTimeout(8000);
+
+                    int code = conn.getResponseCode();
+                    if (code == 200) {
+                        Scanner scanner = new Scanner(conn.getInputStream(), "UTF-8");
+                        StringBuilder respSb = new StringBuilder();
+                        while (scanner.hasNextLine()) respSb.append(scanner.nextLine());
+                        scanner.close();
+                        responseBody = respSb.toString();
+                    } else {
+                        Log.d(TAG, "Poll: assignment status " + code);
+                    }
+                } catch (Exception e) {
+                    Log.d(TAG, "Poll assignment error: " + e.getMessage());
+                } finally {
+                    if (conn != null) conn.disconnect();
+                }
+
+                if (responseBody != null) {
+                    JSONObject assignment = new JSONObject(responseBody);
+                    JSONObject worker = assignment.optJSONObject("worker");
+                    boolean isActive = worker != null && worker.optBoolean("is_active", false);
+
+                    // Fetch SharedPreferences to check native state
+                    android.content.SharedPreferences prefs = context.getSharedPreferences(
+                            LocationForegroundService.PREFS_NAME,
+                            Context.MODE_PRIVATE
+                    );
+
+                    boolean isServiceRunning = LocationForegroundService.isServiceRunning;
+
+                    if (isActive && !isServiceRunning) {
+                        Log.d(TAG, "Poll: Admin enabled streaming (is_active=true)! Starting LocationForegroundService...");
+                        prefs.edit().putBoolean("is_trip_active", true).apply();
+
+                        Intent serviceIntent = new Intent(context, LocationForegroundService.class);
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            context.startForegroundService(serviceIntent);
+                        } else {
+                            context.startService(serviceIntent);
+                        }
+
+                        showTripNotification(context,
+                                "🟢 Workforce Telemetry Active",
+                                "Command Center has enabled live workforce telemetry streaming.",
+                                NOTIF_TRIP_START);
+                    } else if (!isActive && isServiceRunning) {
+                        Log.d(TAG, "Poll: Admin paused streaming (is_active=false)! Stopping LocationForegroundService...");
+                        prefs.edit().putBoolean("is_trip_active", false).apply();
+
+                        Intent serviceIntent = new Intent(context, LocationForegroundService.class);
+                        context.stopService(serviceIntent);
+                    }
                 }
 
             } catch (Exception e) {
