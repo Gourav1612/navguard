@@ -6,7 +6,9 @@
     "dev": "next dev --turbo",
     "build": "node -e \"const fs = require('fs'); fs.rmSync('.next/dev', { recursive: true, force: true });\" && npx next build",
     "start": "npx next start",
-    "lint": "npx eslint"
+    "lint": "npx eslint",
+    "sync:env": "node scripts/generate-capacitor-config.js",
+    "cap:sync": "node scripts/generate-capacitor-config.js && npx cap sync"
   },
   "dependencies": {
     "@capacitor-community/background-geolocation": "^1.2.26",

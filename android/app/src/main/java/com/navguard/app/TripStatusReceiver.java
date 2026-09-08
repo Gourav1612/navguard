@@ -92,8 +92,14 @@ public class TripStatusReceiver extends BroadcastReceiver {
                     return;
                 }
 
+                // Dynamically sanitize serverUrl using ServerConfigHelper (resolves from config/strings/env)
+                serverUrl = ServerConfigHelper.sanitizeServerUrl(context, serverUrl, "/api/worker/location");
+
                 // Derive the workforce assignment URL from serverUrl
                 String baseUrl = serverUrl.replaceAll("/api/.*$", "");
+                if (baseUrl.isEmpty() || baseUrl.contains("localhost") || baseUrl.contains("127.0.0.1")) {
+                    baseUrl = ServerConfigHelper.getBaseServerUrl(context);
+                }
                 String assignmentUrl = baseUrl + "/api/worker/assignment";
 
                 // Poll the assignment endpoint

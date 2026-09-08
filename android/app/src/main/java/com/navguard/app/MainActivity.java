@@ -55,8 +55,22 @@ public class MainActivity extends BridgeActivity {
     public void onResume() {
         super.onResume();
 
-        // Silence native emergency alarm when app is opened
+        // Silence native emergency alarm when app is opened (runs asynchronously)
         LocationForegroundService.stopEmergencyAlarm(this);
+
+        // Run permission checks after WebView and bridge finish mounting to avoid ANR on startup/install
+        new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+            if (isFinishing() || (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1 && isDestroyed())) {
+                return;
+            }
+            checkAndPromptPermissions();
+        }, 1200);
+    }
+
+    private void checkAndPromptPermissions() {
+        if (isFinishing() || (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1 && isDestroyed())) {
+            return;
+        }
 
         // 1. Request POST_NOTIFICATIONS runtime permission on Android 13+ (API 33+)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -66,11 +80,11 @@ public class MainActivity extends BridgeActivity {
                             .setTitle("Notifications Required")
                             .setMessage("To display the background tracking status and hear alerts, please allow NaviGuard to send notifications on the next screen.")
                             .setPositiveButton("Continue", (dialog, which) -> {
-                                notifPromptShownThisSession = true;
-                                ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.POST_NOTIFICATIONS}, 101);
+                                 notifPromptShownThisSession = true;
+                                 ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.POST_NOTIFICATIONS}, 101);
                             })
                             .setNegativeButton("Not Now", (dialog, which) -> {
-                                notifPromptShownThisSession = true;
+                                 notifPromptShownThisSession = true;
                             })
                             .setCancelable(false)
                             .show();
@@ -133,8 +147,6 @@ public class MainActivity extends BridgeActivity {
                 }
             }
         }
-
-        // Overlay bubble and SYSTEM_ALERT_WINDOW permission prompts disabled
     }
 
     private boolean isPictureInPictureAllowed() {

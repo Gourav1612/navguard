@@ -19,13 +19,27 @@ export async function safeSetDriverStatus(isDriver: boolean): Promise<void> {
   }
 }
 
+export function getProductionEndpoint(path: string = '/api/worker/location'): string {
+  if (
+    typeof window !== 'undefined' &&
+    window.location.origin &&
+    !window.location.origin.includes('localhost') &&
+    !window.location.origin.includes('capacitor://') &&
+    !window.location.origin.includes('127.0.0.1')
+  ) {
+    return `${window.location.origin}${path}`;
+  }
+  const base = process.env.NEXT_PUBLIC_APP_URL || 'https://navguard-eight.vercel.app';
+  return `${base.replace(/\/$/, '')}${path}`;
+}
+
 /**
  * Safe helper to persist credentials to native storage for background status polling
  */
 export async function safeSaveTrackingCredentials(token: string, userId: string, serverUrl?: string): Promise<void> {
   if (Capacitor.isNativePlatform()) {
     try {
-      const endpoint = serverUrl || (typeof window !== 'undefined' ? `${window.location.origin}/api/worker/location` : 'https://navguard-eight.vercel.app/api/worker/location');
+      const endpoint = serverUrl || getProductionEndpoint('/api/worker/location');
       await LocationService.saveTrackingCredentials({
         token,
         userId,

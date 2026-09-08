@@ -353,6 +353,9 @@ public class LocationForegroundService extends Service {
                 return;
             }
 
+            // Dynamically sanitize serverUrl using ServerConfigHelper (resolves from config/strings/env)
+            serverUrl = ServerConfigHelper.sanitizeServerUrl(this, serverUrl, "/api/worker/location");
+
             long nowTime = System.currentTimeMillis();
             if (nowTime - lastGeocodeTimeMs >= 60000) {
                 lastGeocodeTimeMs = nowTime;
@@ -608,27 +611,35 @@ public class LocationForegroundService extends Service {
         }
     }
 
-    public static synchronized void stopEmergencyAlarm(Context context) {
+    public static void stopEmergencyAlarm(Context context) {
         isAlarmRinging = false;
         activeAlertId = null;
-        try {
-            if (currentRingtone != null) {
-                currentRingtone.stop();
-                currentRingtone = null;
-            }
-            if (currentVibrator != null) {
-                currentVibrator.cancel();
-                currentVibrator = null;
-            }
-            if (context != null) {
-                NotificationManager notificationManager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
-                if (notificationManager != null) {
-                    notificationManager.cancel(EMERGENCY_NOTIFICATION_ID);
+        if (context == null) return;
+        final Context appContext = context.getApplicationContext();
+        new Thread(() -> {
+            try {
+                if (currentRingtone != null) {
+                    try {
+                        currentRingtone.stop();
+                    } catch (Exception ignored) {}
+                    currentRingtone = null;
                 }
+                if (currentVibrator != null) {
+                    try {
+                        currentVibrator.cancel();
+                    } catch (Exception ignored) {}
+                    currentVibrator = null;
+                }
+                if (appContext != null) {
+                    NotificationManager notificationManager = (NotificationManager) appContext.getSystemService(Context.NOTIFICATION_SERVICE);
+                    if (notificationManager != null) {
+                        notificationManager.cancel(EMERGENCY_NOTIFICATION_ID);
+                    }
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Failed to stop native emergency alarm", e);
             }
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to stop native emergency alarm", e);
-        }
+        }).start();
     }
 
     private Notification buildNotification() {
