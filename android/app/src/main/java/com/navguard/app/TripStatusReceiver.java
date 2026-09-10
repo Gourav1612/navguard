@@ -83,9 +83,10 @@ public class TripStatusReceiver extends BroadcastReceiver {
                 reader.close();
 
                 JSONObject creds = new JSONObject(sb.toString());
-                String token     = creds.optString("auth_token", null);
-                String busId     = creds.optString("bus_id", null);
-                String serverUrl = creds.optString("server_url", null);
+                String token        = creds.optString("auth_token", null);
+                String refreshToken = creds.optString("refresh_token", null);
+                String busId        = creds.optString("bus_id", null);
+                String serverUrl    = creds.optString("server_url", null);
 
                 if (token == null || busId == null || serverUrl == null) {
                     Log.w(TAG, "Incomplete credentials, skipping poll");
@@ -113,7 +114,23 @@ public class TripStatusReceiver extends BroadcastReceiver {
                     sosConn.setConnectTimeout(5000);
                     sosConn.setReadTimeout(5000);
 
-                    if (sosConn.getResponseCode() == 200) {
+                    int sosResponseCode = sosConn.getResponseCode();
+                    if (sosResponseCode == 401 && refreshToken != null && !refreshToken.isEmpty()) {
+                        Log.w(TAG, "SOS check got 401 — attempting background token refresh...");
+                        String newToken = refreshAuthToken(context, baseUrl, refreshToken, busId, serverUrl);
+                        if (newToken != null) {
+                            token = newToken;
+                            sosConn.disconnect();
+                            sosConn = (HttpURLConnection) sosUrl.openConnection();
+                            sosConn.setRequestMethod("GET");
+                            sosConn.setRequestProperty("Authorization", "Bearer " + token);
+                            sosConn.setConnectTimeout(5000);
+                            sosConn.setReadTimeout(5000);
+                            sosResponseCode = sosConn.getResponseCode();
+                        }
+                    }
+
+                    if (sosResponseCode == 200) {
                         BufferedReader sosReader = new BufferedReader(new java.io.InputStreamReader(sosConn.getInputStream()));
                         StringBuilder sosSb = new StringBuilder();
                         String l;
@@ -156,6 +173,22 @@ public class TripStatusReceiver extends BroadcastReceiver {
                     conn.setReadTimeout(8000);
 
                     int code = conn.getResponseCode();
+                    if (code == 401 && refreshToken != null && !refreshToken.isEmpty()) {
+                        Log.w(TAG, "Assignment poll got 401 — attempting background token refresh...");
+                        String newToken = refreshAuthToken(context, baseUrl, refreshToken, busId, serverUrl);
+                        if (newToken != null) {
+                            token = newToken;
+                            conn.disconnect();
+                            conn = (HttpURLConnection) url.openConnection();
+                            conn.setRequestMethod("GET");
+                            conn.setRequestProperty("Authorization", "Bearer " + token);
+                            conn.setRequestProperty("Content-Type", "application/json");
+                            conn.setConnectTimeout(8000);
+                            conn.setReadTimeout(8000);
+                            code = conn.getResponseCode();
+                        }
+                    }
+
                     if (code == 200) {
                         Scanner scanner = new Scanner(conn.getInputStream(), "UTF-8");
                         StringBuilder respSb = new StringBuilder();
@@ -188,15 +221,23 @@ public class TripStatusReceiver extends BroadcastReceiver {
                         Log.d(TAG, "Poll: Admin enabled streaming (is_active=true)! Starting LocationForegroundService...");
                         prefs.edit().putBoolean("is_trip_active", true).apply();
 
-                        Intent serviceIntent = new Intent(context, LocationForegroundService.class);
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                            context.startForegroundService(serviceIntent);
-                        } else {
-                            context.startService(serviceIntent);
+                        try {
+                            Intent serviceIntent = new Intent(context, LocationForegroundService.class);
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                context.startForegroundService(serviceIntent);
+                            } else {
+                                context.startService(serviceIntent);
+                            }
+                        } catch (Exception e) {
+                            Log.e(TAG, "Failed startForegroundService, fallback to startService", e);
+                            try {
+                                Intent serviceIntent = new Intent(context, LocationForegroundService.class);
+                                context.startService(serviceIntent);
+                            } catch (Exception ignored) {}
                         }
 
                         showTripNotification(context,
-                                "🟢 Workforce Telemetry Active",
+                                "Workforce Telemetry Active",
                                 "Command Center has enabled live workforce telemetry streaming.",
                                 NOTIF_TRIP_START);
                     } else if (!isActive && isServiceRunning) {
@@ -218,7 +259,64 @@ public class TripStatusReceiver extends BroadcastReceiver {
         });
     }
 
-    /** Schedule the next poll in POLL_INTERVAL_MS using AlarmManager. */
+    /** Helper to refresh Supabase JWT session in background using refresh_token */
+    public static String refreshAuthToken(Context context, String baseUrl, String refreshToken, String busId, String serverUrl) {
+        if (refreshToken == null || refreshToken.isEmpty()) return null;
+        try {
+            URL url = new URL(baseUrl + "/api/auth/token/refresh");
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("POST");
+            conn.setRequestProperty("Content-Type", "application/json");
+            conn.setConnectTimeout(6000);
+            conn.setReadTimeout(6000);
+            conn.setDoOutput(true);
+
+            JSONObject payload = new JSONObject();
+            payload.put("refresh_token", refreshToken);
+            byte[] body = payload.toString().getBytes("UTF-8");
+            conn.setFixedLengthStreamingMode(body.length);
+            java.io.OutputStream os = conn.getOutputStream();
+            os.write(body);
+            os.flush();
+            os.close();
+
+            int code = conn.getResponseCode();
+            if (code == 200) {
+                BufferedReader reader = new BufferedReader(new java.io.InputStreamReader(conn.getInputStream()));
+                StringBuilder sb = new StringBuilder();
+                String line;
+                while ((line = reader.readLine()) != null) sb.append(line);
+                reader.close();
+
+                JSONObject resp = new JSONObject(sb.toString());
+                String newAccess = resp.optString("access_token", null);
+                String newRefresh = resp.optString("refresh_token", refreshToken);
+
+                if (newAccess != null && !newAccess.isEmpty()) {
+                    // Save new tokens to disk
+                    JSONObject newCreds = new JSONObject();
+                    newCreds.put("auth_token", newAccess);
+                    newCreds.put("refresh_token", newRefresh);
+                    newCreds.put("bus_id", busId);
+                    newCreds.put("server_url", serverUrl);
+
+                    java.io.File file = new java.io.File(context.getFilesDir(), "tracking_credentials.json");
+                    java.io.FileWriter writer = new java.io.FileWriter(file);
+                    writer.write(newCreds.toString());
+                    writer.flush();
+                    writer.close();
+                    Log.d(TAG, "Successfully refreshed Supabase JWT token in background!");
+                    return newAccess;
+                }
+            }
+            conn.disconnect();
+        } catch (Exception e) {
+            Log.e(TAG, "Failed background token refresh: " + e.getMessage());
+        }
+        return null;
+    }
+
+    /** Schedule the next poll in POLL_INTERVAL_MS using AlarmManager with Doze Mode exact wakeups. */
     public static void scheduleNextPoll(Context context) {
         try {
             Intent intent = new Intent(context, TripStatusReceiver.class);
@@ -233,7 +331,7 @@ public class TripStatusReceiver extends BroadcastReceiver {
             if (am == null) return;
             long triggerAt = System.currentTimeMillis() + POLL_INTERVAL_MS;
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pi);
+                am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pi);
             } else {
                 am.set(AlarmManager.RTC_WAKEUP, triggerAt, pi);
             }

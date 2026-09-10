@@ -324,6 +324,7 @@ public class LocationForegroundService extends Service {
 
         executor.execute(() -> {
             String token = null;
+            String refreshToken = null;
             String busId = null;
             String tripId = null;
             String serverUrl = null;
@@ -340,6 +341,7 @@ public class LocationForegroundService extends Service {
                     reader.close();
                     JSONObject json = new JSONObject(sb.toString());
                     token = json.optString("auth_token", null);
+                    refreshToken = json.optString("refresh_token", null);
                     busId = json.optString("bus_id", null);
                     tripId = json.optString("trip_id", null);
                     serverUrl = json.optString("server_url", null);
@@ -417,8 +419,15 @@ public class LocationForegroundService extends Service {
 
                     int responseCode = conn.getResponseCode();
                     if (responseCode == 401) {
-                        Log.e(TAG, "Service: AUTH FAILED (401) — token may be expired, need refresh");
-                        success = true; // Auth failed, no point in retrying
+                        Log.e(TAG, "Service: AUTH FAILED (401) — attempting auto-refresh of token...");
+                        String baseUrl = serverUrl.contains("/api") ? serverUrl.substring(0, serverUrl.indexOf("/api")) : serverUrl;
+                        String newToken = TripStatusReceiver.refreshAuthToken(LocationForegroundService.this, baseUrl, refreshToken, busId, serverUrl);
+                        if (newToken != null) {
+                            token = newToken;
+                            attempt++;
+                            continue;
+                        }
+                        success = true; // Refresh failed, exit loop
                     } else if (responseCode == 200 || responseCode == 201) {
                         Log.d(TAG, "Service: location posted to server on attempt " + (attempt + 1) + ". Response: " + responseCode);
                         success = true;

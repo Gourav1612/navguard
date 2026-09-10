@@ -239,6 +239,7 @@ public class LocationServicePlugin extends Plugin {
     @PluginMethod
     public void saveTrackingCredentials(PluginCall call) {
         String token = call.getString("token");
+        String refreshToken = call.getString("refreshToken", "");
         String userId = call.getString("userId");
         String serverUrl = call.getString("serverUrl");
 
@@ -250,6 +251,7 @@ public class LocationServicePlugin extends Plugin {
             prefs.edit()
                     .putBoolean("is_driver", true)
                     .putString("auth_token", token)
+                    .putString("refresh_token", refreshToken)
                     .putString("bus_id", userId)
                     .putString("server_url", serverUrl)
                     .apply();
@@ -257,6 +259,7 @@ public class LocationServicePlugin extends Plugin {
             try {
                 JSONObject json = new JSONObject();
                 json.put("auth_token", token);
+                json.put("refresh_token", refreshToken);
                 json.put("bus_id", userId);
                 json.put("server_url", serverUrl);
 
@@ -265,7 +268,7 @@ public class LocationServicePlugin extends Plugin {
                 writer.write(json.toString());
                 writer.flush();
                 writer.close();
-                Log.d("LocationServicePlugin", "saveTrackingCredentials: Saved tracking_credentials.json");
+                Log.d("LocationServicePlugin", "saveTrackingCredentials: Saved tracking_credentials.json with refresh token");
             } catch (Exception e) {
                 Log.e("LocationServicePlugin", "saveTrackingCredentials: Failed writing file", e);
             }

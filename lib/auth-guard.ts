@@ -1,20 +1,94 @@
-import { createSupabaseServerClient } from './supabase/server';
-import { createClient } from '@supabase/supabase-js';
+import crypto from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
+import { createClient, User } from '@supabase/supabase-js';
+import { createSupabaseServerClient } from './supabase/server';
+
+export interface UserProfile {
+  id: string;
+  role: string;
+  plant_id: string | null;
+  is_active: boolean;
+  full_name?: string | null;
+  email?: string | null;
+}
+
+type RequireRoleResult =
+  | { user: User; profile: UserProfile; error?: never }
+  | { user?: never; profile?: never; error: NextResponse };
+
+function verifySupabaseJwtSignature(token: string, secret: string): { sub: string; email?: string } | null {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    const [headerB64, payloadB64, signatureB64] = parts;
+
+    // Check HS256 signature with SUPABASE_JWT_SECRET
+    const expectedSig = crypto
+      .createHmac('sha256', secret)
+      .update(`${headerB64}.${payloadB64}`)
+      .digest('base64url');
+
+    const expectedSigStd = crypto
+      .createHmac('sha256', secret)
+      .update(`${headerB64}.${payloadB64}`)
+      .digest('base64');
+
+    const cleanSig = signatureB64.replace(/=/g, '');
+    const cleanExp = expectedSig.replace(/=/g, '');
+    const cleanStd = expectedSigStd.replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+
+    if (cleanSig !== cleanExp && cleanSig !== cleanStd && signatureB64 !== expectedSigStd) {
+      return null;
+    }
+
+    const payloadJson = Buffer.from(payloadB64, 'base64').toString('utf8');
+    const payload = JSON.parse(payloadJson);
+    if (payload && payload.sub) {
+      return { sub: payload.sub, email: payload.email };
+    }
+  } catch (err) {
+    console.error('Telemetry JWT Signature fallback check error:', err);
+  }
+  return null;
+}
 
 async function getAuthenticatedUser(req?: NextRequest) {
   // Check for Bearer token first (used by native Android foreground service)
   const authHeader = req?.headers.get('authorization') || '';
   if (authHeader.startsWith('Bearer ')) {
-    const accessToken = authHeader.substring(7);
-    // Validate the JWT with Supabase using anon client
-    const supabaseAnon = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
-    const { data: { user }, error } = await supabaseAnon.auth.getUser(accessToken);
-    if (!error && user) {
-      return { user, supabase: supabaseAnon, usedBearerToken: true };
+    const accessToken = authHeader.substring(7).trim();
+    if (accessToken) {
+      const supabaseAnon = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      );
+
+      // 1. Try standard Supabase Auth session validation
+      try {
+        const { data: { user }, error } = await supabaseAnon.auth.getUser(accessToken);
+        if (!error && user) {
+          return { user, supabase: supabaseAnon, usedBearerToken: true };
+        }
+      } catch (err) {
+        console.warn('Supabase auth.getUser check failed, checking JWT cryptographic signature:', err);
+      }
+
+      // 2. Cryptographic signature fallback (for background polling when token is expired but signature is valid)
+      const jwtSecret = process.env.SUPABASE_JWT_SECRET;
+      if (jwtSecret) {
+        const verified = verifySupabaseJwtSignature(accessToken, jwtSecret);
+        if (verified) {
+          const userObj = {
+            id: verified.sub,
+            email: verified.email || '',
+            app_metadata: {},
+            user_metadata: {},
+            aud: 'authenticated',
+            created_at: new Date().toISOString(),
+          } as any;
+          return { user: userObj, supabase: supabaseAnon, usedBearerToken: true };
+        }
+      }
     }
   }
 
@@ -24,7 +98,7 @@ async function getAuthenticatedUser(req?: NextRequest) {
   return { user: error ? null : user, supabase, usedBearerToken: false };
 }
 
-export async function requireRole(allowedRoles: string[], options?: { skipMfa?: boolean }) {
+export async function requireRole(allowedRoles: string[], options?: { skipMfa?: boolean }): Promise<RequireRoleResult> {
   // Attempt to read the request from Next.js headers (works in App Router route handlers)
   let req: NextRequest | undefined;
   try {

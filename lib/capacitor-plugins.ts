@@ -36,12 +36,13 @@ export function getProductionEndpoint(path: string = '/api/worker/location'): st
 /**
  * Safe helper to persist credentials to native storage for background status polling
  */
-export async function safeSaveTrackingCredentials(token: string, userId: string, serverUrl?: string): Promise<void> {
+export async function safeSaveTrackingCredentials(token: string, userId: string, serverUrl?: string, refreshToken?: string): Promise<void> {
   if (Capacitor.isNativePlatform()) {
     try {
       const endpoint = serverUrl || getProductionEndpoint('/api/worker/location');
       await LocationService.saveTrackingCredentials({
         token,
+        refreshToken: refreshToken || '',
         userId,
         serverUrl: endpoint,
       });

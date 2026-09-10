@@ -83,8 +83,9 @@ export function BottomNav({ children }: { children: React.ReactNode }) {
             const supabase = createBrowserSupabaseClient();
             const sessionRes = await supabase.auth.getSession();
             const sessionToken = sessionRes.data.session?.access_token;
+            const refreshToken = sessionRes.data.session?.refresh_token;
             if (sessionToken) {
-              await safeSaveTrackingCredentials(sessionToken, data.id);
+              await safeSaveTrackingCredentials(sessionToken, data.id, undefined, refreshToken);
             }
           }
         }
