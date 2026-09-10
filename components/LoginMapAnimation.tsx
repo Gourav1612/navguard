@@ -4,8 +4,11 @@ import { useEffect } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
-// Custom CSS for pulsing glowing marker point
+// Custom CSS for pulsing glowing marker point and dark map styling
 const markerStyle = `
+  #login-animation-map .leaflet-tile {
+    filter: brightness(0.6) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3) brightness(0.7);
+  }
   .pulsing-bus-node {
     display: flex;
     align-items: center;
@@ -78,9 +81,9 @@ export function LoginMapAnimation() {
       attributionControl: false
     });
 
-    // 2. Add Dark Matter Tile Layer
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-      maxZoom: 20
+    // 2. Add OpenStreetMap tile layer (dark themed via CSS filter)
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19
     }).addTo(map);
 
     // 3. Add Polyline Route (Clean silver/grey line)
